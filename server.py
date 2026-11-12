@@ -31,7 +31,7 @@ UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
 STATE_DIR.mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="Muse AI Studio", version="1.0.0")
+app = FastAPI(title="HaiAI Studio", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -61,13 +61,19 @@ class VerifyOtpModel(BaseModel):
 class VideoGenerateModel(BaseModel):
     prompt: str
     image_paths: list[str] = []
+    aspect_ratio: str = "16:9"
+    is_continuation: bool = False
+    session_id: Optional[str] = None
+    scene_index: int = 1
+    style_preset: Optional[str] = None
     timeout: float = 600.0
 
 
 class ImageGenerateModel(BaseModel):
     prompt: str
     image_paths: list[str] = []
-    aspect_ratio: str = "1:1"  # "1:1", "16:9", "9:16"
+    aspect_ratio: str = "1:1"
+    style_preset: Optional[str] = None
 
 
 class ChatModel(BaseModel):
@@ -98,7 +104,7 @@ async def get_or_create_client() -> MuseClient:
         if not is_authenticated():
             raise HTTPException(
                 status_code=401,
-                detail="Chưa đăng nhập tài khoản Muse. Vui lòng xác thực OTP trước.",
+                detail="Chưa đăng nhập tài khoản HaiAI. Vui lòng xác thực OTP trước.",
             )
 
         auth = MuseAuth(state_dir=STATE_DIR)
@@ -106,6 +112,58 @@ async def get_or_create_client() -> MuseClient:
         await client.connect()
         active_client = client
         return active_client
+
+
+# Hidden Prompt Builders (Server-side only, completely invisible to user)
+RATIO_DESCRIPTIONS = {
+    "16:9": "tỉ lệ khung hình ngang 16:9 widescreen chuẩn điện ảnh (1920x1080)",
+    "9:16": "tỉ lệ khung hình dọc 9:16 vertical full-screen (1080x1920)",
+    "1:1": "tỉ lệ khung hình vuông 1:1 square (1080x1080)",
+    "21:9": "tỉ lệ khung hình siêu rộng 21:9 ultrawide anamorphic cinema",
+    "4:3": "tỉ lệ khung hình tiêu chuẩn 4:3 classic frame",
+}
+
+
+def build_hidden_video_prompt(
+    user_prompt: str,
+    aspect_ratio: str,
+    is_continuation: bool = False,
+    scene_index: int = 1,
+    style_preset: Optional[str] = None,
+) -> str:
+    ratio_desc = RATIO_DESCRIPTIONS.get(aspect_ratio, f"tỉ lệ khung hình {aspect_ratio}")
+    style_part = f" Phong cách chủ đạo: {style_preset}." if style_preset else ""
+
+    if is_continuation:
+        return (
+            f"Hãy tạo một video chuyên nghiệp nối tiếp liền mạch với cảnh video trước đó (Cảnh nối tiếp #{scene_index}). "
+            f"Yêu cầu bắt buộc: Giữ nguyên hoàn toàn sự đồng nhất về nhân vật, trang phục, khuôn mặt, bối cảnh môi trường, "
+            f"ánh sáng, bảng màu và phong cách góc máy từ cảnh trước để tạo thành một thước phim liên tục mượt mà. "
+            f"Chất lượng điện ảnh 4K Ultra HD, chuyển động vật lý tự nhiên, chi tiết sắc nét, âm thanh sống động đồng bộ hoàn hảo, "
+            f"{ratio_desc}.{style_part} "
+            f"Diễn biến cảnh tiếp theo: {user_prompt.strip()}"
+        )
+    else:
+        return (
+            f"Hãy tạo một video chuyên nghiệp, chất lượng điện ảnh 4K Ultra HD, bố cục nghệ thuật xuất sắc, "
+            f"chuyển động camera và vật lý mượt mà chân thực, ánh sáng điện ảnh có chiều sâu, chi tiết cực kỳ sắc nét, "
+            f"kèm âm thanh và hiệu ứng tiếng động sống động đồng bộ hoàn hảo, {ratio_desc}.{style_part} "
+            f"Nội dung cảnh quay: {user_prompt.strip()}"
+        )
+
+
+def build_hidden_image_prompt(
+    user_prompt: str,
+    aspect_ratio: str,
+    style_preset: Optional[str] = None,
+) -> str:
+    ratio_desc = RATIO_DESCRIPTIONS.get(aspect_ratio, f"tỉ lệ khung hình {aspect_ratio}")
+    style_part = f" Phong cách nghệ thuật: {style_preset}." if style_preset else ""
+    return (
+        f"Generate a masterpiece, ultra-detailed professional high-resolution 8K image, "
+        f"exceptional lighting, sharp focus, rich textures, professional composition, {ratio_desc}.{style_part} "
+        f"Subject description: {user_prompt.strip()}"
+    )
 
 
 # Helper: Extract all media (videos and images) from history
@@ -189,7 +247,7 @@ async def auth_status():
     return {
         "authenticated": logged_in,
         "is_alive": is_alive,
-        "email": email or ("Tài khoản Muse đã kết nối" if logged_in else None),
+        "email": email or ("Tài khoản HaiAI đã kết nối" if logged_in else None),
     }
 
 
@@ -222,7 +280,7 @@ async def request_otp(data: RequestOtpModel):
         await auth.close()
         raise HTTPException(
             status_code=500,
-            detail=f"Lỗi gửi OTP từ Muse: {exc}. Hãy đảm bảo bạn đã BẬT VPN sang Mỹ trên máy tính!",
+            detail=f"Lỗi gửi OTP từ hệ thống HaiAI: {exc}. Hãy đảm bảo bạn đã BẬT VPN sang Mỹ trên máy tính!",
         )
 
 
@@ -240,7 +298,7 @@ async def verify_otp(data: VerifyOtpModel):
         raise HTTPException(status_code=400, detail="Vui lòng nhập mã OTP.")
 
     try:
-        result = await pending_auth.confirm_otp(code)
+        await pending_auth.confirm_otp(code)
         await pending_auth.save_account()
         check = await pending_auth.auth_check()
         if check.get("ok") is not True:
@@ -250,7 +308,6 @@ async def verify_otp(data: VerifyOtpModel):
         if pending_email:
             (STATE_DIR / "email.txt").write_text(pending_email, encoding="utf-8")
 
-        # Invalidate existing client so new connection uses fresh auth
         async with client_lock:
             if active_client is not None:
                 try:
@@ -261,7 +318,7 @@ async def verify_otp(data: VerifyOtpModel):
 
         return {
             "status": "success",
-            "message": "Đăng nhập Muse thành công! Hệ thống đã lưu phiên làm việc.",
+            "message": "Đăng nhập HaiAI thành công! Hệ thống đã lưu phiên làm việc.",
             "email": pending_email,
         }
     except Exception as exc:
@@ -290,7 +347,7 @@ async def logout():
         if fpath.exists():
             fpath.unlink()
 
-    return {"status": "success", "message": "Đã đăng xuất thành công."}
+    return {"status": "success", "message": "Đã đăng xuất khỏi HaiAI."}
 
 
 @app.post("/api/upload")
@@ -311,15 +368,29 @@ async def upload_file(file: UploadFile = File(...)):
 @app.post("/api/video/generate")
 async def generate_video(data: VideoGenerateModel):
     if not data.prompt.strip():
-        raise HTTPException(status_code=400, detail="Prompt tạo video không được để trống.")
+        raise HTTPException(status_code=400, detail="Mô tả video không được để trống.")
 
     client = await get_or_create_client()
     try:
         images = [Path(p) for p in data.image_paths if Path(p).exists()]
+
+        # Inject invisible professional & continuation prompt
+        enhanced_prompt = build_hidden_video_prompt(
+            user_prompt=data.prompt,
+            aspect_ratio=data.aspect_ratio,
+            is_continuation=data.is_continuation,
+            scene_index=data.scene_index,
+            style_preset=data.style_preset,
+        )
+
+        # Use existing session_id if continuing a video sequence
+        target_session_id = data.session_id if (data.is_continuation and data.session_id) else None
+
         result = await client.generate_video(
-            prompt=data.prompt,
+            prompt=enhanced_prompt,
             images=images,
             output_dir=OUTPUTS_DIR,
+            session_id=target_session_id,
             timeout=data.timeout,
             min_videos=1,
             download=True,
@@ -327,6 +398,13 @@ async def generate_video(data: VideoGenerateModel):
 
         downloaded_urls = []
         for p in result.downloaded:
+            # Rename muse_video prefix to haiai_video if present
+            if p.name.startswith("muse_"):
+                new_name = "haiai_" + p.name[5:]
+                new_path = p.parent / new_name
+                if not new_path.exists():
+                    p.rename(new_path)
+                    p = new_path
             downloaded_urls.append(f"/outputs/{p.name}")
 
         return {
@@ -334,40 +412,42 @@ async def generate_video(data: VideoGenerateModel):
             "session_id": result.session_id,
             "videos": downloaded_urls,
             "count": len(downloaded_urls),
+            "aspect_ratio": data.aspect_ratio,
+            "is_continuation": data.is_continuation,
             "errors": result.download_errors,
         }
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Lỗi tạo video từ Muse: {exc}. Kiểm tra kết nối VPN và thử lại.",
+            detail=f"Lỗi tạo video từ HaiAI: {exc}. Kiểm tra kết nối VPN và thử lại.",
         )
 
 
 @app.post("/api/image/generate")
 async def generate_image(data: ImageGenerateModel):
     if not data.prompt.strip():
-        raise HTTPException(status_code=400, detail="Prompt tạo ảnh không được để trống.")
+        raise HTTPException(status_code=400, detail="Mô tả ảnh không được để trống.")
 
     client = await get_or_create_client()
     try:
         images = [Path(p) for p in data.image_paths if Path(p).exists()]
-        
-        # Enrich prompt with aspect ratio instruction
-        ratio_note = f" (Aspect ratio: {data.aspect_ratio})" if data.aspect_ratio else ""
-        prompt_full = f"Generate an image: {data.prompt}{ratio_note}"
 
-        # Get baseline history
+        # Inject invisible professional image prompt
+        prompt_full = build_hidden_image_prompt(
+            user_prompt=data.prompt,
+            aspect_ratio=data.aspect_ratio,
+            style_preset=data.style_preset,
+        )
+
         baseline_hist = await client.history(limit=50)
         baseline_media = {m["identity"] for m in extract_all_media_refs(baseline_hist)}
 
-        # Stream the chat/generation request
         events = await client.chat_stream(
             prompt=prompt_full,
             images=images,
             stream_timeout=35.0,
         )
 
-        # Wait up to 90 seconds for the generated image
         deadline = time.monotonic() + 90.0
         found_images = []
         while time.monotonic() < deadline:
@@ -385,10 +465,9 @@ async def generate_image(data: ImageGenerateModel):
         downloaded_urls = []
         for index, ref in enumerate(found_images):
             ext = ".png" if "png" in (ref["mime_type"] or "") else ".jpg"
-            dest_name = f"muse_img_{int(time.time())}_{index+1}{ext}"
+            dest_name = f"haiai_img_{int(time.time())}_{index+1}{ext}"
             dest_path = OUTPUTS_DIR / dest_name
 
-            # Download using filesystem helper or browser
             data_bytes = None
             if ref.get("url") and "/idea-cards/media/" in ref["url"]:
                 try:
@@ -428,7 +507,7 @@ async def generate_image(data: ImageGenerateModel):
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Lỗi tạo ảnh từ Muse: {exc}. Kiểm tra kết nối VPN và thử lại.",
+            detail=f"Lỗi tạo ảnh từ HaiAI: {exc}. Kiểm tra kết nối VPN và thử lại.",
         )
 
 
@@ -441,7 +520,6 @@ async def chat_interaction(data: ChatModel):
     try:
         images = [Path(p) for p in data.image_paths if Path(p).exists()]
 
-        # Snapshot existing assistant message_ids before sending
         baseline_ids: set[str] = set()
         try:
             before_hist = await client.history(session_id=data.session_id, limit=20)
@@ -464,7 +542,6 @@ async def chat_interaction(data: ChatModel):
         if extracted_ids:
             session_id = extracted_ids[-1]
 
-        # Poll history for new message.assistant response
         reply_text = ""
         deadline = time.monotonic() + 60.0
         while time.monotonic() < deadline:
@@ -486,7 +563,7 @@ async def chat_interaction(data: ChatModel):
             await asyncio.sleep(1.5)
 
         if not reply_text:
-            reply_text = "Muse đã nhận yêu cầu và đang xử lý!"
+            reply_text = "HaiAI đã nhận yêu cầu và đang xử lý!"
 
         return {
             "status": "success",
@@ -497,13 +574,17 @@ async def chat_interaction(data: ChatModel):
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Lỗi chat với Muse: {exc}",
+            detail=f"Lỗi chat với HaiAI: {exc}",
         )
 
 
 @app.get("/api/gallery")
 async def get_gallery():
     items = []
+    video_count = 0
+    image_count = 0
+    total_bytes = 0
+
     if OUTPUTS_DIR.exists():
         for file in sorted(OUTPUTS_DIR.iterdir(), key=lambda f: f.stat().st_mtime, reverse=True):
             if file.is_file():
@@ -511,14 +592,29 @@ async def get_gallery():
                 is_video = ext in (".mp4", ".webm", ".mov")
                 is_image = ext in (".png", ".jpg", ".jpeg", ".webp", ".gif")
                 if is_video or is_image:
+                    fsize = file.stat().st_size
+                    total_bytes += fsize
+                    if is_video:
+                        video_count += 1
+                    else:
+                        image_count += 1
                     items.append({
                         "name": file.name,
                         "url": f"/outputs/{file.name}",
                         "type": "video" if is_video else "image",
-                        "size_mb": round(file.stat().st_size / (1024 * 1024), 2),
+                        "size_mb": round(fsize / (1024 * 1024), 2),
                         "created_at": file.stat().st_mtime,
                     })
-    return {"items": items}
+
+    return {
+        "items": items,
+        "stats": {
+            "videos": video_count,
+            "images": image_count,
+            "total": video_count + image_count,
+            "storage_mb": round(total_bytes / (1024 * 1024), 2),
+        },
+    }
 
 
 # Static mounting
@@ -532,7 +628,7 @@ async def root():
     index_file = STATIC_DIR / "index.html"
     if index_file.exists():
         return FileResponse(index_file)
-    return HTMLResponse("<h1>Muse AI Studio Backend Ready</h1>")
+    return HTMLResponse("<h1>HaiAI Studio Backend Ready</h1>")
 
 
 if __name__ == "__main__":

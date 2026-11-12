@@ -1,49 +1,97 @@
-// State Management
+// HaiAI Studio — Frontend State & Logic
 const state = {
-  currentTab: 'video',
+  currentTab: 'dashboard',
   authenticated: false,
   email: null,
+  // Video Studio state
+  videoRatio: '16:9',
+  videoStyle: 'Điện ảnh 4K Hollywood',
+  isContinuation: false,
+  videoSessionId: null,
+  sceneIndex: 1,
+  storyboard: [], // [{ scene: 1, url: '/outputs/...', prompt: '...' }]
   videoImageFile: null,
-  imageFile: null,
-  chatSessionId: null,
+  // Image Studio state
   aspectRatio: '1:1',
+  imageFile: null,
+  lastGeneratedImageUrl: null,
+  // Chat state
+  chatSessionId: null,
+  // Gallery cache
+  galleryItems: [],
+  galleryFilter: 'all',
 };
 
-// Initialize Application
+const TAB_TITLES = {
+  dashboard: 'Tổng quan hệ thống (Dashboard)',
+  video: 'HaiAI Video Studio — Sản xuất & Nối tiếp Cảnh quay',
+  image: 'HaiAI Image Studio — Sáng tạo Hình ảnh 8K',
+  chat: 'Trợ lý Đạo diễn & Biên kịch HaiAI',
+  gallery: 'Thư viện Tác phẩm HaiAI',
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   checkAuthStatus();
   setupDropzones();
+  loadDashboardAndGallery();
 });
 
-// Tab Navigation
+// Navigation
 function switchTab(tabId) {
   state.currentTab = tabId;
   document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
+
   document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.classList.remove('text-white', 'bg-blue-600', 'shadow-md', 'shadow-blue-600/30');
-    btn.classList.add('text-slate-400', 'hover:text-white', 'hover:bg-surface-700/50');
+    btn.classList.remove(
+      'text-white',
+      'bg-gradient-to-r',
+      'from-indigo-600',
+      'to-violet-600',
+      'shadow-lg',
+      'shadow-indigo-600/25',
+      'font-semibold'
+    );
+    btn.classList.add('text-slate-400', 'hover:text-white', 'hover:bg-surface-800', 'font-medium');
   });
 
   const activeView = document.getElementById(`view-${tabId}`);
   const activeBtn = document.getElementById(`tab-btn-${tabId}`);
   if (activeView) activeView.classList.remove('hidden');
   if (activeBtn) {
-    activeBtn.classList.remove('text-slate-400', 'hover:text-white', 'hover:bg-surface-700/50');
-    activeBtn.classList.add('text-white', 'bg-blue-600', 'shadow-md', 'shadow-blue-600/30');
+    activeBtn.classList.remove('text-slate-400', 'hover:text-white', 'hover:bg-surface-800', 'font-medium');
+    activeBtn.classList.add(
+      'text-white',
+      'bg-gradient-to-r',
+      'from-indigo-600',
+      'to-violet-600',
+      'shadow-lg',
+      'shadow-indigo-600/25',
+      'font-semibold'
+    );
   }
 
-  if (tabId === 'gallery') {
-    loadGallery();
+  const titleEl = document.getElementById('page-header-title');
+  if (titleEl && TAB_TITLES[tabId]) {
+    titleEl.innerText = TAB_TITLES[tabId];
+  }
+
+  if (tabId === 'dashboard' || tabId === 'gallery') {
+    loadDashboardAndGallery();
   }
   lucide.createIcons();
 }
 
-// Authentication Flow
+function startSequentialFromDashboard() {
+  switchTab('video');
+  setVideoMode(true);
+}
+
+// Auth Status
 async function checkAuthStatus() {
   try {
     const res = await fetch('/api/auth/status');
     const data = await res.json();
-    const badge = document.getElementById('status-badge');
+    const dot = document.getElementById('status-dot');
     const text = document.getElementById('status-text');
     const btnText = document.getElementById('auth-btn-text');
 
@@ -51,16 +99,18 @@ async function checkAuthStatus() {
     state.email = data.email;
 
     if (state.authenticated) {
-      badge.className = 'flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium border bg-green-500/10 text-green-300 border-green-500/20';
-      badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-green-400"></span><span>Đã kết nối: ${data.email || 'Muse AI'}</span>`;
+      dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400';
+      text.innerText = data.email || 'Đã kết nối HaiAI Cloud';
+      text.className = 'text-xs font-bold text-emerald-300 truncate';
       btnText.innerText = 'Đổi tài khoản';
     } else {
-      badge.className = 'flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium border bg-amber-500/10 text-amber-300 border-amber-500/20';
-      badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span>Chưa kết nối Muse OTP</span>`;
+      dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse';
+      text.innerText = 'Chưa kết nối tài khoản';
+      text.className = 'text-xs font-semibold text-amber-300 truncate';
       btnText.innerText = 'Đăng nhập OTP';
     }
   } catch (err) {
-    console.error('Lỗi kiểm tra auth:', err);
+    console.error('Lỗi kiểm tra kết nối:', err);
   }
 }
 
@@ -79,7 +129,7 @@ function showModalMsg(text, isError = true) {
   const msg = document.getElementById('modal-msg');
   msg.innerText = text;
   msg.className = `p-3 rounded-xl text-xs font-medium ${
-    isError ? 'bg-red-500/10 border border-red-500/20 text-red-300' : 'bg-green-500/10 border border-green-500/20 text-green-300'
+    isError ? 'bg-rose-500/10 border border-rose-500/20 text-rose-300' : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300'
   }`;
   msg.classList.remove('hidden');
 }
@@ -89,15 +139,14 @@ function hideModalMsg() {
 }
 
 async function requestOtp() {
-  const emailInput = document.getElementById('auth-email-input');
-  const email = emailInput.value.trim();
+  const email = document.getElementById('auth-email-input').value.trim();
   if (!email || !email.includes('@')) {
     showModalMsg('Vui lòng nhập địa chỉ email hợp lệ.');
     return;
   }
 
   const btn = document.getElementById('btn-request-otp');
-  const originalHtml = btn.innerHTML;
+  const orig = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = `<span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span><span>Đang gửi mã...</span>`;
   hideModalMsg();
@@ -106,21 +155,19 @@ async function requestOtp() {
     const res = await fetch('/api/auth/request-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email, region: 'US' }),
+      body: JSON.stringify({ email, region: 'US' }),
     });
     const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.detail || 'Không thể gửi mã OTP.');
-    }
+    if (!res.ok) throw new Error(data.detail || 'Không thể gửi mã OTP.');
 
     document.getElementById('otp-step-1').classList.add('hidden');
     document.getElementById('otp-step-2').classList.remove('hidden');
-    showModalMsg(`Đã gửi mã OTP đến ${email}! Hãy nhập mã 6 số bên dưới.`, false);
+    showModalMsg(`Đã gửi mã OTP tới ${email}. Vui lòng kiểm tra hộp thư!`, false);
   } catch (err) {
     showModalMsg(err.message);
   } finally {
     btn.disabled = false;
-    btn.innerHTML = originalHtml;
+    btn.innerHTML = orig;
   }
 }
 
@@ -131,17 +178,16 @@ function backToStep1() {
 }
 
 async function verifyOtp() {
-  const otpInput = document.getElementById('auth-otp-input');
-  const code = otpInput.value.trim();
+  const code = document.getElementById('auth-otp-input').value.trim();
   if (!code || code.length < 4) {
-    showModalMsg('Vui lòng nhập đầy đủ mã OTP.');
+    showModalMsg('Vui lòng nhập mã OTP hợp lệ.');
     return;
   }
 
   const btn = document.getElementById('btn-verify-otp');
-  const originalHtml = btn.innerHTML;
+  const orig = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = `<span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span><span>Đang xác nhận...</span>`;
+  btn.innerHTML = `<span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span><span>Đang xác thực...</span>`;
   hideModalMsg();
 
   try {
@@ -151,29 +197,127 @@ async function verifyOtp() {
       body: JSON.stringify({ otp_code: code }),
     });
     const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.detail || 'Mã OTP không đúng hoặc đã hết hạn.');
-    }
+    if (!res.ok) throw new Error(data.detail || 'Xác nhận OTP thất bại.');
 
-    showModalMsg('Đăng nhập thành công! Đang lưu phiên...', false);
+    showModalMsg('Kết nối HaiAI thành công!', false);
     setTimeout(() => {
       closeAuthModal();
       checkAuthStatus();
-    }, 1200);
+    }, 1000);
   } catch (err) {
     showModalMsg(err.message);
   } finally {
     btn.disabled = false;
-    btn.innerHTML = originalHtml;
+    btn.innerHTML = orig;
   }
 }
 
-// Upload & Reference Image Logic
+// Video Mode & Options (Single vs Sequential Continuation)
+function setVideoMode(isSeq) {
+  state.isContinuation = isSeq;
+  const btnSingle = document.getElementById('mode-btn-single');
+  const btnSeq = document.getElementById('mode-btn-seq');
+  const banner = document.getElementById('seq-mode-banner');
+  const promptInput = document.getElementById('video-prompt');
+  const btnGenText = document.getElementById('btn-generate-video-text');
+  const label = document.getElementById('video-prompt-label');
+
+  if (isSeq) {
+    btnSeq.className = 'py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition bg-gradient-to-r from-cyan-600 to-indigo-600 text-white shadow';
+    btnSingle.className = 'py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition text-slate-400 hover:text-white';
+    banner.classList.remove('hidden');
+
+    const nextSceneNum = state.storyboard.length + 1;
+    state.sceneIndex = nextSceneNum;
+    document.getElementById('seq-badge-title').innerText =
+      nextSceneNum === 1
+        ? 'Chuỗi Phim Nối Tiếp — Bắt đầu Cảnh #1 (Mở đầu)'
+        : `Đang nối tiếp Cảnh #${nextSceneNum} (Từ Cảnh #${nextSceneNum - 1})`;
+
+    label.innerHTML = `Diễn biến Cảnh #${nextSceneNum} <span class="text-rose-400">*</span>`;
+    promptInput.placeholder =
+      nextSceneNum === 1
+        ? 'Nhập Cảnh mở đầu #1 (VD: Chàng hiệp sĩ đứng trước cổng thành cổ trong đêm mưa bão)...'
+        : `Nhập diễn biến tiếp theo cho Cảnh #${nextSceneNum} (VD: Hiệp sĩ rút thanh kiếm phát sáng bước vào bên trong đại sảnh)...`;
+    btnGenText.innerText = `Quay Cảnh Nối Tiếp #${nextSceneNum}`;
+  } else {
+    btnSingle.className = 'py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition bg-indigo-600 text-white shadow';
+    btnSeq.className = 'py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition text-slate-400 hover:text-white';
+    banner.classList.add('hidden');
+    label.innerHTML = `Nội dung cảnh quay <span class="text-rose-400">*</span>`;
+    promptInput.placeholder = 'Nhập ý tưởng của bạn (VD: Một phi hành gia bước đi trên hành tinh băng giá, nhìn thấy phế tích cổ đại phát sáng)...';
+    btnGenText.innerText = 'Sản xuất Video Chuyên Nghiệp';
+  }
+}
+
+function resetSequentialChain() {
+  state.videoSessionId = null;
+  state.storyboard = [];
+  state.sceneIndex = 1;
+  document.getElementById('storyboard-container').classList.add('hidden');
+  setVideoMode(true);
+}
+
+function prepareNextScene() {
+  setVideoMode(true);
+  const promptEl = document.getElementById('video-prompt');
+  promptEl.value = '';
+  promptEl.focus();
+}
+
+function setVideoRatio(ratio) {
+  state.videoRatio = ratio;
+  ['16:9', '9:16', '1:1', '21:9', '4:3'].forEach(r => {
+    const btn = document.getElementById(`vratio-${r.replace(':', '-')}`);
+    if (!btn) return;
+    if (r === ratio) {
+      btn.className = 'vratio-btn border border-indigo-500 bg-indigo-500/20 text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition';
+    } else {
+      btn.className = 'vratio-btn border border-surface-600 bg-surface-900 text-slate-400 hover:text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition';
+    }
+  });
+  const badge = document.getElementById('active-ratio-badge');
+  if (badge) badge.innerText = `Khung hình: ${ratio}`;
+}
+
+function setVideoStyle(styleName) {
+  state.videoStyle = styleName;
+  const map = {
+    'Điện ảnh 4K Hollywood': 'vstyle-hollywood',
+    'Siêu thực tế Photorealistic': 'vstyle-real',
+    'Hoạt hình 3D Pixar / Anime': 'vstyle-anime',
+    'Cyberpunk Sci-Fi Neon': 'vstyle-cyber',
+    'TVC Quảng cáo thương mại': 'vstyle-tvc',
+  };
+  Object.entries(map).forEach(([name, id]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (name === styleName) {
+      el.className = 'vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-indigo-500 bg-indigo-500/20 text-white font-semibold transition';
+    } else {
+      el.className = 'vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-surface-600 bg-surface-900 text-slate-300 hover:text-white transition';
+    }
+  });
+}
+
+function setAspectRatio(ratio) {
+  state.aspectRatio = ratio;
+  ['1:1', '16:9', '9:16', '21:9', '4:3'].forEach(r => {
+    const btn = document.getElementById(`ratio-${r.replace(':', '-')}`);
+    if (!btn) return;
+    if (r === ratio) {
+      btn.className = 'ratio-btn border border-purple-500 bg-purple-500/20 text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition';
+    } else {
+      btn.className = 'ratio-btn border border-surface-600 bg-surface-900 text-slate-400 hover:text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition';
+    }
+  });
+}
+
+// Upload Reference Image
 function setupDropzones() {
   ['video', 'image'].forEach(type => {
     const dropzone = document.getElementById(`${type}-dropzone`);
     const input = document.getElementById(type === 'video' ? 'video-image-input' : 'image-file-input');
-
     if (!dropzone || !input) return;
 
     dropzone.addEventListener('click', (e) => {
@@ -183,16 +327,16 @@ function setupDropzones() {
 
     dropzone.addEventListener('dragover', (e) => {
       e.preventDefault();
-      dropzone.classList.add('border-blue-500');
+      dropzone.classList.add('border-indigo-500');
     });
 
     dropzone.addEventListener('dragleave', () => {
-      dropzone.classList.remove('border-blue-500');
+      dropzone.classList.remove('border-indigo-500');
     });
 
     dropzone.addEventListener('drop', (e) => {
       e.preventDefault();
-      dropzone.classList.remove('border-blue-500');
+      dropzone.classList.remove('border-indigo-500');
       if (e.dataTransfer.files && e.dataTransfer.files[0]) {
         uploadReferenceImage(e.dataTransfer.files[0], type);
       }
@@ -248,31 +392,13 @@ function removeImage(type) {
   }
 }
 
-// Preset Prompts
-function setVideoPrompt(text) {
-  document.getElementById('video-prompt').value = text;
-}
-
-// Aspect Ratio Selector
-function setAspectRatio(ratio) {
-  state.aspectRatio = ratio;
-  ['1:1', '16:9', '9:16'].forEach(r => {
-    const btn = document.getElementById(`ratio-${r.replace(':', '-')}`);
-    if (r === ratio) {
-      btn.className = 'ratio-btn border border-indigo-500 bg-indigo-500/20 text-white rounded-xl py-2 px-3 text-xs font-semibold flex flex-col items-center space-y-1';
-    } else {
-      btn.className = 'ratio-btn border border-surface-700 bg-surface-900 text-slate-400 hover:text-white rounded-xl py-2 px-3 text-xs font-semibold flex flex-col items-center space-y-1';
-    }
-  });
-}
-
 // VIDEO GENERATION
 let videoTimerInterval = null;
 
 async function generateVideo() {
   const prompt = document.getElementById('video-prompt').value.trim();
   if (!prompt) {
-    alert('Vui lòng nhập nội dung mô tả video.');
+    alert('Vui lòng nhập mô tả cảnh quay.');
     return;
   }
 
@@ -284,7 +410,6 @@ async function generateVideo() {
   const btn = document.getElementById('btn-generate-video');
   btn.disabled = true;
 
-  // UI state transitions
   document.getElementById('video-idle-state').classList.add('hidden');
   document.getElementById('video-result-container').classList.add('hidden');
   document.getElementById('video-loading-state').classList.remove('hidden');
@@ -298,18 +423,25 @@ async function generateVideo() {
     seconds++;
     timerEl.innerText = seconds;
     if (seconds === 15) {
-      document.getElementById('video-progress-text').innerText = 'Hatch VM đã sẵn sàng. Đang tiến hành render video...';
-    } else if (seconds === 60) {
-      document.getElementById('video-progress-text').innerText = 'Đang xử lý chuyển động và tổng hợp âm thanh native audio...';
-    } else if (seconds === 120) {
-      document.getElementById('video-progress-text').innerText = 'Đang hoàn tất và đóng gói file MP4 chất lượng cao...';
+      document.getElementById('video-progress-text').innerText = 'HaiAI Director đang thiết lập góc máy & đồng nhất nhân vật...';
+    } else if (seconds === 50) {
+      document.getElementById('video-progress-text').innerText = 'Đang kết xuất chuyển động 4K và tổng hợp âm thanh vòm...';
+    } else if (seconds === 110) {
+      document.getElementById('video-progress-text').innerText = 'Đang hoàn thiện hậu kỳ và đóng gói MP4...';
     }
   }, 1000);
 
   try {
+    const currentSceneNumber = state.isContinuation ? state.storyboard.length + 1 : 1;
+
     const payload = {
       prompt: prompt,
       image_paths: state.videoImageFile ? [state.videoImageFile] : [],
+      aspect_ratio: state.videoRatio,
+      is_continuation: state.isContinuation && state.videoSessionId !== null,
+      session_id: state.videoSessionId,
+      scene_index: currentSceneNumber,
+      style_preset: state.videoStyle,
       timeout: 600.0,
     };
 
@@ -320,7 +452,11 @@ async function generateVideo() {
     });
 
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Không thể tạo video từ Muse.');
+    if (!res.ok) throw new Error(data.detail || 'Không thể tạo video.');
+
+    if (data.session_id) {
+      state.videoSessionId = data.session_id;
+    }
 
     if (data.videos && data.videos.length > 0) {
       const videoUrl = data.videos[0];
@@ -328,11 +464,27 @@ async function generateVideo() {
       player.src = videoUrl;
       document.getElementById('video-download-btn').href = videoUrl;
 
+      // Update storyboard chain
+      if (!state.isContinuation) {
+        state.storyboard = [{ scene: 1, url: videoUrl, prompt: prompt }];
+      } else {
+        state.storyboard.push({
+          scene: state.storyboard.length + 1,
+          url: videoUrl,
+          prompt: prompt,
+        });
+      }
+      renderStoryboard();
+      if (state.isContinuation) {
+        setVideoMode(true);
+      }
+
       document.getElementById('video-loading-state').classList.add('hidden');
       document.getElementById('video-result-container').classList.remove('hidden');
       player.play().catch(() => {});
+      loadDashboardAndGallery();
     } else {
-      throw new Error('Muse không trả về video nào trong phiên làm việc.');
+      throw new Error('Không nhận được video trả về.');
     }
   } catch (err) {
     alert('Lỗi tạo video: ' + err.message);
@@ -344,11 +496,50 @@ async function generateVideo() {
   }
 }
 
+function renderStoryboard() {
+  const container = document.getElementById('storyboard-container');
+  const list = document.getElementById('storyboard-list');
+  const countEl = document.getElementById('storyboard-count');
+
+  const statScenes = document.getElementById('stat-scenes');
+  if (statScenes) statScenes.innerText = `${state.storyboard.length} cảnh`;
+
+  if (state.storyboard.length === 0) {
+    container.classList.add('hidden');
+    return;
+  }
+
+  container.classList.remove('hidden');
+  countEl.innerText = `${state.storyboard.length} cảnh liên kết`;
+  list.innerHTML = '';
+
+  state.storyboard.forEach((item) => {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.onclick = () => {
+      const player = document.getElementById('video-player');
+      player.src = item.url;
+      document.getElementById('video-download-btn').href = item.url;
+      player.play().catch(() => {});
+    };
+    card.className = 'shrink-0 w-44 p-2.5 rounded-xl bg-surface-900 hover:bg-surface-800 border border-cyan-500/30 text-left space-y-1.5 transition group';
+    card.innerHTML = `
+      <div class="flex items-center justify-between">
+        <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300">Cảnh #${item.scene}</span>
+        <i data-lucide="play-circle" class="w-3.5 h-3.5 text-slate-400 group-hover:text-cyan-400"></i>
+      </div>
+      <p class="text-[11px] text-slate-300 truncate">${escapeHtml(item.prompt)}</p>
+    `;
+    list.appendChild(card);
+  });
+  lucide.createIcons();
+}
+
 // IMAGE GENERATION
 async function generateImage() {
   const prompt = document.getElementById('image-prompt').value.trim();
   if (!prompt) {
-    alert('Vui lòng nhập mô tả ảnh.');
+    alert('Vui lòng nhập mô tả bức ảnh.');
     return;
   }
 
@@ -378,17 +569,19 @@ async function generateImage() {
     });
 
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Không thể tạo ảnh từ Muse.');
+    if (!res.ok) throw new Error(data.detail || 'Không thể tạo ảnh.');
 
     if (data.images && data.images.length > 0) {
       const imgUrl = data.images[0];
+      state.lastGeneratedImageUrl = imgUrl;
       document.getElementById('image-result').src = imgUrl;
       document.getElementById('image-download-btn').href = imgUrl;
 
       document.getElementById('image-loading-state').classList.add('hidden');
       document.getElementById('image-result-container').classList.remove('hidden');
+      loadDashboardAndGallery();
     } else {
-      throw new Error('Không nhận được ảnh trả về từ Muse.');
+      throw new Error('Không nhận được ảnh trả về.');
     }
   } catch (err) {
     alert('Lỗi tạo ảnh: ' + err.message);
@@ -399,6 +592,14 @@ async function generateImage() {
   }
 }
 
+function useImageForVideo() {
+  const prompt = document.getElementById('image-prompt').value.trim();
+  switchTab('video');
+  if (prompt) {
+    document.getElementById('video-prompt').value = prompt;
+  }
+}
+
 // CHAT ASSISTANT
 async function sendChatMessage(e) {
   e.preventDefault();
@@ -406,16 +607,20 @@ async function sendChatMessage(e) {
   const text = input.value.trim();
   if (!text) return;
 
+  if (!state.authenticated) {
+    openAuthModal();
+    return;
+  }
+
   const container = document.getElementById('chat-messages');
 
-  // Append user message
   const userBubble = document.createElement('div');
   userBubble.className = 'flex items-start justify-end space-x-3';
   userBubble.innerHTML = `
-    <div class="bg-blue-600 rounded-2xl rounded-tr-none p-3.5 max-w-xl text-sm text-white shadow">
+    <div class="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl rounded-tr-none p-3.5 max-w-xl text-sm text-white shadow">
       ${escapeHtml(text)}
     </div>
-    <div class="w-7 h-7 rounded-lg bg-surface-700 text-slate-300 flex items-center justify-center shrink-0 border border-surface-600">
+    <div class="w-8 h-8 rounded-xl bg-surface-700 text-slate-300 flex items-center justify-center shrink-0 border border-white/10">
       <i data-lucide="user" class="w-4 h-4"></i>
     </div>
   `;
@@ -424,17 +629,15 @@ async function sendChatMessage(e) {
   container.scrollTop = container.scrollHeight;
   lucide.createIcons();
 
-  // Assistant typing bubble
   const typingBubble = document.createElement('div');
   typingBubble.className = 'flex items-start space-x-3';
-  typingBubble.id = 'chat-typing';
   typingBubble.innerHTML = `
-    <div class="w-7 h-7 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/30">
-      <i data-lucide="bot" class="w-4 h-4"></i>
+    <div class="w-8 h-8 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/30">
+      <i data-lucide="sparkles" class="w-4 h-4"></i>
     </div>
-    <div class="bg-surface-700/70 border border-surface-600/50 rounded-2xl rounded-tl-none p-3.5 max-w-xl text-sm text-slate-400 flex items-center space-x-2">
-      <span class="w-2 h-2 rounded-full bg-blue-400 animate-ping"></span>
-      <span>Muse Spark đang suy nghĩ...</span>
+    <div class="bg-surface-800 border border-white/[0.06] rounded-2xl rounded-tl-none p-3.5 max-w-xl text-sm text-slate-400 flex items-center space-x-2">
+      <span class="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span>
+      <span>HaiAI đang biên kịch...</span>
     </div>
   `;
   container.appendChild(typingBubble);
@@ -453,22 +656,27 @@ async function sendChatMessage(e) {
     const data = await res.json();
     typingBubble.remove();
 
-    if (!res.ok) throw new Error(data.detail || 'Lỗi gửi tin nhắn.');
-
+    if (!res.ok) throw new Error(data.detail || 'Lỗi kết nối.');
     if (data.session_id) state.chatSessionId = data.session_id;
 
     const botBubble = document.createElement('div');
     botBubble.className = 'flex items-start space-x-3';
     botBubble.innerHTML = `
-      <div class="w-7 h-7 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/30">
-        <i data-lucide="bot" class="w-4 h-4"></i>
+      <div class="w-8 h-8 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/30">
+        <i data-lucide="sparkles" class="w-4 h-4"></i>
       </div>
-      <div class="bg-surface-700/70 border border-surface-600/50 rounded-2xl rounded-tl-none p-3.5 max-w-xl text-sm text-slate-200 space-y-2">
-        <p class="whitespace-pre-wrap">${escapeHtml(data.reply)}</p>
-        <button onclick="useAsVideoPrompt(${JSON.stringify(data.reply)})" class="mt-2 text-[11px] text-blue-400 hover:text-blue-300 font-medium flex items-center space-x-1 border border-blue-500/30 bg-blue-500/10 px-2 py-1 rounded-md transition">
-          <i data-lucide="clapperboard" class="w-3 h-3"></i>
-          <span>Dùng nội dung này làm prompt Video</span>
-        </button>
+      <div class="bg-surface-800 border border-white/[0.06] rounded-2xl rounded-tl-none p-4 max-w-2xl text-sm text-slate-200 space-y-3">
+        <p class="whitespace-pre-wrap leading-relaxed">${escapeHtml(data.reply)}</p>
+        <div class="flex flex-wrap gap-2 pt-1">
+          <button onclick="useAsVideoPrompt(${JSON.stringify(data.reply)})" class="text-[11px] text-indigo-300 hover:text-white font-semibold flex items-center space-x-1 border border-indigo-500/30 bg-indigo-500/15 px-2.5 py-1 rounded-lg transition">
+            <i data-lucide="clapperboard" class="w-3 h-3"></i>
+            <span>Đưa sang Tạo Video</span>
+          </button>
+          <button onclick="useAsImagePrompt(${JSON.stringify(data.reply)})" class="text-[11px] text-purple-300 hover:text-white font-semibold flex items-center space-x-1 border border-purple-500/30 bg-purple-500/15 px-2.5 py-1 rounded-lg transition">
+            <i data-lucide="palette" class="w-3 h-3"></i>
+            <span>Đưa sang Tạo Ảnh</span>
+          </button>
+        </div>
       </div>
     `;
     container.appendChild(botBubble);
@@ -477,22 +685,21 @@ async function sendChatMessage(e) {
   } catch (err) {
     typingBubble.remove();
     const errorBubble = document.createElement('div');
-    errorBubble.className = 'text-xs text-red-400 p-2 text-center';
-    errorBubble.innerText = 'Lỗi chat: ' + err.message;
+    errorBubble.className = 'text-xs text-rose-400 p-2 text-center';
+    errorBubble.innerText = 'Lỗi: ' + err.message;
     container.appendChild(errorBubble);
   }
 }
 
 function clearChat() {
   state.chatSessionId = null;
-  const container = document.getElementById('chat-messages');
-  container.innerHTML = `
+  document.getElementById('chat-messages').innerHTML = `
     <div class="flex items-start space-x-3">
-      <div class="w-7 h-7 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/30">
-        <i data-lucide="bot" class="w-4 h-4"></i>
+      <div class="w-8 h-8 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/30">
+        <i data-lucide="sparkles" class="w-4 h-4"></i>
       </div>
-      <div class="bg-surface-700/70 border border-surface-600/50 rounded-2xl rounded-tl-none p-3.5 max-w-xl text-sm text-slate-200">
-        Đoạn hội thoại đã được đặt lại. Bạn muốn Muse giúp gì tiếp theo?
+      <div class="bg-surface-800 border border-white/[0.06] rounded-2xl rounded-tl-none p-4 max-w-2xl text-sm text-slate-200 leading-relaxed">
+        Cuộc trò chuyện đã được làm mới. Hãy nhập ý tưởng kịch bản của bạn!
       </div>
     </div>
   `;
@@ -504,65 +711,133 @@ function useAsVideoPrompt(text) {
   document.getElementById('video-prompt').value = text;
 }
 
-// GALLERY
-async function loadGallery() {
-  const grid = document.getElementById('gallery-grid');
-  grid.innerHTML = `<div class="col-span-full py-12 text-center text-slate-500">Đang tải danh sách file...</div>`;
+function useAsImagePrompt(text) {
+  switchTab('image');
+  document.getElementById('image-prompt').value = text;
+}
 
+// DASHBOARD & GALLERY
+async function loadDashboardAndGallery() {
   try {
     const res = await fetch('/api/gallery');
     const data = await res.json();
+    state.galleryItems = data.items || [];
 
-    if (!data.items || data.items.length === 0) {
-      grid.innerHTML = `
-        <div class="col-span-full py-16 text-center text-slate-500 space-y-2">
-          <i data-lucide="film" class="w-10 h-10 mx-auto text-slate-600"></i>
-          <p class="text-sm">Chưa có video hoặc ảnh nào được tạo.</p>
-        </div>
-      `;
-      lucide.createIcons();
-      return;
+    // Update Stats
+    if (data.stats) {
+      document.getElementById('stat-videos').innerText = data.stats.videos;
+      document.getElementById('stat-images').innerText = data.stats.images;
+      document.getElementById('stat-storage').innerText = `${data.stats.storage_mb} MB`;
+      document.getElementById('sidebar-gallery-count').innerText = data.stats.total;
     }
 
-    grid.innerHTML = '';
-    data.items.forEach(item => {
-      const card = document.createElement('div');
-      card.className = 'bg-surface-800 border border-surface-700 rounded-xl overflow-hidden shadow-lg group hover:border-surface-600 transition flex flex-col justify-between';
-
-      const mediaHtml = item.type === 'video'
-        ? `<div class="aspect-video bg-black flex items-center justify-center relative">
-             <video src="${item.url}" class="w-full h-full object-cover" controls playsinline></video>
-           </div>`
-        : `<div class="aspect-square bg-black/40 flex items-center justify-center overflow-hidden">
-             <img src="${item.url}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
-           </div>`;
-
-      card.innerHTML = `
-        ${mediaHtml}
-        <div class="p-3 space-y-2">
-          <div class="flex items-center justify-between text-xs">
-            <span class="font-medium text-slate-200 truncate max-w-[140px]">${item.name}</span>
-            <span class="text-slate-400 text-[10px]">${item.size_mb} MB</span>
-          </div>
-          <div class="flex items-center justify-between pt-1">
-            <span class="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded ${item.type === 'video' ? 'bg-blue-500/20 text-blue-400' : 'bg-indigo-500/20 text-indigo-400'}">
-              ${item.type}
-            </span>
-            <a href="${item.url}" download class="p-1.5 rounded-lg bg-surface-700 hover:bg-surface-600 text-slate-200 transition" title="Tải về">
-              <i data-lucide="download" class="w-3.5 h-3.5"></i>
-            </a>
-          </div>
-        </div>
-      `;
-      grid.appendChild(card);
-    });
-    lucide.createIcons();
+    renderDashboardRecent();
+    renderGalleryGrid();
   } catch (err) {
-    grid.innerHTML = `<div class="col-span-full py-12 text-center text-red-400 text-sm">Lỗi tải bộ sưu tập: ${err.message}</div>`;
+    console.error('Lỗi tải dữ liệu:', err);
   }
 }
 
-// Helper: Escape HTML
+function loadGallery() {
+  loadDashboardAndGallery();
+}
+
+function filterGallery(filterType) {
+  state.galleryFilter = filterType;
+  ['all', 'video', 'image'].forEach(f => {
+    const btn = document.getElementById(`gfilter-${f}`);
+    if (!btn) return;
+    if (f === filterType) {
+      btn.className = 'gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white';
+    } else {
+      btn.className = 'gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-800 text-slate-300 hover:text-white';
+    }
+  });
+  renderGalleryGrid();
+}
+
+function renderDashboardRecent() {
+  const grid = document.getElementById('dashboard-recent-grid');
+  if (!grid) return;
+
+  const recent = state.galleryItems.slice(0, 4);
+  if (recent.length === 0) {
+    grid.innerHTML = `
+      <div class="col-span-full py-10 text-center text-slate-500 text-xs">
+        Chưa có sản phẩm nào. Hãy bấm <b>Mở Studio Tạo Video</b> để khởi tạo thước phim đầu tiên!
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = '';
+  recent.forEach(item => {
+    grid.appendChild(createMediaCard(item));
+  });
+  lucide.createIcons();
+}
+
+function renderGalleryGrid() {
+  const grid = document.getElementById('gallery-grid');
+  if (!grid) return;
+
+  const items = state.galleryItems.filter(it =>
+    state.galleryFilter === 'all' ? true : it.type === state.galleryFilter
+  );
+
+  if (items.length === 0) {
+    grid.innerHTML = `
+      <div class="col-span-full py-16 text-center text-slate-500 space-y-2">
+        <i data-lucide="film" class="w-10 h-10 mx-auto text-slate-600"></i>
+        <p class="text-sm">Chưa có tác phẩm nào trong danh mục này.</p>
+      </div>
+    `;
+    lucide.createIcons();
+    return;
+  }
+
+  grid.innerHTML = '';
+  items.forEach(item => {
+    grid.appendChild(createMediaCard(item));
+  });
+  lucide.createIcons();
+}
+
+function createMediaCard(item) {
+  const card = document.createElement('div');
+  card.className = 'glass-card rounded-2xl overflow-hidden shadow-lg group hover:border-indigo-500/40 transition flex flex-col justify-between';
+
+  const mediaHtml = item.type === 'video'
+    ? `<div class="aspect-video bg-black flex items-center justify-center relative">
+         <video src="${item.url}" class="w-full h-full object-cover" controls playsinline></video>
+       </div>`
+    : `<div class="aspect-video bg-black/50 flex items-center justify-center overflow-hidden">
+         <img src="${item.url}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+       </div>`;
+
+  card.innerHTML = `
+    ${mediaHtml}
+    <div class="p-3.5 space-y-2">
+      <div class="flex items-center justify-between text-xs">
+        <span class="font-semibold text-slate-200 truncate max-w-[150px]">${item.name}</span>
+        <span class="text-slate-400 text-[10px]">${item.size_mb} MB</span>
+      </div>
+      <div class="flex items-center justify-between pt-1">
+        <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md ${
+          item.type === 'video' ? 'bg-indigo-500/20 text-indigo-300' : 'bg-purple-500/20 text-purple-300'
+        }">
+          ${item.type === 'video' ? 'HaiAI Video' : 'HaiAI Image'}
+        </span>
+        <a href="${item.url}" download class="px-2.5 py-1 rounded-lg bg-surface-700 hover:bg-surface-600 text-slate-200 text-xs font-medium flex items-center space-x-1 transition">
+          <i data-lucide="download" class="w-3 h-3"></i>
+          <span>Tải về</span>
+        </a>
+      </div>
+    </div>
+  `;
+  return card;
+}
+
 function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

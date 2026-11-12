@@ -3,10 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Muse AI Studio - Video, Image & Chat</title>
-  <!-- Tailwind CSS CDN -->
+  <title>HaiAI Studio — Nền tảng Sáng tạo Video, Ảnh & Trợ lý AI</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
   <script>
     tailwind.config = {
@@ -14,20 +12,12 @@
       theme: {
         extend: {
           colors: {
-            brand: {
-              50: '#f0f5ff',
-              100: '#e5edff',
-              500: '#3b82f6',
-              600: '#2563eb',
-              700: '#1d4ed8',
-              800: '#1e40af',
-              900: '#1e3a8a',
-            },
             surface: {
+              950: '#050811',
               900: '#090d16',
-              800: '#0f172a',
-              700: '#1e293b',
-              600: '#334155',
+              800: '#0f1626',
+              700: '#182238',
+              600: '#253352',
             }
           }
         }
@@ -38,464 +28,704 @@
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
     body {
       font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #050811;
     }
-    /* Custom Scrollbar */
     ::-webkit-scrollbar {
       width: 6px;
       height: 6px;
     }
     ::-webkit-scrollbar-track {
-      background: #0f172a;
+      background: #090d16;
     }
     ::-webkit-scrollbar-thumb {
-      background: #334155;
-      border-radius: 3px;
+      background: #1e293b;
+      border-radius: 9999px;
     }
     ::-webkit-scrollbar-thumb:hover {
-      background: #475569;
+      background: #334155;
+    }
+    .glass-card {
+      background: rgba(15, 22, 38, 0.75);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+    }
+    .glow-border:focus-within {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
     }
   </style>
 </head>
-<body class="bg-surface-900 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-blue-600 selection:text-white">
+<body class="text-slate-100 min-h-screen flex overflow-hidden selection:bg-indigo-600 selection:text-white">
 
-  <!-- Top Header Navigation -->
-  <header class="border-b border-surface-700/60 bg-surface-800/80 backdrop-blur-md sticky top-0 z-40">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      
-      <!-- Logo & Branding -->
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 p-[2px] shadow-lg shadow-blue-500/20">
-          <div class="w-full h-full bg-surface-800 rounded-[10px] flex items-center justify-center">
-            <i data-lucide="sparkles" class="w-5 h-5 text-blue-400"></i>
+  <!-- LEFT SIDEBAR NAVIGATION -->
+  <aside class="w-64 bg-surface-900 border-r border-white/[0.06] flex flex-col justify-between shrink-0 select-none z-30">
+    <!-- Top Brand -->
+    <div>
+      <div class="h-16 px-5 flex items-center space-x-3 border-b border-white/[0.06]">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-cyan-400 p-[1.5px] shadow-lg shadow-indigo-500/25">
+          <div class="w-full h-full bg-surface-900 rounded-[10px] flex items-center justify-center">
+            <i data-lucide="zap" class="w-5 h-5 text-indigo-400"></i>
           </div>
         </div>
         <div>
-          <div class="flex items-center space-x-2">
-            <span class="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">Muse AI Studio</span>
-            <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-semibold border border-blue-500/20">Hatch Engine</span>
+          <div class="flex items-center space-x-1.5">
+            <span class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-indigo-200 to-cyan-300 bg-clip-text text-transparent">HaiAI</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-indigo-500/15 text-indigo-300 font-bold border border-indigo-500/30">PRO</span>
           </div>
-          <p class="text-[11px] text-slate-400">Video • Image • Chat Generative Studio</p>
+          <p class="text-[11px] text-slate-400">Creative AI Studio</p>
         </div>
       </div>
 
-      <!-- Navigation Tabs -->
-      <nav class="hidden md:flex items-center space-x-1 bg-surface-900/60 p-1 rounded-xl border border-surface-700/60">
-        <button onclick="switchTab('video')" id="tab-btn-video" class="tab-btn flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all text-white bg-blue-600 shadow-md shadow-blue-600/30">
-          <i data-lucide="video" class="w-4 h-4"></i>
-          <span>Tạo Video</span>
+      <!-- Menu List -->
+      <div class="p-3 space-y-1">
+        <p class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">Không gian làm việc</p>
+
+        <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="tab-btn w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all text-white bg-gradient-to-r from-indigo-600 to-violet-600 shadow-lg shadow-indigo-600/25">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+          <span>Tổng quan (Dashboard)</span>
         </button>
-        <button onclick="switchTab('image')" id="tab-btn-image" class="tab-btn flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-surface-700/50">
-          <i data-lucide="image" class="w-4 h-4"></i>
-          <span>Tạo Ảnh</span>
-        </button>
-        <button onclick="switchTab('chat')" id="tab-btn-chat" class="tab-btn flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-surface-700/50">
-          <i data-lucide="message-square" class="w-4 h-4"></i>
-          <span>Chat AI</span>
-        </button>
-        <button onclick="switchTab('gallery')" id="tab-btn-gallery" class="tab-btn flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-surface-700/50">
-          <i data-lucide="folder-git-2" class="w-4 h-4"></i>
-          <span>Bộ sưu tập</span>
-        </button>
-      </nav>
 
-      <!-- Account / Connection Status -->
-      <div class="flex items-center space-x-3">
-        <div id="status-badge" class="flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium border bg-amber-500/10 text-amber-300 border-amber-500/20">
-          <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-          <span id="status-text">Đang kiểm tra kết nối...</span>
-        </div>
-        <button onclick="openAuthModal()" id="auth-btn" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-surface-700 hover:bg-surface-600 text-white border border-surface-600 transition">
-          <i data-lucide="key" class="w-3.5 h-3.5"></i>
-          <span id="auth-btn-text">Đăng nhập Muse OTP</span>
-        </button>
-      </div>
-
-    </div>
-  </header>
-
-  <!-- Main Content Container -->
-  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-
-    <!-- VPN Reminder Banner -->
-    <div id="vpn-banner" class="mb-6 p-4 rounded-xl bg-blue-950/40 border border-blue-800/40 flex items-start space-x-3 text-xs text-blue-200">
-      <i data-lucide="shield-alert" class="w-5 h-5 text-blue-400 shrink-0 mt-0.5"></i>
-      <div class="flex-1">
-        <span class="font-semibold text-blue-300">Nhắc nhở kết nối VPN:</span> 
-        Muse.ai chặn truy cập từ Việt Nam. Hãy chắc chắn bạn đã <b class="text-white">bật VPN kết nối máy chủ Mỹ (US)</b> trên máy tính trước khi gửi OTP hoặc tạo video/ảnh để các request thành công 100%.
-      </div>
-      <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-white">
-        <i data-lucide="x" class="w-4 h-4"></i>
-      </button>
-    </div>
-
-    <!-- TAB 1: VIDEO STUDIO -->
-    <div id="view-video" class="tab-view space-y-6">
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        <!-- Controls Column -->
-        <div class="lg:col-span-5 space-y-5">
-          <div class="bg-surface-800 border border-surface-700/70 rounded-2xl p-5 shadow-xl space-y-4">
-            <div class="flex items-center justify-between">
-              <h2 class="font-bold text-base text-white flex items-center space-x-2">
-                <i data-lucide="clapperboard" class="w-5 h-5 text-blue-400"></i>
-                <span>Tạo Video (Muse Video)</span>
-              </h2>
-              <span class="text-[11px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-medium border border-blue-500/20">Native Audio</span>
-            </div>
-
-            <!-- Prompt Textarea -->
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5">Mô tả video (Prompt) <span class="text-red-400">*</span></label>
-              <textarea id="video-prompt" rows="4" placeholder="Ví dụ: A majestic eagle soaring over snow-capped mountains at sunset, cinematic lighting, 4k ultra realistic, ambient wind sound..." class="w-full bg-surface-900 border border-surface-700 rounded-xl p-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition resize-none"></textarea>
-            </div>
-
-            <!-- Preset chips -->
-            <div class="space-y-1.5">
-              <span class="text-[11px] text-slate-400 font-medium">Gợi ý phong cách:</span>
-              <div class="flex flex-wrap gap-1.5">
-                <button onclick="setVideoPrompt('Cinematic drone fly-through shot of a futuristic cyberpunk city at night with neon reflections and flying vehicles')" class="chip text-[11px] bg-surface-700/60 hover:bg-surface-600 px-2.5 py-1 rounded-lg text-slate-300 transition">Cyberpunk City</button>
-                <button onclick="setVideoPrompt('A cozy coffee shop in rainy Tokyo, warm golden lighting, raindrops on window, gentle jazz vibes, cinematic 4k')" class="chip text-[11px] bg-surface-700/60 hover:bg-surface-600 px-2.5 py-1 rounded-lg text-slate-300 transition">Mưa Tokyo</button>
-                <button onclick="setVideoPrompt('Macro close up of a magical glowing butterfly emerging from a mystical flower in an enchanted forest, vibrant colors')" class="chip text-[11px] bg-surface-700/60 hover:bg-surface-600 px-2.5 py-1 rounded-lg text-slate-300 transition">Enchanted Macro</button>
-              </div>
-            </div>
-
-            <!-- Reference Image (Image-to-Video) -->
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5">Ảnh tham chiếu (Tùy chọn - Image-to-Video)</label>
-              <div id="video-dropzone" class="border-2 border-dashed border-surface-700 hover:border-blue-500/60 rounded-xl p-4 text-center cursor-pointer transition bg-surface-900/50">
-                <input type="file" id="video-image-input" accept="image/*" class="hidden" onchange="handleImageUpload(event, 'video')">
-                <div id="video-image-preview-container" class="hidden relative group inline-block">
-                  <img id="video-image-preview" src="" class="h-24 rounded-lg object-cover mx-auto border border-surface-600 shadow">
-                  <button onclick="removeImage('video')" class="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 shadow hover:bg-red-500 transition">
-                    <i data-lucide="x" class="w-3 h-3"></i>
-                  </button>
-                </div>
-                <div id="video-upload-prompt" class="space-y-1">
-                  <i data-lucide="upload-cloud" class="w-6 h-6 text-slate-400 mx-auto"></i>
-                  <p class="text-xs text-slate-300">Kéo thả ảnh hoặc <span class="text-blue-400 font-semibold">chọn file</span></p>
-                  <p class="text-[10px] text-slate-500">Hỗ trợ JPG, PNG, WEBP (tối đa 10MB)</p>
-                </div>
-              </div>
-            </div>
-
-            <!-- Submit Button -->
-            <button id="btn-generate-video" onclick="generateVideo()" class="w-full py-3.5 px-4 rounded-xl font-semibold text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-blue-600/25 flex items-center justify-center space-x-2 transition disabled:opacity-50 disabled:cursor-not-allowed">
-              <i data-lucide="sparkles" class="w-4 h-4"></i>
-              <span>Khởi tạo Video với Muse</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Output Column -->
-        <div class="lg:col-span-7">
-          <div class="bg-surface-800 border border-surface-700/70 rounded-2xl p-5 shadow-xl min-h-[460px] flex flex-col justify-between">
-            <div class="flex items-center justify-between pb-3 border-b border-surface-700/50">
-              <h3 class="font-semibold text-sm text-slate-200 flex items-center space-x-2">
-                <i data-lucide="monitor-play" class="w-4 h-4 text-blue-400"></i>
-                <span>Kết quả Video</span>
-              </h3>
-              <div id="video-timer" class="text-xs text-slate-400 hidden">
-                Thời gian: <span id="timer-seconds" class="font-mono text-white">0</span>s
-              </div>
-            </div>
-
-            <!-- Preview Screen -->
-            <div id="video-display-area" class="my-auto py-8 flex flex-col items-center justify-center text-center">
-              
-              <!-- Idle State -->
-              <div id="video-idle-state" class="space-y-3">
-                <div class="w-16 h-16 rounded-2xl bg-surface-700/60 flex items-center justify-center mx-auto text-slate-400 border border-surface-600">
-                  <i data-lucide="video" class="w-8 h-8"></i>
-                </div>
-                <div>
-                  <h4 class="font-medium text-slate-300 text-sm">Chưa có video nào</h4>
-                  <p class="text-xs text-slate-500 max-w-sm mt-1">Nhập mô tả ở khung bên trái và bấm Khởi tạo để bắt đầu sinh video với âm thanh qua Muse.ai</p>
-                </div>
-              </div>
-
-              <!-- Loading State -->
-              <div id="video-loading-state" class="hidden space-y-4 max-w-md w-full">
-                <div class="w-12 h-12 border-3 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                <div>
-                  <p id="video-progress-text" class="text-sm font-semibold text-blue-400">Đang khởi động Hatch VM và bắt tay Noise Protocol...</p>
-                  <p class="text-xs text-slate-400 mt-1">Quá trình sinh video và đồng bộ audio thường mất từ 1 - 3 phút. Vui lòng giữ cửa sổ trình duyệt.</p>
-                </div>
-                <div class="w-full bg-surface-900 rounded-full h-2 overflow-hidden border border-surface-700">
-                  <div id="video-progress-bar" class="bg-gradient-to-r from-blue-500 to-indigo-500 h-full w-1/4 animate-pulse"></div>
-                </div>
-              </div>
-
-              <!-- Result Video Player -->
-              <div id="video-result-container" class="hidden w-full space-y-3">
-                <div class="relative rounded-xl overflow-hidden bg-black border border-surface-700 shadow-2xl aspect-video max-h-[380px] flex items-center justify-center">
-                  <video id="video-player" controls playsinline class="w-full h-full object-contain"></video>
-                </div>
-                <div class="flex items-center justify-between pt-2">
-                  <span id="video-meta-info" class="text-xs text-slate-400">MP4 Format • Đồng bộ Audio</span>
-                  <a id="video-download-btn" href="#" download class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold flex items-center space-x-1.5 shadow transition">
-                    <i data-lucide="download" class="w-3.5 h-3.5"></i>
-                    <span>Tải Video MP4 về máy</span>
-                  </a>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- TAB 2: IMAGE STUDIO -->
-    <div id="view-image" class="tab-view hidden space-y-6">
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        <!-- Controls Column -->
-        <div class="lg:col-span-5 space-y-5">
-          <div class="bg-surface-800 border border-surface-700/70 rounded-2xl p-5 shadow-xl space-y-4">
-            <div class="flex items-center justify-between">
-              <h2 class="font-bold text-base text-white flex items-center space-x-2">
-                <i data-lucide="palette" class="w-5 h-5 text-indigo-400"></i>
-                <span>Tạo Ảnh (Muse Image)</span>
-              </h2>
-              <span class="text-[11px] px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-medium border border-indigo-500/20">HD Gen</span>
-            </div>
-
-            <!-- Prompt Textarea -->
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5">Mô tả ảnh (Prompt) <span class="text-red-400">*</span></label>
-              <textarea id="image-prompt" rows="4" placeholder="Ví dụ: Ultra detailed portrait of a cyberpunk girl with neon glowing tattoos, highly aesthetic, 8k resolution, photorealistic..." class="w-full bg-surface-900 border border-surface-700 rounded-xl p-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition resize-none"></textarea>
-            </div>
-
-            <!-- Aspect Ratio Selector -->
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5">Tỉ lệ khung hình (Aspect Ratio)</label>
-              <div class="grid grid-cols-3 gap-2">
-                <button type="button" onclick="setAspectRatio('1:1')" id="ratio-1-1" class="ratio-btn border border-indigo-500 bg-indigo-500/20 text-white rounded-xl py-2 px-3 text-xs font-semibold flex flex-col items-center space-y-1">
-                  <div class="w-4 h-4 border border-current rounded-sm"></div>
-                  <span>1:1 (Vuông)</span>
-                </button>
-                <button type="button" onclick="setAspectRatio('16:9')" id="ratio-16-9" class="ratio-btn border border-surface-700 bg-surface-900 text-slate-400 hover:text-white rounded-xl py-2 px-3 text-xs font-semibold flex flex-col items-center space-y-1">
-                  <div class="w-5 h-3 border border-current rounded-sm"></div>
-                  <span>16:9 (Ngang)</span>
-                </button>
-                <button type="button" onclick="setAspectRatio('9:16')" id="ratio-9-16" class="ratio-btn border border-surface-700 bg-surface-900 text-slate-400 hover:text-white rounded-xl py-2 px-3 text-xs font-semibold flex flex-col items-center space-y-1">
-                  <div class="w-3 h-5 border border-current rounded-sm"></div>
-                  <span>9:16 (Dọc)</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Reference Image (Image-to-Image) -->
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5">Ảnh mẫu tham chiếu (Tùy chọn - Image-to-Image)</label>
-              <div id="image-dropzone" class="border-2 border-dashed border-surface-700 hover:border-indigo-500/60 rounded-xl p-4 text-center cursor-pointer transition bg-surface-900/50">
-                <input type="file" id="image-file-input" accept="image/*" class="hidden" onchange="handleImageUpload(event, 'image')">
-                <div id="image-file-preview-container" class="hidden relative group inline-block">
-                  <img id="image-file-preview" src="" class="h-24 rounded-lg object-cover mx-auto border border-surface-600 shadow">
-                  <button onclick="removeImage('image')" class="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 shadow hover:bg-red-500 transition">
-                    <i data-lucide="x" class="w-3 h-3"></i>
-                  </button>
-                </div>
-                <div id="image-upload-prompt" class="space-y-1">
-                  <i data-lucide="upload-cloud" class="w-6 h-6 text-slate-400 mx-auto"></i>
-                  <p class="text-xs text-slate-300">Kéo thả ảnh mẫu hoặc <span class="text-indigo-400 font-semibold">chọn file</span></p>
-                </div>
-              </div>
-            </div>
-
-            <!-- Submit Button -->
-            <button id="btn-generate-image" onclick="generateImage()" class="w-full py-3.5 px-4 rounded-xl font-semibold text-sm bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-600/25 flex items-center justify-center space-x-2 transition disabled:opacity-50 disabled:cursor-not-allowed">
-              <i data-lucide="wand-2" class="w-4 h-4"></i>
-              <span>Khởi tạo Ảnh với Muse</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Output Column -->
-        <div class="lg:col-span-7">
-          <div class="bg-surface-800 border border-surface-700/70 rounded-2xl p-5 shadow-xl min-h-[460px] flex flex-col justify-between">
-            <div class="flex items-center justify-between pb-3 border-b border-surface-700/50">
-              <h3 class="font-semibold text-sm text-slate-200 flex items-center space-x-2">
-                <i data-lucide="image" class="w-4 h-4 text-indigo-400"></i>
-                <span>Kết quả Ảnh</span>
-              </h3>
-            </div>
-
-            <!-- Image Screen -->
-            <div id="image-display-area" class="my-auto py-8 flex flex-col items-center justify-center text-center">
-              
-              <!-- Idle State -->
-              <div id="image-idle-state" class="space-y-3">
-                <div class="w-16 h-16 rounded-2xl bg-surface-700/60 flex items-center justify-center mx-auto text-slate-400 border border-surface-600">
-                  <i data-lucide="image" class="w-8 h-8"></i>
-                </div>
-                <div>
-                  <h4 class="font-medium text-slate-300 text-sm">Chưa có ảnh nào</h4>
-                  <p class="text-xs text-slate-500 max-w-sm mt-1">Nhập mô tả chi tiết ảnh và bấm Khởi tạo để Muse tạo ảnh độ phân giải cao cho bạn</p>
-                </div>
-              </div>
-
-              <!-- Loading State -->
-              <div id="image-loading-state" class="hidden space-y-4 max-w-md w-full">
-                <div class="w-12 h-12 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                <div>
-                  <p id="image-progress-text" class="text-sm font-semibold text-indigo-400">Đang gửi yêu cầu tạo ảnh tới Muse AI...</p>
-                  <p class="text-xs text-slate-400 mt-1">Thời gian tạo ảnh thường từ 20 - 45 giây.</p>
-                </div>
-              </div>
-
-              <!-- Result Image View -->
-              <div id="image-result-container" class="hidden w-full space-y-3">
-                <div class="rounded-xl overflow-hidden bg-black/40 border border-surface-700 shadow-2xl max-h-[440px] flex items-center justify-center">
-                  <img id="image-result" src="" class="max-h-[420px] w-auto object-contain rounded-lg shadow-lg">
-                </div>
-                <div class="flex items-center justify-between pt-2">
-                  <span class="text-xs text-slate-400">Muse Image Generator</span>
-                  <a id="image-download-btn" href="#" download class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center space-x-1.5 shadow transition">
-                    <i data-lucide="download" class="w-3.5 h-3.5"></i>
-                    <span>Tải Ảnh gốc về máy</span>
-                  </a>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- TAB 3: CHAT STUDIO -->
-    <div id="view-chat" class="tab-view hidden">
-      <div class="max-w-4xl mx-auto bg-surface-800 border border-surface-700/70 rounded-2xl shadow-xl flex flex-col h-[700px] overflow-hidden">
-        
-        <!-- Chat Header -->
-        <div class="p-4 border-b border-surface-700/60 bg-surface-800 flex items-center justify-between">
+        <button onclick="switchTab('video')" id="tab-btn-video" class="tab-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-surface-800">
           <div class="flex items-center space-x-3">
-            <div class="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
-              <i data-lucide="bot" class="w-4 h-4"></i>
-            </div>
-            <div>
-              <h3 class="font-bold text-sm text-white">Muse Spark Assistant</h3>
-              <p class="text-[11px] text-slate-400">Lên ý tưởng kịch bản, prompt video và trò chuyện thông minh</p>
-            </div>
+            <i data-lucide="clapperboard" class="w-4 h-4"></i>
+            <span>Tạo Video AI</span>
           </div>
-          <button onclick="clearChat()" class="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded bg-surface-700 border border-surface-600 transition">
-            Xóa đoạn chat
-          </button>
-        </div>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/25">Nối tiếp</span>
+        </button>
 
-        <!-- Chat Messages Scroll Area -->
-        <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4">
-          <!-- Initial Welcome Message -->
-          <div class="flex items-start space-x-3">
-            <div class="w-7 h-7 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/30">
-              <i data-lucide="bot" class="w-4 h-4"></i>
-            </div>
-            <div class="bg-surface-700/70 border border-surface-600/50 rounded-2xl rounded-tl-none p-3.5 max-w-xl text-sm text-slate-200">
-              Xin chào! Tôi là trợ lý AI từ Muse. Bạn có thể trò chuyện, yêu cầu tôi viết kịch bản video, hoặc gợi ý prompt nghệ thuật cho Video Studio và Image Studio!
-            </div>
+        <button onclick="switchTab('image')" id="tab-btn-image" class="tab-btn w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-surface-800">
+          <i data-lucide="palette" class="w-4 h-4"></i>
+          <span>Tạo Ảnh Nghệ Thuật</span>
+        </button>
+
+        <button onclick="switchTab('chat')" id="tab-btn-chat" class="tab-btn w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-surface-800">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+          <span>Trợ lý Đạo diễn HaiAI</span>
+        </button>
+
+        <button onclick="switchTab('gallery')" id="tab-btn-gallery" class="tab-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-surface-800">
+          <div class="flex items-center space-x-3">
+            <i data-lucide="folder-heart" class="w-4 h-4"></i>
+            <span>Thư viện sản phẩm</span>
           </div>
-        </div>
-
-        <!-- Chat Input Bar -->
-        <div class="p-4 border-t border-surface-700/60 bg-surface-900/60">
-          <form onsubmit="sendChatMessage(event)" class="flex items-center space-x-2">
-            <input type="text" id="chat-input" placeholder="Gõ tin nhắn hoặc yêu cầu kịch bản video..." class="flex-1 bg-surface-800 border border-surface-700 rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition">
-            <button type="submit" id="btn-send-chat" class="p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-md transition shrink-0">
-              <i data-lucide="send" class="w-4 h-4"></i>
-            </button>
-          </form>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- TAB 4: GALLERY -->
-    <div id="view-gallery" class="tab-view hidden space-y-5">
-      <div class="flex items-center justify-between">
-        <div>
-          <h2 class="font-bold text-lg text-white">Bộ sưu tập sản phẩm</h2>
-          <p class="text-xs text-slate-400">Tất cả video và ảnh đã tạo được lưu trữ cục bộ trong thư mục <code class="text-blue-400">outputs/</code></p>
-        </div>
-        <button onclick="loadGallery()" class="flex items-center space-x-1.5 px-3 py-1.5 bg-surface-700 hover:bg-surface-600 text-white rounded-lg text-xs font-medium border border-surface-600 transition">
-          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
-          <span>Làm mới</span>
+          <span id="sidebar-gallery-count" class="text-[10px] px-2 py-0.5 rounded-full bg-surface-700 text-slate-300">0</span>
         </button>
       </div>
-
-      <!-- Gallery Grid -->
-      <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        <!-- Rendered dynamically -->
-      </div>
     </div>
 
-  </main>
+    <!-- Bottom Account Card -->
+    <div class="p-3.5 border-t border-white/[0.06] space-y-3 bg-surface-950/40">
+      <div class="p-3 rounded-xl bg-surface-800/90 border border-white/[0.05] space-y-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-semibold text-slate-400">Trạng thái HaiAI Cloud</span>
+          <span id="status-dot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+        </div>
+        <div id="status-text" class="text-xs font-semibold text-slate-200 truncate">Đang kiểm tra...</div>
+        <button onclick="openAuthModal()" id="auth-btn" class="w-full py-2 px-3 rounded-lg text-xs font-semibold bg-surface-700 hover:bg-surface-600 text-white border border-white/10 transition flex items-center justify-center space-x-1.5">
+          <i data-lucide="key-round" class="w-3.5 h-3.5 text-indigo-400"></i>
+          <span id="auth-btn-text">Kết nối tài khoản</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN WORKSPACE AREA -->
+  <div class="flex-1 flex flex-col h-screen overflow-hidden">
+
+    <!-- Top Action Bar -->
+    <header class="h-16 border-b border-white/[0.06] bg-surface-900/70 backdrop-blur-md px-6 flex items-center justify-between shrink-0 z-20">
+      <div class="flex items-center space-x-3">
+        <h1 id="page-header-title" class="font-bold text-base text-white">Tổng quan hệ thống (Dashboard)</h1>
+        <span class="hidden sm:inline-flex items-center space-x-1 text-[11px] px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+          <i data-lucide="wand-sparkles" class="w-3 h-3 mr-1"></i>
+          <span>Tự động tối ưu hóa Prompt chuyên nghiệp</span>
+        </span>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <div class="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-surface-800 border border-white/[0.06] text-xs text-slate-300">
+          <i data-lucide="globe" class="w-3.5 h-3.5 text-cyan-400"></i>
+          <span>Định tuyến: <b>US High-Speed</b></span>
+        </div>
+        <button onclick="switchTab('video')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white shadow flex items-center space-x-1.5 transition">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+          <span>Tạo Video Mới</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Scrollable Content -->
+    <main class="flex-1 overflow-y-auto p-6 space-y-6">
+
+      <!-- ==================== VIEW 0: DASHBOARD ==================== -->
+      <div id="view-dashboard" class="tab-view space-y-6 max-w-7xl mx-auto">
+        
+        <!-- Hero Banner -->
+        <div class="relative rounded-2xl overflow-hidden p-6 sm:p-8 bg-gradient-to-r from-indigo-950 via-surface-800 to-slate-900 border border-indigo-500/20 shadow-2xl">
+          <div class="relative z-10 max-w-2xl space-y-3">
+            <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-semibold">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+              <span>HaiAI Studio 2.0 — Chuỗi Video Nối Tiếp & Đạo Diễn AI Tự Động</span>
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+              Biến ý tưởng thành thước phim điện ảnh chuyên nghiệp
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              Hệ thống tự động nâng cấp mô tả của bạn thành kịch bản quay phim 4K chuẩn điện ảnh, hỗ trợ đa tỉ lệ khung hình và tạo các cảnh video nối tiếp liền mạch giữ nguyên nhân vật.
+            </p>
+            <div class="pt-2 flex flex-wrap gap-3">
+              <button onclick="switchTab('video')" class="px-5 py-2.5 rounded-xl bg-white text-slate-950 hover:bg-indigo-50 font-bold text-xs flex items-center space-x-2 shadow-lg transition">
+                <i data-lucide="clapperboard" class="w-4 h-4 text-indigo-600"></i>
+                <span>Mở Studio Tạo Video</span>
+              </button>
+              <button onclick="startSequentialFromDashboard()" class="px-4 py-2.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-white border border-indigo-400/30 font-semibold text-xs flex items-center space-x-2 transition">
+                <i data-lucide="film" class="w-4 h-4 text-cyan-300"></i>
+                <span>Tạo Phim Nối Tiếp Nhiều Cảnh</span>
+              </button>
+              <button onclick="switchTab('image')" class="px-4 py-2.5 rounded-xl bg-surface-800 hover:bg-surface-700 text-slate-200 border border-white/10 font-semibold text-xs flex items-center space-x-2 transition">
+                <i data-lucide="palette" class="w-4 h-4 text-purple-400"></i>
+                <span>Tạo Ảnh Nghệ Thuật</span>
+              </button>
+            </div>
+          </div>
+          <div class="absolute -right-12 -bottom-12 w-72 h-72 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="absolute right-24 -top-12 w-56 h-56 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        </div>
+
+        <!-- Stats Cards Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="glass-card rounded-2xl p-5 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-medium text-slate-400">Video đã xuất bản</p>
+              <h3 id="stat-videos" class="text-2xl font-extrabold text-white mt-1">0</h3>
+              <p class="text-[11px] text-emerald-400 mt-1 flex items-center">
+                <i data-lucide="check-circle-2" class="w-3 h-3 mr-1"></i> Chuẩn 4K + Âm thanh
+              </p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center text-indigo-400">
+              <i data-lucide="video" class="w-6 h-6"></i>
+            </div>
+          </div>
+
+          <div class="glass-card rounded-2xl p-5 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-medium text-slate-400">Ảnh nghệ thuật</p>
+              <h3 id="stat-images" class="text-2xl font-extrabold text-white mt-1">0</h3>
+              <p class="text-[11px] text-purple-400 mt-1 flex items-center">
+                <i data-lucide="Sparkles" class="w-3 h-3 mr-1"></i> Độ phân giải 8K HD
+              </p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center text-purple-400">
+              <i data-lucide="image" class="w-6 h-6"></i>
+            </div>
+          </div>
+
+          <div class="glass-card rounded-2xl p-5 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-medium text-slate-400">Chuỗi cảnh nối tiếp</p>
+              <h3 id="stat-scenes" class="text-2xl font-extrabold text-white mt-1">0 cảnh</h3>
+              <p class="text-[11px] text-cyan-400 mt-1 flex items-center">
+                <i data-lucide="link" class="w-3 h-3 mr-1"></i> Đồng nhất nhân vật
+              </p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center text-cyan-400">
+              <i data-lucide="Clapperboard" class="w-6 h-6"></i>
+            </div>
+          </div>
+
+          <div class="glass-card rounded-2xl p-5 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-medium text-slate-400">Dung lượng lưu trữ</p>
+              <h3 id="stat-storage" class="text-2xl font-extrabold text-white mt-1">0 MB</h3>
+              <p class="text-[11px] text-slate-400 mt-1 flex items-center">
+                <i data-lucide="hard-drive" class="w-3 h-3 mr-1"></i> Lưu cục bộ trên máy
+              </p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center text-emerald-400">
+              <i data-lucide="database" class="w-6 h-6"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Creations on Dashboard -->
+        <div class="glass-card rounded-2xl p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="font-bold text-base text-white flex items-center space-x-2">
+                <i data-lucide="flame" class="w-4 h-4 text-amber-400"></i>
+                <span>Tác phẩm vừa khởi tạo gần đây</span>
+              </h3>
+              <p class="text-xs text-slate-400">Xem nhanh hoặc bấm tạo cảnh nối tiếp ngay từ các video đã hoàn thành</p>
+            </div>
+            <button onclick="switchTab('gallery')" class="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center space-x-1">
+              <span>Xem toàn bộ thư viện</span>
+              <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+
+          <div id="dashboard-recent-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ==================== VIEW 1: VIDEO STUDIO ==================== -->
+      <div id="view-video" class="tab-view hidden max-w-7xl mx-auto space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+          <!-- Left Column: Video Creation Controls -->
+          <div class="lg:col-span-5 space-y-5">
+            <div class="glass-card rounded-2xl p-5 shadow-xl space-y-5">
+              
+              <!-- Mode Switcher: New Video vs Sequential Continuation -->
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Chế độ đạo diễn Video</label>
+                <div class="grid grid-cols-2 gap-2 p-1 bg-surface-950 rounded-xl border border-white/[0.06]">
+                  <button type="button" onclick="setVideoMode(false)" id="mode-btn-single" class="py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition bg-indigo-600 text-white shadow">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                    <span>Video Mới Độc Lập</span>
+                  </button>
+                  <button type="button" onclick="setVideoMode(true)" id="mode-btn-seq" class="py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition text-slate-400 hover:text-white">
+                    <i data-lucide="link-2" class="w-3.5 h-3.5"></i>
+                    <span>Video Nối Tiếp Cảnh</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Sequential Mode Active Banner -->
+              <div id="seq-mode-banner" class="hidden p-3.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 space-y-2">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2 text-cyan-300 text-xs font-bold">
+                    <i data-lucide="film" class="w-4 h-4"></i>
+                    <span id="seq-badge-title">Đang tạo Cảnh Nối Tiếp #2</span>
+                  </div>
+                  <button onclick="resetSequentialChain()" class="text-[11px] text-slate-400 hover:text-white underline">Đặt lại chuỗi mới</button>
+                </div>
+                <p class="text-[11px] text-slate-300 leading-relaxed">
+                  HaiAI sẽ giữ nguyên nhân vật, bối cảnh và ánh sáng từ cảnh trước. Bạn chỉ cần mô tả <b>hành động hoặc diễn biến tiếp theo</b>!
+                </p>
+              </div>
+
+              <!-- Prompt Input -->
+              <div>
+                <div class="flex items-center justify-between mb-1.5">
+                  <label id="video-prompt-label" class="text-xs font-semibold text-slate-200">Nội dung cảnh quay <span class="text-rose-400">*</span></label>
+                  <span class="text-[11px] text-emerald-400 flex items-center space-x-1">
+                    <i data-lucide="shield-check" class="w-3 h-3"></i>
+                    <span>Đã bật tự động nâng cấp Prompt</span>
+                  </span>
+                </div>
+                <div class="glow-border rounded-xl border border-surface-600 bg-surface-950/90 transition">
+                  <textarea id="video-prompt" rows="4" placeholder="Nhập ý tưởng của bạn (VD: Một phi hành gia bước đi trên hành tinh băng giá, tuyết rơi nhẹ, nhìn thấy phế tích cổ đại phát sáng)..." class="w-full bg-transparent p-3.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none resize-none"></textarea>
+                </div>
+              </div>
+
+              <!-- Aspect Ratio Selector (5 Ratios) -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-200 mb-2">Tỉ lệ khung hình (Aspect Ratio)</label>
+                <div class="grid grid-cols-5 gap-2">
+                  <button type="button" onclick="setVideoRatio('16:9')" id="vratio-16-9" class="vratio-btn border border-indigo-500 bg-indigo-500/20 text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition">
+                    <div class="w-6 h-3.5 border-2 border-current rounded-sm"></div>
+                    <span>16:9</span>
+                  </button>
+                  <button type="button" onclick="setVideoRatio('9:16')" id="vratio-9-16" class="vratio-btn border border-surface-600 bg-surface-900 text-slate-400 hover:text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition">
+                    <div class="w-3.5 h-6 border-2 border-current rounded-sm"></div>
+                    <span>9:16</span>
+                  </button>
+                  <button type="button" onclick="setVideoRatio('1:1')" id="vratio-1-1" class="vratio-btn border border-surface-600 bg-surface-900 text-slate-400 hover:text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition">
+                    <div class="w-4 h-4 border-2 border-current rounded-sm"></div>
+                    <span>1:1</span>
+                  </button>
+                  <button type="button" onclick="setVideoRatio('21:9')" id="vratio-21-9" class="vratio-btn border border-surface-600 bg-surface-900 text-slate-400 hover:text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition">
+                    <div class="w-7 h-3 border-2 border-current rounded-sm"></div>
+                    <span>21:9</span>
+                  </button>
+                  <button type="button" onclick="setVideoRatio('4:3')" id="vratio-4-3" class="vratio-btn border border-surface-600 bg-surface-900 text-slate-400 hover:text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition">
+                    <div class="w-5 h-4 border-2 border-current rounded-sm"></div>
+                    <span>4:3</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Director Style Preset -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-200 mb-2">Phong cách Đạo diễn</label>
+                <div class="flex flex-wrap gap-1.5">
+                  <button type="button" onclick="setVideoStyle('Điện ảnh 4K Hollywood')" id="vstyle-hollywood" class="vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-indigo-500 bg-indigo-500/20 text-white font-semibold transition">🎬 Điện ảnh 4K</button>
+                  <button type="button" onclick="setVideoStyle('Siêu thực tế Photorealistic')" id="vstyle-real" class="vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-surface-600 bg-surface-900 text-slate-300 hover:text-white transition">📷 Siêu thực</button>
+                  <button type="button" onclick="setVideoStyle('Hoạt hình 3D Pixar / Anime')" id="vstyle-anime" class="vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-surface-600 bg-surface-900 text-slate-300 hover:text-white transition">✨ Hoạt hình 3D</button>
+                  <button type="button" onclick="setVideoStyle('Cyberpunk Sci-Fi Neon')" id="vstyle-cyber" class="vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-surface-600 bg-surface-900 text-slate-300 hover:text-white transition">🌆 Cyberpunk</button>
+                  <button type="button" onclick="setVideoStyle('TVC Quảng cáo thương mại')" id="vstyle-tvc" class="vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-surface-600 bg-surface-900 text-slate-300 hover:text-white transition">💎 TVC Quảng cáo</button>
+                </div>
+              </div>
+
+              <!-- Reference Image Upload -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-200 mb-1.5">Ảnh gốc tham chiếu (Tùy chọn — Tạo video từ ảnh)</label>
+                <div id="video-dropzone" class="border-2 border-dashed border-surface-600 hover:border-indigo-500 rounded-xl p-3.5 text-center cursor-pointer transition bg-surface-950/60">
+                  <input type="file" id="video-image-input" accept="image/*" class="hidden" onchange="handleImageUpload(event, 'video')">
+                  <div id="video-image-preview-container" class="hidden relative inline-block">
+                    <img id="video-image-preview" src="" class="h-24 rounded-lg object-cover mx-auto border border-surface-600 shadow">
+                    <button type="button" onclick="removeImage('video')" class="absolute -top-2 -right-2 bg-rose-600 text-white rounded-full p-1 shadow hover:bg-rose-500 transition">
+                      <i data-lucide="x" class="w-3 h-3"></i>
+                    </button>
+                  </div>
+                  <div id="video-upload-prompt" class="flex items-center justify-center space-x-2.5 py-1">
+                    <i data-lucide="image-plus" class="w-5 h-5 text-indigo-400"></i>
+                    <div class="text-left">
+                      <p class="text-xs text-slate-200 font-medium">Kéo thả ảnh nhân vật / bối cảnh hoặc <span class="text-indigo-400 underline">chọn file</span></p>
+                      <p class="text-[10px] text-slate-500">JPG, PNG, WEBP</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Generate Button -->
+              <button id="btn-generate-video" onclick="generateVideo()" class="w-full py-3.5 px-5 rounded-xl font-bold text-sm bg-gradient-to-r from-indigo-600 via-violet-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white shadow-xl shadow-indigo-600/25 flex items-center justify-center space-x-2 transition disabled:opacity-50">
+                <i data-lucide="clapperboard" class="w-4 h-4"></i>
+                <span id="btn-generate-video-text">Sản xuất Video Chuyên Nghiệp</span>
+              </button>
+
+            </div>
+          </div>
+
+          <!-- Right Column: Video Player & Sequential Storyboard -->
+          <div class="lg:col-span-7 space-y-5">
+            <div class="glass-card rounded-2xl p-5 shadow-xl min-h-[520px] flex flex-col justify-between">
+              
+              <!-- Top Player Header -->
+              <div class="flex items-center justify-between pb-3.5 border-b border-white/[0.06]">
+                <div class="flex items-center space-x-2">
+                  <i data-lucide="monitor-play" class="w-4 h-4 text-indigo-400"></i>
+                  <h3 class="font-bold text-sm text-white">Màn hình Đạo diễn (Preview & Storyboard)</h3>
+                </div>
+                <div class="flex items-center space-x-3">
+                  <span id="active-ratio-badge" class="text-[11px] px-2.5 py-0.5 rounded-md bg-surface-800 border border-white/10 text-slate-300 font-semibold">Khung hình: 16:9</span>
+                  <div id="video-timer" class="text-xs text-indigo-300 font-semibold hidden">
+                    ⏱ <span id="timer-seconds" class="font-mono text-white">0</span>s
+                  </div>
+                </div>
+              </div>
+
+              <!-- Center Display Area -->
+              <div class="my-auto py-6 flex flex-col items-center justify-center text-center">
+                
+                <!-- Idle State -->
+                <div id="video-idle-state" class="space-y-3 py-10">
+                  <div class="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto text-indigo-400">
+                    <i data-lucide="film" class="w-8 h-8"></i>
+                  </div>
+                  <div class="max-w-sm">
+                    <h4 class="font-bold text-slate-200 text-sm">Sẵn sàng bấm máy</h4>
+                    <p class="text-xs text-slate-400 mt-1">
+                      Nhập ý tưởng cảnh quay bên trái. HaiAI sẽ tự động bổ sung kỹ thuật ánh sáng, góc máy chuyên nghiệp và âm thanh đồng bộ.
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Loading State -->
+                <div id="video-loading-state" class="hidden space-y-4 max-w-md w-full py-10">
+                  <div class="w-14 h-14 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <div>
+                    <p id="video-progress-text" class="text-sm font-bold text-indigo-300">HaiAI Engine đang dựng bối cảnh và ánh sáng...</p>
+                    <p class="text-xs text-slate-400 mt-1">Quá trình kết xuất video 4K kèm âm thanh thường mất khoảng 1 - 3 phút.</p>
+                  </div>
+                  <div class="w-full bg-surface-950 rounded-full h-2 overflow-hidden border border-white/10">
+                    <div class="bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-400 h-full w-2/3 animate-pulse"></div>
+                  </div>
+                </div>
+
+                <!-- Result Video Player -->
+                <div id="video-result-container" class="hidden w-full space-y-4">
+                  <div class="relative rounded-xl overflow-hidden bg-black border border-white/10 shadow-2xl max-h-[400px] flex items-center justify-center">
+                    <video id="video-player" controls playsinline class="w-full max-h-[400px] object-contain"></video>
+                  </div>
+
+                  <!-- Action Bar under Video -->
+                  <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+                    <button onclick="prepareNextScene()" class="px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold flex items-center space-x-2 shadow-lg shadow-cyan-600/20 transition">
+                      <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                      <span>Tạo cảnh nối tiếp từ video này (Giữ nhân vật & bối cảnh)</span>
+                    </button>
+
+                    <a id="video-download-btn" href="#" download class="px-4 py-2.5 bg-surface-700 hover:bg-surface-600 text-white border border-white/10 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition">
+                      <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                      <span>Tải MP4</span>
+                    </a>
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- Sequential Storyboard Timeline -->
+              <div id="storyboard-container" class="hidden pt-4 border-t border-white/[0.06] space-y-2.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-cyan-300 flex items-center space-x-1.5">
+                    <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+                    <span>Chuỗi cảnh nối tiếp trong phim (Storyboard)</span>
+                  </span>
+                  <span id="storyboard-count" class="text-[11px] text-slate-400">1 cảnh</span>
+                </div>
+                <div id="storyboard-list" class="flex items-center space-x-3 overflow-x-auto pb-1">
+                  <!-- Populated dynamically -->
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 2: IMAGE STUDIO ==================== -->
+      <div id="view-image" class="tab-view hidden max-w-7xl mx-auto space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <!-- Controls -->
+          <div class="lg:col-span-5 space-y-5">
+            <div class="glass-card rounded-2xl p-5 shadow-xl space-y-5">
+              <div class="flex items-center justify-between">
+                <h2 class="font-bold text-base text-white flex items-center space-x-2">
+                  <i data-lucide="palette" class="w-5 h-5 text-purple-400"></i>
+                  <span>Studio Tạo Ảnh Nghệ Thuật</span>
+                </h2>
+                <span class="text-[11px] px-2 py-0.5 rounded bg-purple-500/15 text-purple-300 font-semibold border border-purple-500/30">8K Masterpiece</span>
+              </div>
+
+              <div>
+                <div class="flex items-center justify-between mb-1.5">
+                  <label class="text-xs font-semibold text-slate-200">Ý tưởng bức ảnh <span class="text-rose-400">*</span></label>
+                  <span class="text-[11px] text-purple-400">Tự động tối ưu ánh sáng & chi tiết</span>
+                </div>
+                <div class="glow-border rounded-xl border border-surface-600 bg-surface-950/90 transition">
+                  <textarea id="image-prompt" rows="4" placeholder="Mô tả bức ảnh bạn muốn tạo (VD: Chân dung nữ chiến binh cổ trang dưới rừng hoa anh đào rực rỡ, ánh nắng chiều xuyên qua tán lá)..." class="w-full bg-transparent p-3.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none resize-none"></textarea>
+                </div>
+              </div>
+
+              <!-- Aspect Ratio Selector (5 Ratios) -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-200 mb-2">Tỉ lệ khung hình (Aspect Ratio)</label>
+                <div class="grid grid-cols-5 gap-2">
+                  <button type="button" onclick="setAspectRatio('1:1')" id="ratio-1-1" class="ratio-btn border border-purple-500 bg-purple-500/20 text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition">
+                    <div class="w-4 h-4 border-2 border-current rounded-sm"></div>
+                    <span>1:1</span>
+                  </button>
+                  <button type="button" onclick="setAspectRatio('16:9')" id="ratio-16-9" class="ratio-btn border border-surface-600 bg-surface-900 text-slate-400 hover:text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition">
+                    <div class="w-6 h-3.5 border-2 border-current rounded-sm"></div>
+                    <span>16:9</span>
+                  </button>
+                  <button type="button" onclick="setAspectRatio('9:16')" id="ratio-9-16" class="ratio-btn border border-surface-600 bg-surface-900 text-slate-400 hover:text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition">
+                    <div class="w-3.5 h-6 border-2 border-current rounded-sm"></div>
+                    <span>9:16</span>
+                  </button>
+                  <button type="button" onclick="setAspectRatio('21:9')" id="ratio-21-9" class="ratio-btn border border-surface-600 bg-surface-900 text-slate-400 hover:text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition">
+                    <div class="w-7 h-3 border-2 border-current rounded-sm"></div>
+                    <span>21:9</span>
+                  </button>
+                  <button type="button" onclick="setAspectRatio('4:3')" id="ratio-4-3" class="ratio-btn border border-surface-600 bg-surface-900 text-slate-400 hover:text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition">
+                    <div class="w-5 h-4 border-2 border-current rounded-sm"></div>
+                    <span>4:3</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Reference Image -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-200 mb-1.5">Ảnh mẫu tham chiếu (Tùy chọn)</label>
+                <div id="image-dropzone" class="border-2 border-dashed border-surface-600 hover:border-purple-500 rounded-xl p-3.5 text-center cursor-pointer transition bg-surface-950/60">
+                  <input type="file" id="image-file-input" accept="image/*" class="hidden" onchange="handleImageUpload(event, 'image')">
+                  <div id="image-file-preview-container" class="hidden relative inline-block">
+                    <img id="image-file-preview" src="" class="h-24 rounded-lg object-cover mx-auto border border-surface-600 shadow">
+                    <button type="button" onclick="removeImage('image')" class="absolute -top-2 -right-2 bg-rose-600 text-white rounded-full p-1 shadow hover:bg-rose-500 transition">
+                      <i data-lucide="x" class="w-3 h-3"></i>
+                    </button>
+                  </div>
+                  <div id="image-upload-prompt" class="flex items-center justify-center space-x-2.5 py-1">
+                    <i data-lucide="upload-cloud" class="w-5 h-5 text-purple-400"></i>
+                    <span class="text-xs text-slate-300">Kéo thả ảnh mẫu hoặc <span class="text-purple-400 underline">chọn file</span></span>
+                  </div>
+                </div>
+              </div>
+
+              <button id="btn-generate-image" onclick="generateImage()" class="w-full py-3.5 px-5 rounded-xl font-bold text-sm bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-xl shadow-purple-600/25 flex items-center justify-center space-x-2 transition disabled:opacity-50">
+                <i data-lucide="wand-2" class="w-4 h-4"></i>
+                <span>Khởi tạo Ảnh Chuyên Nghiệp</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Image Output -->
+          <div class="lg:col-span-7">
+            <div class="glass-card rounded-2xl p-5 shadow-xl min-h-[520px] flex flex-col justify-between">
+              <div class="flex items-center justify-between pb-3.5 border-b border-white/[0.06]">
+                <h3 class="font-bold text-sm text-white flex items-center space-x-2">
+                  <i data-lucide="image" class="w-4 h-4 text-purple-400"></i>
+                  <span>Khung hiển thị Ảnh Nghệ Thuật</span>
+                </h3>
+              </div>
+
+              <div class="my-auto py-8 flex flex-col items-center justify-center text-center">
+                <div id="image-idle-state" class="space-y-3">
+                  <div class="w-16 h-16 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mx-auto text-purple-400">
+                    <i data-lucide="image" class="w-8 h-8"></i>
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-slate-200 text-sm">Chưa có ảnh nào</h4>
+                    <p class="text-xs text-slate-400 max-w-sm mt-1">Chọn tỉ lệ khung hình và nhập mô tả để HaiAI vẽ tác phẩm độ phân giải cao</p>
+                  </div>
+                </div>
+
+                <div id="image-loading-state" class="hidden space-y-4 max-w-md w-full">
+                  <div class="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <div>
+                    <p class="text-sm font-bold text-purple-300">HaiAI đang kết xuất ảnh chất lượng cao...</p>
+                    <p class="text-xs text-slate-400 mt-1">Quá trình thường mất 20 - 45 giây.</p>
+                  </div>
+                </div>
+
+                <div id="image-result-container" class="hidden w-full space-y-4">
+                  <div class="rounded-xl overflow-hidden bg-black/50 border border-white/10 shadow-2xl max-h-[420px] flex items-center justify-center">
+                    <img id="image-result" src="" class="max-h-[400px] w-auto object-contain">
+                  </div>
+                  <div class="flex items-center justify-between pt-1">
+                    <button onclick="useImageForVideo()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 transition">
+                      <i data-lucide="clapperboard" class="w-3.5 h-3.5"></i>
+                      <span>Chuyển sang Tạo Video</span>
+                    </button>
+                    <a id="image-download-btn" href="#" download class="px-4 py-2 bg-surface-700 hover:bg-surface-600 text-white border border-white/10 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition">
+                      <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                      <span>Tải Ảnh Gốc</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 3: CHAT STUDIO ==================== -->
+      <div id="view-chat" class="tab-view hidden max-w-5xl mx-auto">
+        <div class="glass-card rounded-2xl shadow-xl flex flex-col h-[calc(100vh-140px)] overflow-hidden">
+          
+          <div class="p-4 border-b border-white/[0.06] flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <div class="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                <i data-lucide="sparkles" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-sm text-white">Trợ lý Đạo diễn & Biên kịch HaiAI</h3>
+                <p class="text-[11px] text-slate-400">Hỗ trợ viết phân cảnh phim nối tiếp, lên ý tưởng kịch bản và tư vấn sáng tạo</p>
+              </div>
+            </div>
+            <button onclick="clearChat()" class="text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-lg bg-surface-800 border border-white/10 transition">
+              Làm mới hội thoại
+            </button>
+          </div>
+
+          <div id="chat-messages" class="flex-1 overflow-y-auto p-5 space-y-4">
+            <div class="flex items-start space-x-3">
+              <div class="w-8 h-8 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/30">
+                <i data-lucide="sparkles" class="w-4 h-4"></i>
+              </div>
+              <div class="bg-surface-800 border border-white/[0.06] rounded-2xl rounded-tl-none p-4 max-w-2xl text-sm text-slate-200 leading-relaxed">
+                Xin chào! Tôi là <b>HaiAI Assistant</b>. Bạn muốn tôi viết kịch bản gồm nhiều cảnh nối tiếp hay gợi ý ý tưởng quay video hôm nay?
+              </div>
+            </div>
+          </div>
+
+          <div class="p-4 border-t border-white/[0.06] bg-surface-950/60">
+            <form onsubmit="sendChatMessage(event)" class="flex items-center space-x-2.5">
+              <input type="text" id="chat-input" placeholder="Nhập yêu cầu cho HaiAI (VD: Viết kịch bản 3 cảnh nối tiếp về chú mèo phiêu lưu trong rừng phép thuật)..." class="flex-1 bg-surface-800 border border-surface-600 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition">
+              <button type="submit" id="btn-send-chat" class="px-5 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-bold text-xs shadow-lg transition flex items-center space-x-1.5 shrink-0">
+                <span>Gửi</span>
+                <i data-lucide="send" class="w-3.5 h-3.5"></i>
+              </button>
+            </form>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 4: GALLERY ==================== -->
+      <div id="view-gallery" class="tab-view hidden max-w-7xl mx-auto space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="font-bold text-lg text-white">Thư viện Tác phẩm HaiAI</h2>
+            <p class="text-xs text-slate-400">Quản lý toàn bộ video và hình ảnh đã xuất bản</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button onclick="filterGallery('all')" id="gfilter-all" class="gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white">Tất cả</button>
+            <button onclick="filterGallery('video')" id="gfilter-video" class="gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-800 text-slate-300 hover:text-white">Video</button>
+            <button onclick="filterGallery('image')" id="gfilter-image" class="gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-800 text-slate-300 hover:text-white">Hình ảnh</button>
+            <button onclick="loadGallery()" class="p-1.5 bg-surface-800 hover:bg-surface-700 text-slate-200 rounded-lg border border-white/10 transition" title="Làm mới">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+    </main>
+  </div>
 
   <!-- AUTH OTP MODAL -->
-  <div id="auth-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="bg-surface-800 border border-surface-700 rounded-2xl max-w-md w-full p-6 shadow-2xl relative space-y-5">
-      
-      <!-- Close button -->
+  <div id="auth-modal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-surface-800 border border-white/10 rounded-2xl max-w-md w-full p-6 shadow-2xl relative space-y-5">
       <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
         <i data-lucide="x" class="w-5 h-5"></i>
       </button>
 
-      <!-- Modal Header -->
       <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center">
-          <i data-lucide="lock" class="w-5 h-5"></i>
+        <div class="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center">
+          <i data-lucide="shield-check" class="w-5 h-5"></i>
         </div>
         <div>
-          <h3 class="font-bold text-base text-white">Xác thực tài khoản Muse.ai</h3>
-          <p class="text-xs text-slate-400">Đăng nhập qua mã OTP gửi về Email</p>
+          <h3 class="font-bold text-base text-white">Kết nối tài khoản HaiAI Cloud</h3>
+          <p class="text-xs text-slate-400">Xác thực nhanh bằng mã OTP qua Email</p>
         </div>
       </div>
 
-      <!-- Notice Box -->
       <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300 flex items-start space-x-2">
-        <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5"></i>
-        <span><b>Bắt buộc:</b> Bạn hãy bật VPN Mỹ trên máy tính trước khi bấm gửi mã để máy chủ Muse không chặn yêu cầu.</span>
+        <i data-lucide="globe" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5"></i>
+        <span><b>Lưu ý:</b> Hãy bật VPN sang Mỹ (US) trên máy tính trước khi bấm gửi mã OTP.</span>
       </div>
 
-      <!-- Step 1: Input Email -->
       <div id="otp-step-1" class="space-y-4">
         <div>
-          <label class="block text-xs font-medium text-slate-300 mb-1">Email đăng ký Muse.ai</label>
-          <input type="email" id="auth-email-input" placeholder="nhap_email_cua_ban@gmail.com" class="w-full bg-surface-900 border border-surface-700 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition">
+          <label class="block text-xs font-medium text-slate-300 mb-1">Email tài khoản</label>
+          <input type="email" id="auth-email-input" placeholder="nhap_email_cua_ban@gmail.com" class="w-full bg-surface-950 border border-surface-600 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition">
         </div>
-
-        <button onclick="requestOtp()" id="btn-request-otp" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold shadow transition flex items-center justify-center space-x-2">
-          <span>Gửi mã OTP về Email</span>
+        <button onclick="requestOtp()" id="btn-request-otp" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold shadow transition flex items-center justify-center space-x-2">
+          <span>Gửi mã xác thực OTP</span>
         </button>
       </div>
 
-      <!-- Step 2: Input OTP -->
       <div id="otp-step-2" class="space-y-4 hidden">
         <div>
-          <label class="block text-xs font-medium text-slate-300 mb-1">Mã xác thực OTP (6 chữ số)</label>
-          <input type="text" id="auth-otp-input" maxlength="8" placeholder="123456" class="w-full bg-surface-900 border border-surface-700 rounded-xl px-3.5 py-2.5 text-center text-lg font-mono tracking-widest text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 transition">
-          <p class="text-[11px] text-slate-400 mt-1">Kiểm tra hộp thư đến hoặc mục Spam của email.</p>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Mã OTP (6 chữ số trong Email)</label>
+          <input type="text" id="auth-otp-input" maxlength="8" placeholder="123456" class="w-full bg-surface-950 border border-surface-600 rounded-xl px-3.5 py-2.5 text-center text-lg font-mono tracking-widest text-white focus:outline-none focus:border-indigo-500 transition">
         </div>
-
         <div class="flex items-center space-x-2">
           <button onclick="backToStep1()" class="py-2.5 px-3 bg-surface-700 hover:bg-surface-600 text-slate-300 rounded-xl text-xs font-medium transition">
-            Gửi lại
+            Quay lại
           </button>
-          <button onclick="verifyOtp()" id="btn-verify-otp" class="flex-1 py-2.5 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold shadow transition flex items-center justify-center space-x-2">
-            <span>Xác nhận & Hoàn tất</span>
+          <button onclick="verifyOtp()" id="btn-verify-otp" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold shadow transition flex items-center justify-center space-x-2">
+            <span>Xác nhận & Kết nối</span>
           </button>
         </div>
       </div>
 
-      <!-- Error / Status Message in Modal -->
       <div id="modal-msg" class="hidden p-3 rounded-xl text-xs font-medium"></div>
-
     </div>
   </div>
 
-  <!-- App JavaScript -->
   <script src="/static/app.js"></script>
   <script>
     lucide.createIcons();
