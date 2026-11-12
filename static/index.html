@@ -146,7 +146,7 @@
               <div id="sidebar-add-bar" class="bg-slate-600 h-full rounded-full transition-all duration-500" style="width: 0%;"></div>
             </div>
             <div class="flex items-center justify-between text-[10px] text-slate-400">
-              <span id="sidebar-tokens-left" class="text-cyan-300 font-semibold">(còn 1 tỷ token)</span>
+              <span id="sidebar-tokens-left" class="text-cyan-300 font-semibold">(Còn 1 tỷ token)</span>
               <span id="sidebar-add-sub">Không bao giờ hết hạn</span>
             </div>
           </div>
@@ -279,7 +279,7 @@
                   <i data-lucide="coins" class="w-4 h-4 text-cyan-400"></i>
                   <span id="usage-add-name">Token bổ sung</span>
                 </span>
-                <span id="usage-add-tokens" class="font-bold text-slate-200">Đã dùng 0% (còn 1 tỷ token)</span>
+                <span id="usage-add-tokens" class="font-bold text-slate-200">Đã dùng 0% (Còn 1 tỷ token)</span>
               </div>
               <div class="flex items-center justify-between text-xs text-slate-400">
                 <span id="usage-add-subtitle">Không bao giờ hết hạn</span>
@@ -497,7 +497,7 @@
                   <div id="video-upload-prompt" class="flex items-center justify-center space-x-2.5 py-1">
                     <i data-lucide="image-plus" class="w-5 h-5 text-indigo-400"></i>
                     <div class="text-left">
-                      <p class="text-xs text-slate-200 font-medium">Kéo thả ảnh nhân vật / bối cảnh hoặc <span class="text-indigo-400 underline">chọn file</span></p>
+                      <p class="text-xs text-slate-200 font-medium">Kéo thả ảnh, bấm <kbd class="px-1.5 py-0.5 rounded bg-surface-800 border border-white/20 text-indigo-300 font-mono font-bold text-[10px]">Ctrl + V</kbd> hoặc <span class="text-indigo-400 underline">chọn file</span></p>
                       <p class="text-[10px] text-slate-500">JPG, PNG, WEBP</p>
                     </div>
                   </div>
@@ -666,7 +666,7 @@
                   </div>
                   <div id="image-upload-prompt" class="flex items-center justify-center space-x-2.5 py-1">
                     <i data-lucide="upload-cloud" class="w-5 h-5 text-purple-400"></i>
-                    <span class="text-xs text-slate-300">Kéo thả ảnh mẫu hoặc <span class="text-purple-400 underline">chọn file</span></span>
+                    <span class="text-xs text-slate-300">Kéo thả ảnh mẫu, bấm <kbd class="px-1.5 py-0.5 rounded bg-surface-800 border border-white/20 text-purple-300 font-mono font-bold text-[10px]">Ctrl + V</kbd> hoặc <span class="text-purple-400 underline">chọn file</span></span>
                   </div>
                 </div>
               </div>
@@ -848,6 +848,9 @@
       <div id="modal-msg" class="hidden p-3 rounded-xl text-xs font-medium"></div>
     </div>
   </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
   <script src="/static/app.js"></script>
   <script>

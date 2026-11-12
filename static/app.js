@@ -217,11 +217,16 @@ async function checkAuthStatus() {
       const uFreeBar = document.getElementById('usage-free-bar');
       if (uFreeBar) uFreeBar.style.width = `${free.used_percent || 0}%`;
 
+      const formatCapitalCon = (str) => {
+        if (!str) return str;
+        return str.replace(/\(còn/g, '(Còn').replace(/\bcòn\b/g, 'Còn');
+      };
+
       const uAddName = document.getElementById('usage-add-name');
       if (uAddName && add.name) uAddName.innerText = add.name;
 
       const uAddTokens = document.getElementById('usage-add-tokens');
-      if (uAddTokens) uAddTokens.innerText = add.label || 'Đã dùng 0% (còn 1 tỷ token)';
+      if (uAddTokens) uAddTokens.innerText = formatCapitalCon(add.label) || 'Đã dùng 0% (Còn 1 tỷ token)';
 
       const uAddSub = document.getElementById('usage-add-subtitle');
       if (uAddSub) uAddSub.innerText = add.subtitle || 'Không bao giờ hết hạn';
@@ -251,8 +256,17 @@ async function checkAuthStatus() {
       const sAddPercent = document.getElementById('sidebar-add-percent');
       if (sAddPercent) sAddPercent.innerText = `Đã dùng ${add.used_percent || 0}%`;
 
+      let formattedLeft = '(Còn 1 tỷ token)';
+      if (add.tokens_left) {
+        let clean = formatCapitalCon(add.tokens_left);
+        if (clean.includes('(')) {
+          formattedLeft = `(${clean.split('(')[1]}`;
+        } else {
+          formattedLeft = clean.startsWith('Còn') ? `(${clean})` : clean;
+        }
+      }
       const sTokensLeft = document.getElementById('sidebar-tokens-left');
-      if (sTokensLeft) sTokensLeft.innerText = add.tokens_left ? (add.tokens_left.includes('còn') ? `(${add.tokens_left.split('(')[1] || add.tokens_left}` : add.tokens_left) : '(còn 1 tỷ token)';
+      if (sTokensLeft) sTokensLeft.innerText = formattedLeft;
 
       const sAddBar = document.getElementById('sidebar-add-bar');
       if (sAddBar) sAddBar.style.width = `${add.used_percent || 0}%`;
@@ -573,6 +587,72 @@ function removeImage(type) {
     document.getElementById('image-file-input').value = '';
     document.getElementById('image-file-preview-container').classList.add('hidden');
     document.getElementById('image-upload-prompt').classList.remove('hidden');
+  }
+}
+
+// Toast Notification
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  toast.className = 'glass-card border border-indigo-500/40 text-white shadow-2xl px-4 py-3 rounded-xl flex items-center space-x-2.5 text-xs font-semibold backdrop-blur-md transition-all duration-300 transform translate-y-2 opacity-0 pointer-events-auto bg-surface-800/95';
+  toast.innerHTML = `
+    <span class="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+      <i data-lucide="clipboard-check" class="w-4 h-4"></i>
+    </span>
+    <span class="text-slate-100">${message}</span>
+  `;
+  container.appendChild(toast);
+  lucide.createIcons();
+
+  requestAnimationFrame(() => {
+    toast.classList.remove('translate-y-2', 'opacity-0');
+  });
+
+  setTimeout(() => {
+    toast.classList.add('opacity-0', 'translate-y-2');
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+}
+
+// Global Ctrl + V Image Paste Handler
+window.addEventListener('paste', handleGlobalPaste);
+
+function handleGlobalPaste(event) {
+  const items = (event.clipboardData || event.originalEvent?.clipboardData)?.items;
+  if (!items) return;
+
+  for (const item of items) {
+    if (item.type && item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (!file) continue;
+
+      event.preventDefault();
+
+      let targetType = 'video';
+      if (state.currentTab === 'image') {
+        targetType = 'image';
+      } else if (state.currentTab === 'video') {
+        targetType = 'video';
+      } else {
+        targetType = 'video';
+        switchTab('video');
+      }
+
+      // Flash target dropzone border to give instant visual indicator
+      const dropzone = document.getElementById(`${targetType}-dropzone`);
+      if (dropzone) {
+        dropzone.classList.add('border-indigo-400', 'bg-indigo-500/20');
+        setTimeout(() => {
+          dropzone.classList.remove('border-indigo-400', 'bg-indigo-500/20');
+        }, 1000);
+      }
+
+      showToast(`Đã nhận diện và dán ảnh từ Clipboard vào ${targetType === 'video' ? 'Tạo Video' : 'Tạo Ảnh'}!`);
+      uploadReferenceImage(file, targetType);
+      break;
+    }
   }
 }
 

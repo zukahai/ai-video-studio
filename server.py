@@ -361,6 +361,9 @@ async def auth_status():
         tier_obj = live_sub.get("tier") or {}
         tier_name = str(tier_obj.get("name") or "HaiAI Miễn phí").replace("Muse", "HaiAI")
 
+        raw_topup_label = str(live_sub.get("topupRowValueLabel") or "Đã dùng 0% (Còn 1 tỷ token)")
+        topup_capitalized = raw_topup_label.replace("(còn", "(Còn").replace(" còn ", " Còn ")
+
         usage_data = {
             "tier_name": tier_name,
             "free_plan": {
@@ -373,8 +376,8 @@ async def auth_status():
             "additional_tokens": {
                 "name": live_sub.get("topupRowLabel") or "Token bổ sung",
                 "used_percent": 0,
-                "label": live_sub.get("topupRowValueLabel") or "Đã dùng 0% (còn 1 tỷ token)",
-                "tokens_left": live_sub.get("topupRowValueLabel") or "còn 1 tỷ token",
+                "label": topup_capitalized,
+                "tokens_left": topup_capitalized,
                 "subtitle": "Không bao giờ hết hạn",
                 "topup_balance": live_sub.get("topupBalance", 0),
                 "topup_total": live_sub.get("topupTotal", 0),
@@ -394,8 +397,8 @@ async def auth_status():
             "additional_tokens": {
                 "name": "Token bổ sung",
                 "used_percent": 0,
-                "label": "Đã dùng 0% (còn 1 tỷ token)",
-                "tokens_left": "còn 1 tỷ token",
+                "label": "Đã dùng 0% (Còn 1 tỷ token)",
+                "tokens_left": "Còn 1 tỷ token",
                 "subtitle": "Không bao giờ hết hạn",
             },
             "cta_label": "Nâng cấp",
