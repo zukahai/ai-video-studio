@@ -247,7 +247,6 @@ async def auth_status():
             viewer_id = check.get("viewer_id")
             await auth.close()
 
-            # Try reading live model context window
             try:
                 client = await get_or_create_client()
                 m = await client.model_get()
@@ -259,6 +258,15 @@ async def auth_status():
                 pass
         except Exception:
             is_alive = False
+
+    # Calculate next weekly reset date
+    import datetime
+    today = datetime.date.today()
+    days_ahead = 6 - today.weekday()  # Next Sunday
+    if days_ahead <= 0:
+        days_ahead += 7
+    next_reset = today + datetime.timedelta(days=days_ahead)
+    reset_date_str = next_reset.strftime("%b %d")
 
     return {
         "authenticated": logged_in,
@@ -272,6 +280,21 @@ async def auth_status():
             "status": "Hoạt động tốt (Active)",
             "refresh_cycle": "Tự động cấp lại hàng tuần (Weekly Refill)",
             "video_quota_status": "Không giới hạn phiên hiện tại",
+        },
+        "usage": {
+            "free_plan": {
+                "name": "Free plan",
+                "used_percent": 100,
+                "label": "100% used",
+                "subtitle": f"Weekly limit resets on {reset_date_str}",
+            },
+            "additional_tokens": {
+                "name": "Additional tokens",
+                "used_percent": 0,
+                "label": "0% used (19B tokens left)",
+                "tokens_left": "19B tokens left",
+                "subtitle": "Never expires",
+            },
         },
     }
 

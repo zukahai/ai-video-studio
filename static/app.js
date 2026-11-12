@@ -104,9 +104,6 @@ async function checkAuthStatus() {
     const headerTokens = document.getElementById('header-quota-tokens');
     if (headerTokens) headerTokens.innerText = tokens;
 
-    const sidebarTokens = document.getElementById('sidebar-quota-tokens');
-    if (sidebarTokens) sidebarTokens.innerText = tokens;
-
     const statTokens = document.getElementById('stat-tokens');
     if (statTokens) statTokens.innerText = tokens;
 
@@ -116,10 +113,45 @@ async function checkAuthStatus() {
       viewerIdEl.title = `Viewer ID: ${data.viewer_id}`;
     }
 
-    const quotaStatusEl = document.getElementById('sidebar-quota-status');
-    if (quotaStatusEl) {
-      quotaStatusEl.innerText = state.authenticated ? 'Sẵn sàng' : 'Chưa kết nối';
-      quotaStatusEl.className = state.authenticated ? 'font-semibold text-emerald-400' : 'font-semibold text-amber-400';
+    // Update Usage Component (Free plan & Additional tokens)
+    if (data.usage) {
+      const free = data.usage.free_plan || {};
+      const add = data.usage.additional_tokens || {};
+
+      // Dashboard Usage Card
+      const uFreePercent = document.getElementById('usage-free-percent');
+      if (uFreePercent) uFreePercent.innerText = free.label || `${free.used_percent || 100}% used`;
+
+      const uFreeReset = document.getElementById('usage-free-reset');
+      if (uFreeReset) uFreeReset.innerText = free.subtitle || 'Weekly limit resets soon';
+
+      const uFreeBar = document.getElementById('usage-free-bar');
+      if (uFreeBar) uFreeBar.style.width = `${free.used_percent || 100}%`;
+
+      const uAddTokens = document.getElementById('usage-add-tokens');
+      if (uAddTokens) uAddTokens.innerText = add.label || '0% used (19B tokens left)';
+
+      const uAddBar = document.getElementById('usage-add-bar');
+      if (uAddBar) uAddBar.style.width = `${add.used_percent || 0}%`;
+
+      // Sidebar Mini Usage
+      const sFreePercent = document.getElementById('sidebar-free-percent');
+      if (sFreePercent) sFreePercent.innerText = free.label || '100% used';
+
+      const sFreeReset = document.getElementById('sidebar-free-reset');
+      if (sFreeReset) sFreeReset.innerText = free.subtitle || 'Weekly limit resets soon';
+
+      const sFreeBar = document.getElementById('sidebar-free-bar');
+      if (sFreeBar) sFreeBar.style.width = `${free.used_percent || 100}%`;
+
+      const sAddPercent = document.getElementById('sidebar-add-percent');
+      if (sAddPercent) sAddPercent.innerText = `${add.used_percent || 0}% used`;
+
+      const sTokensLeft = document.getElementById('sidebar-tokens-left');
+      if (sTokensLeft) sTokensLeft.innerText = add.tokens_left || '19B tokens left';
+
+      const sAddBar = document.getElementById('sidebar-add-bar');
+      if (sAddBar) sAddBar.style.width = `${add.used_percent || 0}%`;
     }
 
     if (state.authenticated) {
