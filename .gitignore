@@ -1,0 +1,38 @@
+# Muse Session & Private Credentials (NEVER COMMIT)
+.muse-state/
+**/cookies.json
+**/device.json
+**/email.txt
+*.session
+
+# Python Virtual Environments & Cache
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+.pytest_cache/
+
+# Generated Media & User Uploads
+outputs/
+uploads/
+*.mp4
+*.webm
+*.mov
+
+# Environment Variables & Secrets
+.env
+.env.*
+
+# IDE & OS Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
