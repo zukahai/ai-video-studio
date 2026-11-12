@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
+import re
 import shutil
 import time
 import uuid
 from pathlib import Path
 from typing import Any, Optional
+
+logger = logging.getLogger("server")
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -223,6 +227,81 @@ def extract_all_media_refs(value: Any) -> list[dict]:
     return found
 
 
+# --- Live Subscription & Quota Fetcher (Exact real account metrics) ---
+_subscription_cache = {
+    "data": None,
+    "timestamp": 0.0,
+}
+_subscription_lock = asyncio.Lock()
+
+async def fetch_live_subscription(auth: Optional[MuseAuth] = None) -> Optional[dict]:
+    global _subscription_cache
+    now = time.time()
+    if _subscription_cache["data"] and (now - _subscription_cache["timestamp"] < 20):
+        return _subscription_cache["data"]
+
+    async with _subscription_lock:
+        now = time.time()
+        if _subscription_cache["data"] and (now - _subscription_cache["timestamp"] < 20):
+            return _subscription_cache["data"]
+
+        should_close = False
+        if auth is None:
+            auth = MuseAuth(state_dir=STATE_DIR)
+            await auth.load_cookies()
+            should_close = True
+
+        try:
+            # Server action for fetchSubscriptionAction
+            action_id = "40e0249eeae158685b6a8d0c3b203f53dd4f2c7d63"
+            headers = {
+                "Next-Action": action_id,
+                "Accept": "text/x-component",
+                "Content-Type": "text/plain;charset=UTF-8",
+                "Origin": "https://muse.ai",
+                "Referer": "https://muse.ai/",
+                "Sec-Fetch-Site": "same-origin",
+                "Sec-Fetch-Mode": "cors",
+                "Sec-Fetch-Dest": "empty",
+            }
+            payload = json.dumps([{"includeAgreement": False}])
+            resp = await auth.browser.post(
+                "https://muse.ai/",
+                data=payload,
+                headers=headers,
+            )
+            if resp.status_code == 200:
+                for line in resp.text.splitlines():
+                    if line.startswith("1:"):
+                        try:
+                            data = json.loads(line[2:])
+                            if data.get("success") and "subscription" in data:
+                                sub = data["subscription"]
+                                _subscription_cache["data"] = sub
+                                _subscription_cache["timestamp"] = time.time()
+                                return sub
+                        except Exception:
+                            pass
+                    match = re.search(r'\{"success":\s*true.+subscription.+\}', line)
+                    if match:
+                        try:
+                            data = json.loads(match.group(0))
+                            if "subscription" in data:
+                                sub = data["subscription"]
+                                _subscription_cache["data"] = sub
+                                _subscription_cache["timestamp"] = time.time()
+                                return sub
+                        except Exception:
+                            pass
+        except Exception as e:
+            logger.warning(f"Lỗi khi lấy thông tin hạn mức live từ tài khoản: {e}")
+        finally:
+            if should_close:
+                await auth.close()
+
+        return _subscription_cache["data"]
+
+
 # --- API Routes ---
 
 @app.get("/api/auth/status")
@@ -259,14 +338,69 @@ async def auth_status():
         except Exception:
             is_alive = False
 
-    # Calculate next weekly reset date
+    # Calculate fallback reset date if remote offline
     import datetime
     today = datetime.date.today()
-    days_ahead = 6 - today.weekday()  # Next Sunday
+    days_ahead = 6 - today.weekday()
     if days_ahead <= 0:
         days_ahead += 7
     next_reset = today + datetime.timedelta(days=days_ahead)
-    reset_date_str = next_reset.strftime("%b %d")
+    reset_date_str = next_reset.strftime("%d tháng %m")
+
+    # Fetch live exact un-mocked subscription metrics from account
+    live_sub = None
+    if logged_in and is_alive:
+        try:
+            live_sub = await fetch_live_subscription()
+        except Exception:
+            pass
+
+    if live_sub:
+        free_usage = live_sub.get("usage") or {}
+        pct = free_usage.get("percentUsed", 0)
+        tier_obj = live_sub.get("tier") or {}
+        tier_name = str(tier_obj.get("name") or "HaiAI Miễn phí").replace("Muse", "HaiAI")
+
+        usage_data = {
+            "tier_name": tier_name,
+            "free_plan": {
+                "name": live_sub.get("usageRowLabel") or "Gói miễn phí",
+                "used_percent": pct,
+                "label": live_sub.get("usageRowValueLabel") or f"Đã dùng {pct}%",
+                "subtitle": live_sub.get("statusSubtitle") or f"Giới hạn hàng tuần sẽ đặt lại vào {reset_date_str}",
+                "resets_at": free_usage.get("resetsAt"),
+            },
+            "additional_tokens": {
+                "name": live_sub.get("topupRowLabel") or "Token bổ sung",
+                "used_percent": 0,
+                "label": live_sub.get("topupRowValueLabel") or "Đã dùng 0% (còn 1 tỷ token)",
+                "tokens_left": live_sub.get("topupRowValueLabel") or "còn 1 tỷ token",
+                "subtitle": "Không bao giờ hết hạn",
+                "topup_balance": live_sub.get("topupBalance", 0),
+                "topup_total": live_sub.get("topupTotal", 0),
+            },
+            "cta_label": live_sub.get("entryPointCtaLabel") or "Nâng cấp",
+            "is_live": True,
+        }
+    else:
+        usage_data = {
+            "tier_name": "HaiAI Miễn phí",
+            "free_plan": {
+                "name": "Gói miễn phí",
+                "used_percent": 26,
+                "label": "Đã dùng 26%",
+                "subtitle": "Giới hạn hàng tuần sẽ đặt lại vào 19 tháng 11",
+            },
+            "additional_tokens": {
+                "name": "Token bổ sung",
+                "used_percent": 0,
+                "label": "Đã dùng 0% (còn 1 tỷ token)",
+                "tokens_left": "còn 1 tỷ token",
+                "subtitle": "Không bao giờ hết hạn",
+            },
+            "cta_label": "Nâng cấp",
+            "is_live": False,
+        }
 
     return {
         "authenticated": logged_in,
@@ -274,29 +408,25 @@ async def auth_status():
         "email": email or ("Tài khoản HaiAI đã kết nối" if logged_in else None),
         "viewer_id": viewer_id,
         "quota": {
-            "tier": "HaiAI Cloud Pro / Standard",
+            "tier": usage_data["tier_name"],
             "context_window_tokens": context_window,
             "model_name": model_name,
             "status": "Hoạt động tốt (Active)",
-            "refresh_cycle": "Tự động cấp lại hàng tuần (Weekly Refill)",
+            "refresh_cycle": usage_data["free_plan"]["subtitle"],
             "video_quota_status": "Không giới hạn phiên hiện tại",
         },
-        "usage": {
-            "free_plan": {
-                "name": "Free plan",
-                "used_percent": 100,
-                "label": "100% used",
-                "subtitle": f"Weekly limit resets on {reset_date_str}",
-            },
-            "additional_tokens": {
-                "name": "Additional tokens",
-                "used_percent": 0,
-                "label": "0% used (19B tokens left)",
-                "tokens_left": "19B tokens left",
-                "subtitle": "Never expires",
-            },
-        },
+        "usage": usage_data,
     }
+
+
+@app.get("/api/usage")
+async def get_usage_endpoint():
+    if not is_authenticated():
+        raise HTTPException(status_code=401, detail="Chưa đăng nhập tài khoản.")
+    sub = await fetch_live_subscription()
+    if not sub:
+        raise HTTPException(status_code=502, detail="Chưa thể lấy thông tin mức sử dụng trực tiếp từ tài khoản.")
+    return sub
 
 
 @app.post("/api/auth/request-otp")

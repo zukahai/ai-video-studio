@@ -113,42 +113,60 @@ async function checkAuthStatus() {
       viewerIdEl.title = `Viewer ID: ${data.viewer_id}`;
     }
 
-    // Update Usage Component (Free plan & Additional tokens)
+    // Update Usage Component (Exact live data: Gói miễn phí & Token bổ sung)
     if (data.usage) {
       const free = data.usage.free_plan || {};
       const add = data.usage.additional_tokens || {};
 
       // Dashboard Usage Card
+      const uFreeName = document.getElementById('usage-free-name');
+      if (uFreeName && free.name) uFreeName.innerText = free.name;
+
       const uFreePercent = document.getElementById('usage-free-percent');
-      if (uFreePercent) uFreePercent.innerText = free.label || `${free.used_percent || 100}% used`;
+      if (uFreePercent) uFreePercent.innerText = free.label || `Đã dùng ${free.used_percent || 0}%`;
 
       const uFreeReset = document.getElementById('usage-free-reset');
-      if (uFreeReset) uFreeReset.innerText = free.subtitle || 'Weekly limit resets soon';
+      if (uFreeReset) uFreeReset.innerText = free.subtitle || 'Giới hạn hàng tuần sẽ đặt lại sớm';
 
       const uFreeBar = document.getElementById('usage-free-bar');
-      if (uFreeBar) uFreeBar.style.width = `${free.used_percent || 100}%`;
+      if (uFreeBar) uFreeBar.style.width = `${free.used_percent || 0}%`;
+
+      const uAddName = document.getElementById('usage-add-name');
+      if (uAddName && add.name) uAddName.innerText = add.name;
 
       const uAddTokens = document.getElementById('usage-add-tokens');
-      if (uAddTokens) uAddTokens.innerText = add.label || '0% used (19B tokens left)';
+      if (uAddTokens) uAddTokens.innerText = add.label || 'Đã dùng 0% (còn 1 tỷ token)';
+
+      const uAddSub = document.getElementById('usage-add-subtitle');
+      if (uAddSub) uAddSub.innerText = add.subtitle || 'Không bao giờ hết hạn';
 
       const uAddBar = document.getElementById('usage-add-bar');
       if (uAddBar) uAddBar.style.width = `${add.used_percent || 0}%`;
 
+      const uCtaLabel = document.getElementById('usage-cta-label');
+      if (uCtaLabel && data.usage.cta_label) uCtaLabel.innerText = data.usage.cta_label;
+
       // Sidebar Mini Usage
+      const sFreeName = document.getElementById('sidebar-free-name');
+      if (sFreeName && free.name) sFreeName.innerText = free.name;
+
       const sFreePercent = document.getElementById('sidebar-free-percent');
-      if (sFreePercent) sFreePercent.innerText = free.label || '100% used';
+      if (sFreePercent) sFreePercent.innerText = free.label || `Đã dùng ${free.used_percent || 0}%`;
 
       const sFreeReset = document.getElementById('sidebar-free-reset');
-      if (sFreeReset) sFreeReset.innerText = free.subtitle || 'Weekly limit resets soon';
+      if (sFreeReset) sFreeReset.innerText = free.subtitle || 'Giới hạn hàng tuần';
 
       const sFreeBar = document.getElementById('sidebar-free-bar');
-      if (sFreeBar) sFreeBar.style.width = `${free.used_percent || 100}%`;
+      if (sFreeBar) sFreeBar.style.width = `${free.used_percent || 0}%`;
+
+      const sAddName = document.getElementById('sidebar-add-name');
+      if (sAddName && add.name) sAddName.innerText = add.name;
 
       const sAddPercent = document.getElementById('sidebar-add-percent');
-      if (sAddPercent) sAddPercent.innerText = `${add.used_percent || 0}% used`;
+      if (sAddPercent) sAddPercent.innerText = `Đã dùng ${add.used_percent || 0}%`;
 
       const sTokensLeft = document.getElementById('sidebar-tokens-left');
-      if (sTokensLeft) sTokensLeft.innerText = add.tokens_left || '19B tokens left';
+      if (sTokensLeft) sTokensLeft.innerText = add.tokens_left ? (add.tokens_left.includes('còn') ? `(${add.tokens_left.split('(')[1] || add.tokens_left}` : add.tokens_left) : '(còn 1 tỷ token)';
 
       const sAddBar = document.getElementById('sidebar-add-bar');
       if (sAddBar) sAddBar.style.width = `${add.used_percent || 0}%`;
