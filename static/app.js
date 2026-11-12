@@ -31,13 +31,95 @@ const TAB_TITLES = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+  restoreFromUrlParams();
   checkAuthStatus();
   setupDropzones();
   loadDashboardAndGallery();
 });
 
+window.addEventListener('popstate', () => {
+  restoreFromUrlParams();
+});
+
+// Update URL parameters without reloading
+function updateUrlParams() {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', state.currentTab);
+
+    if (state.currentTab === 'video') {
+      url.searchParams.set('mode', state.isContinuation ? 'seq' : 'single');
+      if (state.videoRatio) url.searchParams.set('ratio', state.videoRatio);
+      if (state.videoStyle) url.searchParams.set('style', state.videoStyle);
+    } else if (state.currentTab === 'image') {
+      if (state.aspectRatio) url.searchParams.set('ratio', state.aspectRatio);
+      url.searchParams.delete('mode');
+      url.searchParams.delete('style');
+    } else {
+      url.searchParams.delete('mode');
+      url.searchParams.delete('ratio');
+      url.searchParams.delete('style');
+    }
+
+    window.history.replaceState({}, '', url.pathname + url.search);
+    localStorage.setItem('haiai_last_tab', state.currentTab);
+  } catch (err) {
+    console.warn('Lỗi lưu URL params:', err);
+  }
+}
+
+// Restore active tab and options from URL or localStorage
+function restoreFromUrlParams() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const hash = (window.location.hash || '').replace('#', '').trim();
+    
+    // 1. Tab parameter
+    let targetTab = params.get('tab') || hash;
+    if (!targetTab || !TAB_TITLES[targetTab]) {
+      const savedTab = localStorage.getItem('haiai_last_tab');
+      if (savedTab && TAB_TITLES[savedTab]) {
+        targetTab = savedTab;
+      }
+    }
+    if (!targetTab || !TAB_TITLES[targetTab]) {
+      targetTab = 'dashboard';
+    }
+
+    // 2. Mode parameter
+    const mode = params.get('mode');
+    if (mode === 'seq' || mode === 'sequential') {
+      setVideoMode(true, false);
+    } else if (mode === 'single') {
+      setVideoMode(false, false);
+    }
+
+    // 3. Ratio parameter
+    const ratio = params.get('ratio') || params.get('aspect');
+    if (ratio && ['16:9', '9:16', '1:1', '21:9', '4:3'].includes(ratio)) {
+      if (targetTab === 'image') {
+        setAspectRatio(ratio, false);
+      } else {
+        setVideoRatio(ratio, false);
+      }
+    }
+
+    // 4. Style parameter
+    const style = params.get('style');
+    if (style) {
+      setVideoStyle(style, false);
+    }
+
+    // Switch to target tab
+    switchTab(targetTab, false);
+  } catch (err) {
+    console.warn('Lỗi đọc URL params:', err);
+    switchTab('dashboard', false);
+  }
+}
+
 // Navigation
-function switchTab(tabId) {
+function switchTab(tabId, syncUrl = true) {
   state.currentTab = tabId;
   document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
 
@@ -79,6 +161,10 @@ function switchTab(tabId) {
     loadDashboardAndGallery();
   }
   lucide.createIcons();
+
+  if (syncUrl) {
+    updateUrlParams();
+  }
 }
 
 function startSequentialFromDashboard() {
@@ -287,7 +373,7 @@ async function verifyOtp() {
 }
 
 // Video Mode & Options (Single vs Sequential Continuation)
-function setVideoMode(isSeq) {
+function setVideoMode(isSeq, syncUrl = true) {
   state.isContinuation = isSeq;
   const btnSingle = document.getElementById('mode-btn-single');
   const btnSeq = document.getElementById('mode-btn-seq');
@@ -297,30 +383,39 @@ function setVideoMode(isSeq) {
   const label = document.getElementById('video-prompt-label');
 
   if (isSeq) {
-    btnSeq.className = 'py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition bg-gradient-to-r from-cyan-600 to-indigo-600 text-white shadow';
-    btnSingle.className = 'py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition text-slate-400 hover:text-white';
-    banner.classList.remove('hidden');
+    if (btnSeq) btnSeq.className = 'py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition bg-gradient-to-r from-cyan-600 to-indigo-600 text-white shadow';
+    if (btnSingle) btnSingle.className = 'py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition text-slate-400 hover:text-white';
+    if (banner) banner.classList.remove('hidden');
 
     const nextSceneNum = state.storyboard.length + 1;
     state.sceneIndex = nextSceneNum;
-    document.getElementById('seq-badge-title').innerText =
-      nextSceneNum === 1
-        ? 'Chuỗi Phim Nối Tiếp — Bắt đầu Cảnh #1 (Mở đầu)'
-        : `Đang nối tiếp Cảnh #${nextSceneNum} (Từ Cảnh #${nextSceneNum - 1})`;
+    const badge = document.getElementById('seq-badge-title');
+    if (badge) {
+      badge.innerText =
+        nextSceneNum === 1
+          ? 'Chuỗi Phim Nối Tiếp — Bắt đầu Cảnh #1 (Mở đầu)'
+          : `Đang nối tiếp Cảnh #${nextSceneNum} (Từ Cảnh #${nextSceneNum - 1})`;
+    }
 
-    label.innerHTML = `Diễn biến Cảnh #${nextSceneNum} <span class="text-rose-400">*</span>`;
-    promptInput.placeholder =
-      nextSceneNum === 1
-        ? 'Nhập Cảnh mở đầu #1 (VD: Chàng hiệp sĩ đứng trước cổng thành cổ trong đêm mưa bão)...'
-        : `Nhập diễn biến tiếp theo cho Cảnh #${nextSceneNum} (VD: Hiệp sĩ rút thanh kiếm phát sáng bước vào bên trong đại sảnh)...`;
-    btnGenText.innerText = `Quay Cảnh Nối Tiếp #${nextSceneNum}`;
+    if (label) label.innerHTML = `Diễn biến Cảnh #${nextSceneNum} <span class="text-rose-400">*</span>`;
+    if (promptInput) {
+      promptInput.placeholder =
+        nextSceneNum === 1
+          ? 'Nhập Cảnh mở đầu #1 (VD: Chàng hiệp sĩ đứng trước cổng thành cổ trong đêm mưa bão)...'
+          : `Nhập diễn biến tiếp theo cho Cảnh #${nextSceneNum} (VD: Hiệp sĩ rút thanh kiếm phát sáng bước vào bên trong đại sảnh)...`;
+    }
+    if (btnGenText) btnGenText.innerText = `Quay Cảnh Nối Tiếp #${nextSceneNum}`;
   } else {
-    btnSingle.className = 'py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition bg-indigo-600 text-white shadow';
-    btnSeq.className = 'py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition text-slate-400 hover:text-white';
-    banner.classList.add('hidden');
-    label.innerHTML = `Nội dung cảnh quay <span class="text-rose-400">*</span>`;
-    promptInput.placeholder = 'Nhập ý tưởng của bạn (VD: Một phi hành gia bước đi trên hành tinh băng giá, nhìn thấy phế tích cổ đại phát sáng)...';
-    btnGenText.innerText = 'Sản xuất Video Chuyên Nghiệp';
+    if (btnSingle) btnSingle.className = 'py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition bg-indigo-600 text-white shadow';
+    if (btnSeq) btnSeq.className = 'py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition text-slate-400 hover:text-white';
+    if (banner) banner.classList.add('hidden');
+    if (label) label.innerHTML = `Nội dung cảnh quay <span class="text-rose-400">*</span>`;
+    if (promptInput) promptInput.placeholder = 'Nhập ý tưởng của bạn (VD: Một phi hành gia bước đi trên hành tinh băng giá, nhìn thấy phế tích cổ đại phát sáng)...';
+    if (btnGenText) btnGenText.innerText = 'Sản xuất Video Chuyên Nghiệp';
+  }
+
+  if (syncUrl) {
+    updateUrlParams();
   }
 }
 
@@ -328,18 +423,21 @@ function resetSequentialChain() {
   state.videoSessionId = null;
   state.storyboard = [];
   state.sceneIndex = 1;
-  document.getElementById('storyboard-container').classList.add('hidden');
+  const sContainer = document.getElementById('storyboard-container');
+  if (sContainer) sContainer.classList.add('hidden');
   setVideoMode(true);
 }
 
 function prepareNextScene() {
   setVideoMode(true);
   const promptEl = document.getElementById('video-prompt');
-  promptEl.value = '';
-  promptEl.focus();
+  if (promptEl) {
+    promptEl.value = '';
+    promptEl.focus();
+  }
 }
 
-function setVideoRatio(ratio) {
+function setVideoRatio(ratio, syncUrl = true) {
   state.videoRatio = ratio;
   ['16:9', '9:16', '1:1', '21:9', '4:3'].forEach(r => {
     const btn = document.getElementById(`vratio-${r.replace(':', '-')}`);
@@ -352,9 +450,13 @@ function setVideoRatio(ratio) {
   });
   const badge = document.getElementById('active-ratio-badge');
   if (badge) badge.innerText = `Khung hình: ${ratio}`;
+
+  if (syncUrl) {
+    updateUrlParams();
+  }
 }
 
-function setVideoStyle(styleName) {
+function setVideoStyle(styleName, syncUrl = true) {
   state.videoStyle = styleName;
   const map = {
     'Điện ảnh 4K Hollywood': 'vstyle-hollywood',
@@ -372,9 +474,13 @@ function setVideoStyle(styleName) {
       el.className = 'vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-surface-600 bg-surface-900 text-slate-300 hover:text-white transition';
     }
   });
+
+  if (syncUrl) {
+    updateUrlParams();
+  }
 }
 
-function setAspectRatio(ratio) {
+function setAspectRatio(ratio, syncUrl = true) {
   state.aspectRatio = ratio;
   ['1:1', '16:9', '9:16', '21:9', '4:3'].forEach(r => {
     const btn = document.getElementById(`ratio-${r.replace(':', '-')}`);
@@ -385,6 +491,10 @@ function setAspectRatio(ratio) {
       btn.className = 'ratio-btn border border-surface-600 bg-surface-900 text-slate-400 hover:text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition';
     }
   });
+
+  if (syncUrl) {
+    updateUrlParams();
+  }
 }
 
 // Upload Reference Image
