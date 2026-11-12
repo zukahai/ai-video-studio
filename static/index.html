@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HaiAI Studio — Nền tảng Sáng tạo Video, Ảnh & Trợ lý AI</title>
+  <title>H-AI Studio — Nền tảng Sáng tạo Video, Ảnh & Trợ lý AI</title>
+  <link rel="icon" type="image/png" href="/static/favicon.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script>
@@ -78,18 +79,14 @@
   <aside class="w-64 bg-surface-900 border-r border-white/[0.06] flex flex-col justify-between shrink-0 select-none z-30">
     <!-- Top Brand -->
     <div>
-      <div class="h-16 px-5 flex items-center space-x-3 border-b border-white/[0.06]">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-400 via-blue-500 to-teal-400 p-[1.5px] shadow-lg shadow-sky-500/20">
-          <div class="w-full h-full bg-surface-900 rounded-[10px] flex items-center justify-center">
-            <i data-lucide="zap" class="w-5 h-5 text-sky-400"></i>
-          </div>
-        </div>
-        <div>
+      <div class="h-16 px-4 flex items-center space-x-3 border-b border-white/[0.06]">
+        <img src="/static/logo.png" alt="H-AI Logo" class="h-10 w-16 object-cover rounded-lg border border-sky-400/30 shadow-lg shadow-sky-500/20 shrink-0">
+        <div class="min-w-0">
           <div class="flex items-center space-x-1.5">
-            <span class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-sky-100 to-cyan-300 bg-clip-text text-transparent">HaiAI</span>
+            <span class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-sky-100 to-cyan-300 bg-clip-text text-transparent">H-AI</span>
             <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-sky-500/15 text-sky-300 font-bold border border-sky-500/30">PRO</span>
           </div>
-          <p class="text-[11px] text-slate-400">Creative AI Studio</p>
+          <p class="text-[11px] text-slate-400 truncate">Creative AI Studio</p>
         </div>
       </div>
 
@@ -117,7 +114,7 @@
 
         <button onclick="switchTab('chat')" id="tab-btn-chat" class="tab-btn w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-surface-800">
           <i data-lucide="sparkles" class="w-4 h-4"></i>
-          <span>Trợ lý Đạo diễn HaiAI</span>
+          <span>Trợ lý Đạo diễn H-AI</span>
         </button>
 
         <button onclick="switchTab('gallery')" id="tab-btn-gallery" class="tab-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-surface-800">
@@ -225,7 +222,7 @@
           <div class="relative z-10 max-w-2xl space-y-3">
             <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-sky-500/20 border border-sky-400/30 text-sky-300 text-xs font-semibold">
               <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
-              <span>HaiAI Studio 2.0 — Chuỗi Video Nối Tiếp & Đạo Diễn AI Tự Động</span>
+              <span>H-AI Studio 2.0 — Chuỗi Video Nối Tiếp & Đạo Diễn AI Tự Động</span>
             </div>
             <h2 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
               Biến ý tưởng thành thước phim điện ảnh chuyên nghiệp
@@ -387,24 +384,38 @@
           </div>
         </div>
 
-        <!-- Recent Creations on Dashboard -->
+        <!-- All Products with Lazy Scroll on Dashboard -->
         <div class="glass-card rounded-2xl p-6 space-y-4">
-          <div class="flex items-center justify-between">
+          <div class="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-white/[0.06]">
             <div>
               <h3 class="font-bold text-base text-white flex items-center space-x-2">
-                <i data-lucide="flame" class="w-4 h-4 text-amber-400"></i>
-                <span>Tác phẩm vừa khởi tạo gần đây</span>
+                <i data-lucide="sparkles" class="w-4 h-4 text-cyan-400"></i>
+                <span>Tất cả sản phẩm đã tạo (Lazy Scroll)</span>
+                <span id="dashboard-items-counter" class="text-xs font-normal text-slate-400">· 0 tác phẩm</span>
               </h3>
-              <p class="text-xs text-slate-400">Xem nhanh hoặc bấm tạo cảnh nối tiếp ngay từ các video đã hoàn thành</p>
+              <p class="text-xs text-slate-400">Tự động tải thêm khi cuộn trang • Xem nhanh hoặc bấm tạo cảnh nối tiếp trực tiếp</p>
             </div>
-            <button onclick="switchTab('gallery')" class="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center space-x-1">
-              <span>Xem toàn bộ thư viện</span>
-              <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
-            </button>
+            
+            <div class="flex items-center space-x-2">
+              <button onclick="filterDashboard('all')" id="dbfilter-all" class="dbfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 text-white shadow-sm shadow-sky-600/30 transition">Tất cả</button>
+              <button onclick="filterDashboard('video')" id="dbfilter-video" class="dbfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-800 text-slate-300 hover:text-white transition">Video</button>
+              <button onclick="filterDashboard('image')" id="dbfilter-image" class="dbfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-800 text-slate-300 hover:text-white transition">Hình ảnh</button>
+            </div>
           </div>
 
           <div id="dashboard-recent-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <!-- Populated by JS -->
+          </div>
+
+          <!-- Lazy Scroll Loading / Sentinel Indicator -->
+          <div id="dashboard-lazy-sentinel" class="py-4 text-center">
+            <div id="dashboard-lazy-spinner" class="hidden inline-flex items-center space-x-2 text-xs text-sky-400">
+              <div class="w-4 h-4 border-2 border-sky-400 border-t-transparent rounded-full animate-spin"></div>
+              <span>Đang tải thêm sản phẩm...</span>
+            </div>
+            <div id="dashboard-lazy-end" class="hidden text-xs text-slate-500">
+              <span>Đã tải hết toàn bộ sản phẩm</span>
+            </div>
           </div>
         </div>
 
@@ -440,10 +451,15 @@
                     <i data-lucide="film" class="w-4 h-4"></i>
                     <span id="seq-badge-title">Đang tạo Cảnh Nối Tiếp #2</span>
                   </div>
-                  <button onclick="resetSequentialChain()" class="text-[11px] text-slate-400 hover:text-white underline">Đặt lại chuỗi mới</button>
+                  <div class="flex items-center space-x-2">
+                    <button onclick="clearStoryboardScenes()" type="button" class="text-[11px] px-2.5 py-1 rounded-lg bg-rose-500/15 text-rose-300 hover:bg-rose-500/25 border border-rose-500/30 font-semibold transition flex items-center space-x-1.5 cursor-pointer">
+                      <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                      <span>Làm sạch các phân cảnh</span>
+                    </button>
+                  </div>
                 </div>
                 <p class="text-[11px] text-slate-300 leading-relaxed">
-                  HaiAI sẽ giữ nguyên nhân vật, bối cảnh và ánh sáng từ cảnh trước. Bạn chỉ cần mô tả <b>hành động hoặc diễn biến tiếp theo</b>!
+                  H-AI sẽ giữ nguyên nhân vật, bối cảnh và ánh sáng từ cảnh trước. Bạn chỉ cần mô tả <b>hành động hoặc diễn biến tiếp theo</b>!
                 </p>
               </div>
 
@@ -589,7 +605,7 @@
                   <div class="max-w-sm">
                     <h4 class="font-bold text-slate-200 text-sm">Sẵn sàng bấm máy</h4>
                     <p class="text-xs text-slate-400 mt-1">
-                      Nhập ý tưởng cảnh quay bên trái. HaiAI sẽ tự động bổ sung kỹ thuật ánh sáng, góc máy chuyên nghiệp và âm thanh đồng bộ.
+                      Nhập ý tưởng cảnh quay bên trái. H-AI sẽ tự động bổ sung kỹ thuật ánh sáng, góc máy chuyên nghiệp và âm thanh đồng bộ.
                     </p>
                   </div>
                 </div>
@@ -598,7 +614,7 @@
                 <div id="video-loading-state" class="hidden space-y-4 max-w-md w-full py-10">
                   <div class="w-14 h-14 border-4 border-sky-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
                   <div>
-                    <p id="video-progress-text" class="text-sm font-bold text-sky-300">HaiAI Engine đang dựng bối cảnh và ánh sáng...</p>
+                    <p id="video-progress-text" class="text-sm font-bold text-sky-300">H-AI Engine đang dựng bối cảnh và ánh sáng...</p>
                     <p class="text-xs text-slate-400 mt-1">Quá trình kết xuất video 4K kèm âm thanh thường mất khoảng 1 - 3 phút.</p>
                   </div>
                   <div class="w-full bg-surface-950 rounded-full h-2 overflow-hidden border border-white/10">
@@ -640,6 +656,10 @@
                     <p class="text-[10px] text-slate-400 mt-0.5">Kéo thả hoặc bấm ◀ ▶ để sắp xếp lại phân cảnh • Bấm 🗑 để xóa cảnh</p>
                   </div>
                   <div class="flex items-center space-x-2">
+                    <button id="btn-clear-storyboard" onclick="clearStoryboardScenes()" type="button" class="px-3 py-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer">
+                      <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                      <span>Làm sạch các phân cảnh</span>
+                    </button>
                     <button id="btn-merge-storyboard" onclick="mergeAndDownloadStoryboard()" type="button" class="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-emerald-600/20 transition cursor-pointer">
                       <i data-lucide="film" class="w-3.5 h-3.5"></i>
                       <span id="merge-btn-text">Ghép & Tải Toàn Bộ Phim</span>
@@ -759,14 +779,14 @@
                   </div>
                   <div>
                     <h4 class="font-bold text-slate-200 text-sm">Chưa có ảnh nào</h4>
-                    <p class="text-xs text-slate-400 max-w-sm mt-1">Chọn tỉ lệ khung hình và nhập mô tả để HaiAI vẽ tác phẩm độ phân giải cao</p>
+                    <p class="text-xs text-slate-400 max-w-sm mt-1">Chọn tỉ lệ khung hình và nhập mô tả để H-AI vẽ tác phẩm độ phân giải cao</p>
                   </div>
                 </div>
 
                 <div id="image-loading-state" class="hidden space-y-4 max-w-md w-full">
                   <div class="w-12 h-12 border-4 border-teal-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
                   <div>
-                    <p class="text-sm font-bold text-teal-300">HaiAI đang kết xuất ảnh chất lượng cao...</p>
+                    <p class="text-sm font-bold text-teal-300">H-AI đang kết xuất ảnh chất lượng cao...</p>
                     <p class="text-xs text-slate-400 mt-1">Quá trình thường mất 20 - 45 giây.</p>
                   </div>
                 </div>
@@ -804,7 +824,7 @@
                 <i data-lucide="sparkles" class="w-5 h-5"></i>
               </div>
               <div>
-                <h3 class="font-bold text-sm text-white">Trợ lý Đạo diễn & Biên kịch HaiAI</h3>
+                <h3 class="font-bold text-sm text-white">Trợ lý Đạo diễn & Biên kịch H-AI</h3>
                 <p class="text-[11px] text-slate-400">Hỗ trợ viết phân cảnh phim nối tiếp, lên ý tưởng kịch bản và tư vấn sáng tạo</p>
               </div>
             </div>
@@ -819,14 +839,14 @@
                 <i data-lucide="sparkles" class="w-4 h-4"></i>
               </div>
               <div class="bg-surface-800 border border-white/[0.06] rounded-2xl rounded-tl-none p-4 max-w-2xl text-sm text-slate-200 leading-relaxed">
-                Xin chào! Tôi là <b>HaiAI Assistant</b>. Bạn muốn tôi viết kịch bản gồm nhiều cảnh nối tiếp hay gợi ý ý tưởng quay video hôm nay?
+                Xin chào! Tôi là <b>H-AI Assistant</b>. Bạn muốn tôi viết kịch bản gồm nhiều cảnh nối tiếp hay gợi ý ý tưởng quay video hôm nay?
               </div>
             </div>
           </div>
 
           <div class="p-4 border-t border-white/[0.06] bg-surface-950/60">
             <form onsubmit="sendChatMessage(event)" class="flex items-center space-x-2.5">
-              <input type="text" id="chat-input" placeholder="Nhập yêu cầu cho HaiAI (VD: Viết kịch bản 3 cảnh nối tiếp về chú mèo phiêu lưu trong rừng phép thuật)..." class="flex-1 bg-surface-800 border border-surface-600 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-400 transition">
+              <input type="text" id="chat-input" placeholder="Nhập yêu cầu cho H-AI (VD: Viết kịch bản 3 cảnh nối tiếp về chú mèo phiêu lưu trong rừng phép thuật)..." class="flex-1 bg-surface-800 border border-surface-600 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-400 transition">
               <button type="submit" id="btn-send-chat" class="px-5 py-3 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-sky-600/25 transition flex items-center space-x-1.5 shrink-0">
                 <span>Gửi</span>
                 <i data-lucide="send" class="w-3.5 h-3.5"></i>
@@ -841,7 +861,7 @@
       <div id="view-gallery" class="tab-view hidden max-w-7xl mx-auto space-y-5">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 class="font-bold text-lg text-white">Thư viện Tác phẩm HaiAI</h2>
+            <h2 class="font-bold text-lg text-white">Thư viện Tác phẩm H-AI</h2>
             <p class="text-xs text-slate-400">Quản lý toàn bộ video và hình ảnh đã xuất bản</p>
           </div>
           <div class="flex items-center space-x-2">
@@ -874,7 +894,7 @@
           <i data-lucide="shield-check" class="w-5 h-5"></i>
         </div>
         <div>
-          <h3 class="font-bold text-base text-white">Kết nối tài khoản HaiAI Cloud</h3>
+          <h3 class="font-bold text-base text-white">Kết nối tài khoản H-AI Cloud</h3>
           <p class="text-xs text-slate-400">Xác thực nhanh bằng mã OTP qua Email</p>
         </div>
       </div>

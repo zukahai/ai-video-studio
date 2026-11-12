@@ -36,7 +36,7 @@ UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
 STATE_DIR.mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="HaiAI Studio", version="2.0.0")
+app = FastAPI(title="H-AI Studio", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -115,7 +115,7 @@ async def get_or_create_client() -> MuseClient:
         if not is_authenticated():
             raise HTTPException(
                 status_code=401,
-                detail="Chưa đăng nhập tài khoản HaiAI. Vui lòng xác thực OTP trước.",
+                detail="Chưa đăng nhập tài khoản H-AI. Vui lòng xác thực OTP trước.",
             )
 
         auth = MuseAuth(state_dir=STATE_DIR)
@@ -337,7 +337,7 @@ async def auth_status(force: bool = False):
     is_alive = False
     viewer_id = None
     context_window = 350000
-    model_name = "Auto (HaiAI Engine)"
+    model_name = "Auto (H-AI Engine)"
     
     if logged_in:
         try:
@@ -381,7 +381,7 @@ async def auth_status(force: bool = False):
         free_usage = live_sub.get("usage") or {}
         pct = free_usage.get("percentUsed", 0)
         tier_obj = live_sub.get("tier") or {}
-        tier_name = str(tier_obj.get("name") or "HaiAI Miễn phí").replace("Muse", "HaiAI")
+        tier_name = str(tier_obj.get("name") or "H-AI Miễn phí").replace("Muse", "H-AI")
 
         raw_topup_label = str(live_sub.get("topupRowValueLabel") or "Đã dùng 0% (Còn 1 tỷ token)")
         topup_capitalized = raw_topup_label.replace("(còn", "(Còn").replace(" còn ", " Còn ")
@@ -409,7 +409,7 @@ async def auth_status(force: bool = False):
         }
     else:
         usage_data = {
-            "tier_name": "HaiAI Miễn phí",
+            "tier_name": "H-AI Miễn phí",
             "free_plan": {
                 "name": "Gói miễn phí",
                 "used_percent": 26,
@@ -430,7 +430,7 @@ async def auth_status(force: bool = False):
     return {
         "authenticated": logged_in,
         "is_alive": is_alive,
-        "email": email or ("Tài khoản HaiAI đã kết nối" if logged_in else None),
+        "email": email or ("Tài khoản H-AI đã kết nối" if logged_in else None),
         "viewer_id": viewer_id,
         "quota": {
             "tier": usage_data["tier_name"],
@@ -483,7 +483,7 @@ async def request_otp(data: RequestOtpModel):
         await auth.close()
         raise HTTPException(
             status_code=500,
-            detail=f"Lỗi gửi OTP từ hệ thống HaiAI: {exc}. Hãy đảm bảo bạn đã BẬT VPN sang Mỹ trên máy tính!",
+            detail=f"Lỗi gửi OTP từ hệ thống H-AI: {exc}. Hãy đảm bảo bạn đã BẬT VPN sang Mỹ trên máy tính!",
         )
 
 
@@ -521,7 +521,7 @@ async def verify_otp(data: VerifyOtpModel):
 
         return {
             "status": "success",
-            "message": "Đăng nhập HaiAI thành công! Hệ thống đã lưu phiên làm việc.",
+            "message": "Đăng nhập H-AI thành công! Hệ thống đã lưu phiên làm việc.",
             "email": pending_email,
         }
     except Exception as exc:
@@ -550,7 +550,7 @@ async def logout():
         if fpath.exists():
             fpath.unlink()
 
-    return {"status": "success", "message": "Đã đăng xuất khỏi HaiAI."}
+    return {"status": "success", "message": "Đã đăng xuất khỏi H-AI."}
 
 
 @app.post("/api/upload")
@@ -627,7 +627,7 @@ async def generate_video(data: VideoGenerateModel):
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Lỗi tạo video từ HaiAI: {exc}. Kiểm tra kết nối VPN và thử lại.",
+            detail=f"Lỗi tạo video từ H-AI: {exc}. Kiểm tra kết nối VPN và thử lại.",
         )
 
 
@@ -810,7 +810,7 @@ async def generate_image(data: ImageGenerateModel):
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Lỗi tạo ảnh từ HaiAI: {exc}. Kiểm tra kết nối VPN và thử lại.",
+            detail=f"Lỗi tạo ảnh từ H-AI: {exc}. Kiểm tra kết nối VPN và thử lại.",
         )
 
 
@@ -866,7 +866,7 @@ async def chat_interaction(data: ChatModel):
             await asyncio.sleep(1.5)
 
         if not reply_text:
-            reply_text = "HaiAI đã nhận yêu cầu và đang xử lý!"
+            reply_text = "H-AI đã nhận yêu cầu và đang xử lý!"
 
         return {
             "status": "success",
@@ -877,7 +877,7 @@ async def chat_interaction(data: ChatModel):
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Lỗi chat với HaiAI: {exc}",
+            detail=f"Lỗi chat với H-AI: {exc}",
         )
 
 
@@ -931,7 +931,7 @@ async def root():
     index_file = STATIC_DIR / "index.html"
     if index_file.exists():
         return FileResponse(index_file)
-    return HTMLResponse("<h1>HaiAI Studio Backend Ready</h1>")
+    return HTMLResponse("<h1>H-AI Studio Backend Ready</h1>")
 
 
 if __name__ == "__main__":

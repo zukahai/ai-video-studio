@@ -1,4 +1,4 @@
-// HaiAI Studio — Frontend State & Logic
+// H-AI Studio — Frontend State & Logic
 const state = {
   currentTab: 'dashboard',
   authenticated: false,
@@ -10,7 +10,7 @@ const state = {
   isContinuation: false,
   videoSessionId: null,
   sceneIndex: 1,
-  storyboard: [], // [{ scene: 1, url: '/outputs/...', prompt: '...' }]
+  storyboard: [], // [{ scene: 1, url: '/outputs/...', prompt: '...', duration: 5 }]
   videoImages: [], // Multi-image array: [{ id, local_path, url, name }]
   get videoImageFile() {
     return this.videoImages.length > 0 ? this.videoImages[0].local_path : null;
@@ -27,20 +27,48 @@ const state = {
   // Gallery cache
   galleryItems: [],
   galleryFilter: 'all',
+  // Dashboard Lazy Scroll state
+  dashboardFilter: 'all',
+  dashboardRenderedCount: 0,
+  dashboardPageSize: 8,
+  dashboardLoadingMore: false,
 };
 
 const TAB_TITLES = {
   dashboard: 'Tổng quan hệ thống (Dashboard)',
-  video: 'HaiAI Video Studio — Sản xuất & Nối tiếp Cảnh quay',
-  image: 'HaiAI Image Studio — Sáng tạo Hình ảnh 8K',
-  chat: 'Trợ lý Đạo diễn & Biên kịch HaiAI',
-  gallery: 'Thư viện Tác phẩm HaiAI',
+  video: 'H-AI Video Studio — Sản xuất & Nối tiếp Cảnh quay',
+  image: 'H-AI Image Studio — Sáng tạo Hình ảnh 8K',
+  chat: 'Trợ lý Đạo diễn & Biên kịch H-AI',
+  gallery: 'Thư viện Tác phẩm H-AI',
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+  // 1. Restore storyboard cache from localStorage
+  const hasCachedStoryboard = restoreStoryboardCache();
+
+  // 2. Restore active tab, mode, ratio, duration, style from URL query params
   restoreFromUrlParams();
+
+  // 3. If storyboard was restored, render it and prepare next scene view
+  if (hasCachedStoryboard && state.storyboard.length > 0) {
+    renderStoryboard();
+    const lastItem = state.storyboard[state.storyboard.length - 1];
+    const player = document.getElementById('video-player');
+    if (player && lastItem && lastItem.url) {
+      player.src = lastItem.url;
+      document.getElementById('video-download-btn').href = lastItem.url;
+      document.getElementById('video-idle-state')?.classList.add('hidden');
+      document.getElementById('video-result-container')?.classList.remove('hidden');
+    }
+    // If user is on video tab or entered with seq mode, keep continuity ready
+    if (state.isContinuation) {
+      setVideoMode(true, false);
+    }
+  }
+
   checkAuthStatus();
   setupDropzones();
+  setupDashboardLazyScroll();
   loadDashboardAndGallery();
 });
 
@@ -72,7 +100,7 @@ function updateUrlParams() {
     }
 
     window.history.replaceState({}, '', url.pathname + url.search);
-    localStorage.setItem('haiai_last_tab', state.currentTab);
+    localStorage.setItem('h_ai_last_tab', state.currentTab);
   } catch (err) {
     console.warn('Lỗi lưu URL params:', err);
   }
@@ -87,7 +115,7 @@ function restoreFromUrlParams() {
     // 1. Tab parameter
     let targetTab = params.get('tab') || hash;
     if (!targetTab || !TAB_TITLES[targetTab]) {
-      const savedTab = localStorage.getItem('haiai_last_tab');
+      const savedTab = localStorage.getItem('h_ai_last_tab') || localStorage.getItem('haiai_last_tab');
       if (savedTab && TAB_TITLES[savedTab]) {
         targetTab = savedTab;
       }
@@ -121,7 +149,7 @@ function restoreFromUrlParams() {
     }
 
     // 5. Duration parameter
-    const duration = parseInt(params.get('duration') || params.get('sec') || localStorage.getItem('haiai_duration') || '5', 10);
+    const duration = parseInt(params.get('duration') || params.get('sec') || localStorage.getItem('h_ai_duration') || localStorage.getItem('haiai_duration') || '5', 10);
     if (!isNaN(duration) && duration > 0) {
       setVideoDuration(duration, false);
     } else {
@@ -293,7 +321,7 @@ async function checkAuthStatus(force = false) {
 
     if (state.authenticated) {
       dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400';
-      text.innerText = data.email || 'Đã kết nối HaiAI Cloud';
+      text.innerText = data.email || 'Đã kết nối H-AI Cloud';
       text.className = 'text-xs font-bold text-emerald-300 truncate';
       btnText.innerText = 'Đổi tài khoản';
     } else {
@@ -392,7 +420,7 @@ async function verifyOtp() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Xác nhận OTP thất bại.');
 
-    showModalMsg('Kết nối HaiAI thành công!', false);
+    showModalMsg('Kết nối H-AI thành công!', false);
     setTimeout(() => {
       closeAuthModal();
       checkAuthStatus();
@@ -452,13 +480,75 @@ function setVideoMode(isSeq, syncUrl = true) {
   }
 }
 
-function resetSequentialChain() {
-  state.videoSessionId = null;
+
+// ==================== STORYBOARD LOCAL STORAGE CACHE ====================
+function saveStoryboardCache() {
+  try {
+    const data = {
+      storyboard: state.storyboard || [],
+      sessionId: state.videoSessionId || null,
+      updatedAt: Date.now(),
+    };
+    localStorage.setItem('h_ai_storyboard_cache', JSON.stringify(data));
+  } catch (err) {
+    console.warn('Lỗi lưu storyboard cache:', err);
+  }
+}
+
+function restoreStoryboardCache() {
+  try {
+    const raw = localStorage.getItem('h_ai_storyboard_cache');
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (data && Array.isArray(data.storyboard) && data.storyboard.length > 0) {
+      state.storyboard = data.storyboard;
+      state.videoSessionId = data.sessionId || null;
+      state.sceneIndex = state.storyboard.length + 1;
+      return true;
+    }
+  } catch (err) {
+    console.warn('Lỗi đọc storyboard cache:', err);
+  }
+  return false;
+}
+
+// User requested button: "Làm sạch các phân cảnh" -> resets storyboard and allows creating scene 1 fresh
+function clearStoryboardScenes() {
+  if (state.storyboard && state.storyboard.length > 0) {
+    const count = state.storyboard.length;
+    const confirmed = confirm(`Bạn có chắc chắn muốn làm sạch toàn bộ ${count} phân cảnh đã lưu và bắt đầu lại từ Cảnh #1 không?`);
+    if (!confirmed) return;
+  }
+
   state.storyboard = [];
+  state.videoSessionId = null;
   state.sceneIndex = 1;
-  const sContainer = document.getElementById('storyboard-container');
-  if (sContainer) sContainer.classList.add('hidden');
-  setVideoMode(true);
+
+  try {
+    localStorage.removeItem('h_ai_storyboard_cache');
+  } catch (e) {}
+
+  // Reset video player to idle state
+  const player = document.getElementById('video-player');
+  if (player) {
+    player.pause();
+    player.src = '';
+  }
+  document.getElementById('video-result-container')?.classList.add('hidden');
+  document.getElementById('video-idle-state')?.classList.remove('hidden');
+
+  renderStoryboard();
+  setVideoMode(true); // Switch to Scene #1 creation mode
+
+  const promptInput = document.getElementById('video-prompt');
+  if (promptInput) {
+    promptInput.value = '';
+    promptInput.focus();
+  }
+}
+
+function resetSequentialChain() {
+  clearStoryboardScenes();
 }
 
 function prepareNextScene() {
@@ -531,7 +621,7 @@ function setVideoDuration(seconds, syncUrl = true) {
     customInput.value = seconds;
   }
 
-  localStorage.setItem('haiai_duration', seconds);
+  localStorage.setItem('h_ai_duration', seconds);
 
   if (syncUrl) {
     updateUrlParams();
@@ -558,7 +648,26 @@ function focusCustomDuration() {
 }
 
 function setVideoStyle(styleName, syncUrl = true) {
-  state.videoStyle = styleName;
+  if (!styleName) return;
+
+  // Normalize style name (handles URL decode and partial words)
+  const norm = styleName.toLowerCase().trim();
+  let matchedStyle = styleName;
+
+  if (norm.includes('hoạt hình') || norm.includes('anime') || norm.includes('pixar')) {
+    matchedStyle = 'Hoạt hình 3D Pixar / Anime';
+  } else if (norm.includes('điện ảnh') || norm.includes('hollywood')) {
+    matchedStyle = 'Điện ảnh 4K Hollywood';
+  } else if (norm.includes('siêu thực') || norm.includes('real')) {
+    matchedStyle = 'Siêu thực tế Photorealistic';
+  } else if (norm.includes('cyber') || norm.includes('neon')) {
+    matchedStyle = 'Cyberpunk Sci-Fi Neon';
+  } else if (norm.includes('tvc') || norm.includes('quảng cáo')) {
+    matchedStyle = 'TVC Quảng cáo thương mại';
+  }
+
+  state.videoStyle = matchedStyle;
+
   const map = {
     'Điện ảnh 4K Hollywood': 'vstyle-hollywood',
     'Siêu thực tế Photorealistic': 'vstyle-real',
@@ -566,10 +675,11 @@ function setVideoStyle(styleName, syncUrl = true) {
     'Cyberpunk Sci-Fi Neon': 'vstyle-cyber',
     'TVC Quảng cáo thương mại': 'vstyle-tvc',
   };
+
   Object.entries(map).forEach(([name, id]) => {
     const el = document.getElementById(id);
     if (!el) return;
-    if (name === styleName) {
+    if (name === matchedStyle) {
       el.className = 'vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-sky-400 bg-sky-500/20 text-white font-semibold transition shadow-sm shadow-sky-500/30';
     } else {
       el.className = 'vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-surface-600 bg-surface-900 text-slate-300 hover:text-white transition';
@@ -845,7 +955,7 @@ async function generateVideo() {
     seconds++;
     timerEl.innerText = seconds;
     if (seconds === 15) {
-      document.getElementById('video-progress-text').innerText = 'HaiAI Director đang thiết lập góc máy & đồng nhất nhân vật...';
+      document.getElementById('video-progress-text').innerText = 'H-AI Director đang thiết lập góc máy & đồng nhất nhân vật...';
     } else if (seconds === 50) {
       document.getElementById('video-progress-text').innerText = 'Đang kết xuất chuyển động 4K và tổng hợp âm thanh vòm...';
     } else if (seconds === 110) {
@@ -898,6 +1008,7 @@ async function generateVideo() {
           duration: state.videoDuration || 5,
         });
       }
+      saveStoryboardCache();
       renderStoryboard();
       if (state.isContinuation) {
         setVideoMode(true);
@@ -938,6 +1049,7 @@ function deleteScene(index, event) {
   state.storyboard.forEach((s, i) => {
     s.scene = i + 1;
   });
+  saveStoryboardCache();
 
   if (state.storyboard.length === 0) {
     resetSequentialChain();
@@ -965,6 +1077,7 @@ function moveScene(index, delta, event) {
   state.storyboard.forEach((s, i) => {
     s.scene = i + 1;
   });
+  saveStoryboardCache();
   renderStoryboard();
 }
 
@@ -997,6 +1110,7 @@ function handleSceneDrop(e, targetIndex) {
     s.scene = i + 1;
   });
   draggedSceneIndex = null;
+  saveStoryboardCache();
   renderStoryboard();
 }
 
@@ -1041,7 +1155,7 @@ async function mergeAndDownloadStoryboard() {
   // If only 1 scene, download it directly
   if (state.storyboard.length === 1) {
     const singleUrl = state.storyboard[0].url;
-    triggerDownload(singleUrl, `HaiAI_Scene_1_${Date.now()}.mp4`);
+    triggerDownload(singleUrl, `H-AI_Scene_1_${Date.now()}.mp4`);
     return;
   }
 
@@ -1072,7 +1186,7 @@ async function mergeAndDownloadStoryboard() {
     }
 
     // Automatically trigger browser download
-    const filename = data.filename || `HaiAI_FullMovie_${state.storyboard.length}Scenes_${Date.now()}.mp4`;
+    const filename = data.filename || `H-AI_FullMovie_${state.storyboard.length}Scenes_${Date.now()}.mp4`;
     triggerDownload(data.url, filename);
 
     alert(`🎬 Đã ghép thành công ${state.storyboard.length} phân cảnh thành 1 bộ phim hoàn chỉnh!\nTrình phát đang chiếu phim ghép và file đang được tự động tải về.`);
@@ -1255,7 +1369,7 @@ async function sendChatMessage(e) {
     </div>
     <div class="bg-surface-800 border border-white/[0.06] rounded-2xl rounded-tl-none p-3.5 max-w-xl text-sm text-slate-400 flex items-center space-x-2">
       <span class="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
-      <span>HaiAI đang biên kịch...</span>
+      <span>H-AI đang biên kịch...</span>
     </div>
   `;
   container.appendChild(typingBubble);
@@ -1374,25 +1488,127 @@ function filterGallery(filterType) {
   renderGalleryGrid();
 }
 
-function renderDashboardRecent() {
+// ==================== DASHBOARD LAZY SCROLL FEED ====================
+let dashboardObserver = null;
+
+function filterDashboard(filterType) {
+  state.dashboardFilter = filterType;
+  ['all', 'video', 'image'].forEach(f => {
+    const btn = document.getElementById(`dbfilter-${f}`);
+    if (!btn) return;
+    if (f === filterType) {
+      btn.className = 'dbfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 text-white shadow-sm shadow-sky-600/30 transition';
+    } else {
+      btn.className = 'dbfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-800 text-slate-300 hover:text-white transition';
+    }
+  });
+  renderDashboardLazy(true);
+}
+
+function getFilteredDashboardItems() {
+  return state.galleryItems.filter(it =>
+    state.dashboardFilter === 'all' ? true : it.type === state.dashboardFilter
+  );
+}
+
+function renderDashboardLazy(reset = false) {
   const grid = document.getElementById('dashboard-recent-grid');
+  const counter = document.getElementById('dashboard-items-counter');
+  const spinner = document.getElementById('dashboard-lazy-spinner');
+  const endEl = document.getElementById('dashboard-lazy-end');
   if (!grid) return;
 
-  const recent = state.galleryItems.slice(0, 4);
-  if (recent.length === 0) {
+  const items = getFilteredDashboardItems();
+
+  if (counter) {
+    counter.innerText = `· ${items.length} tác phẩm`;
+  }
+
+  if (reset) {
+    state.dashboardRenderedCount = 0;
+    grid.innerHTML = '';
+  }
+
+  if (items.length === 0) {
     grid.innerHTML = `
-      <div class="col-span-full py-10 text-center text-slate-500 text-xs">
-        Chưa có sản phẩm nào. Hãy bấm <b>Mở Studio Tạo Video</b> để khởi tạo thước phim đầu tiên!
+      <div class="col-span-full py-12 text-center text-slate-500 text-xs space-y-2">
+        <i data-lucide="film" class="w-8 h-8 mx-auto text-slate-600"></i>
+        <p>Chưa có sản phẩm nào trong danh mục này.</p>
       </div>
     `;
+    if (spinner) spinner.classList.add('hidden');
+    if (endEl) endEl.classList.add('hidden');
+    lucide.createIcons();
     return;
   }
 
-  grid.innerHTML = '';
-  recent.forEach(item => {
+  const nextCount = Math.min(items.length, state.dashboardRenderedCount + state.dashboardPageSize);
+  const chunk = items.slice(state.dashboardRenderedCount, nextCount);
+
+  chunk.forEach(item => {
     grid.appendChild(createMediaCard(item));
   });
+
+  state.dashboardRenderedCount = nextCount;
   lucide.createIcons();
+
+  if (state.dashboardRenderedCount >= items.length) {
+    if (spinner) spinner.classList.add('hidden');
+    if (endEl) endEl.classList.remove('hidden');
+  } else {
+    if (endEl) endEl.classList.add('hidden');
+    if (spinner) spinner.classList.add('hidden');
+  }
+}
+
+function loadMoreDashboardItems() {
+  if (state.dashboardLoadingMore) return;
+  const items = getFilteredDashboardItems();
+  if (state.dashboardRenderedCount >= items.length) return;
+
+  state.dashboardLoadingMore = true;
+  const spinner = document.getElementById('dashboard-lazy-spinner');
+  if (spinner) spinner.classList.remove('hidden');
+
+  setTimeout(() => {
+    renderDashboardLazy(false);
+    state.dashboardLoadingMore = false;
+  }, 250);
+}
+
+function setupDashboardLazyScroll() {
+  const sentinel = document.getElementById('dashboard-lazy-sentinel');
+  const scrollContainer = document.querySelector('main');
+
+  if (sentinel && 'IntersectionObserver' in window) {
+    dashboardObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && state.currentTab === 'dashboard') {
+          loadMoreDashboardItems();
+        }
+      });
+    }, {
+      root: scrollContainer,
+      rootMargin: '120px',
+      threshold: 0.1,
+    });
+    dashboardObserver.observe(sentinel);
+  }
+
+  // Fallback scroll listener on main container
+  if (scrollContainer) {
+    scrollContainer.addEventListener('scroll', () => {
+      if (state.currentTab !== 'dashboard') return;
+      const threshold = 180;
+      if (scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight <= threshold) {
+        loadMoreDashboardItems();
+      }
+    });
+  }
+}
+
+function renderDashboardRecent() {
+  renderDashboardLazy(true);
 }
 
 function renderGalleryGrid() {
@@ -1444,16 +1660,47 @@ function createMediaCard(item) {
         <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md ${
           item.type === 'video' ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30' : 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
         }">
-          ${item.type === 'video' ? 'HaiAI Video' : 'HaiAI Image'}
+          ${item.type === 'video' ? 'H-AI Video' : 'H-AI Image'}
         </span>
-        <a href="${item.url}" download class="px-2.5 py-1 rounded-lg bg-surface-700 hover:bg-surface-600 text-slate-200 text-xs font-medium flex items-center space-x-1 transition">
-          <i data-lucide="download" class="w-3 h-3"></i>
-          <span>Tải về</span>
-        </a>
+        <div class="flex items-center space-x-1.5">
+          ${item.type === 'video' ? `
+            <button onclick="continueFromVideoUrl('${item.url}')" type="button" title="Tạo cảnh nối tiếp từ video này" class="px-2 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-semibold flex items-center space-x-1 transition">
+              <i data-lucide="link-2" class="w-3 h-3"></i>
+              <span>Nối tiếp</span>
+            </button>
+          ` : ''}
+          <a href="${item.url}" download class="px-2.5 py-1 rounded-lg bg-surface-700 hover:bg-surface-600 text-slate-200 text-xs font-medium flex items-center space-x-1 transition">
+            <i data-lucide="download" class="w-3 h-3"></i>
+            <span>Tải về</span>
+          </a>
+        </div>
       </div>
     </div>
   `;
   return card;
+}
+
+
+function continueFromVideoUrl(url) {
+  switchTab('video');
+  if (state.storyboard.length === 0) {
+    state.storyboard = [{ scene: 1, url: url, prompt: 'Cảnh khởi đầu', duration: state.videoDuration || 5 }];
+    saveStoryboardCache();
+  }
+  const player = document.getElementById('video-player');
+  if (player) {
+    player.src = url;
+    document.getElementById('video-download-btn').href = url;
+    document.getElementById('video-idle-state')?.classList.add('hidden');
+    document.getElementById('video-result-container')?.classList.remove('hidden');
+  }
+  renderStoryboard();
+  setVideoMode(true);
+  const promptEl = document.getElementById('video-prompt');
+  if (promptEl) {
+    promptEl.value = '';
+    promptEl.focus();
+  }
 }
 
 function escapeHtml(str) {
