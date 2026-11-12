@@ -5,6 +5,7 @@ const state = {
   email: null,
   // Video Studio state
   videoRatio: '16:9',
+  videoDuration: 5,
   videoStyle: 'Điện ảnh 4K Hollywood',
   isContinuation: false,
   videoSessionId: null,
@@ -56,15 +57,18 @@ function updateUrlParams() {
     if (state.currentTab === 'video') {
       url.searchParams.set('mode', state.isContinuation ? 'seq' : 'single');
       if (state.videoRatio) url.searchParams.set('ratio', state.videoRatio);
+      if (state.videoDuration) url.searchParams.set('duration', state.videoDuration);
       if (state.videoStyle) url.searchParams.set('style', state.videoStyle);
     } else if (state.currentTab === 'image') {
       if (state.aspectRatio) url.searchParams.set('ratio', state.aspectRatio);
       url.searchParams.delete('mode');
       url.searchParams.delete('style');
+      url.searchParams.delete('duration');
     } else {
       url.searchParams.delete('mode');
       url.searchParams.delete('ratio');
       url.searchParams.delete('style');
+      url.searchParams.delete('duration');
     }
 
     window.history.replaceState({}, '', url.pathname + url.search);
@@ -114,6 +118,14 @@ function restoreFromUrlParams() {
     const style = params.get('style');
     if (style) {
       setVideoStyle(style, false);
+    }
+
+    // 5. Duration parameter
+    const duration = parseInt(params.get('duration') || params.get('sec') || localStorage.getItem('haiai_duration') || '5', 10);
+    if (!isNaN(duration) && duration > 0) {
+      setVideoDuration(duration, false);
+    } else {
+      setVideoDuration(5, false);
     }
 
     // Switch to target tab
@@ -477,6 +489,72 @@ function setVideoRatio(ratio, syncUrl = true) {
   }
 }
 
+function setVideoDuration(seconds, syncUrl = true) {
+  seconds = parseInt(seconds, 10);
+  if (isNaN(seconds) || seconds <= 0) seconds = 5;
+  state.videoDuration = seconds;
+
+  // Update display badges
+  const display = document.getElementById('video-duration-display');
+  if (display) display.innerText = `${seconds} giây`;
+
+  const monitorBadge = document.getElementById('active-duration-badge');
+  if (monitorBadge) monitorBadge.innerText = `Thời lượng: ${seconds}s`;
+
+  // Update preset buttons (5s, 8s, 10s, 15s, 20s)
+  const presets = [5, 8, 10, 15, 20];
+  const isPreset = presets.includes(seconds);
+
+  presets.forEach(sec => {
+    const btn = document.getElementById(`vduration-${sec}`);
+    if (!btn) return;
+    if (sec === seconds) {
+      btn.className = 'vduration-btn py-2 px-1 rounded-xl border border-indigo-500 bg-indigo-500/20 text-white text-xs font-bold transition flex items-center justify-center';
+    } else {
+      btn.className = 'vduration-btn py-2 px-1 rounded-xl border border-surface-600 bg-surface-900 text-slate-400 hover:text-white text-xs font-bold transition flex items-center justify-center';
+    }
+  });
+
+  // Custom button & input
+  const customBtn = document.getElementById('vduration-custom-btn');
+  const customInput = document.getElementById('vduration-custom-input');
+  if (customBtn) {
+    if (!isPreset) {
+      customBtn.className = 'vduration-btn py-2 px-1 rounded-xl border border-indigo-500 bg-indigo-500/20 text-white text-[11px] font-bold transition flex items-center justify-center';
+    } else {
+      customBtn.className = 'vduration-btn py-2 px-1 rounded-xl border border-surface-600 bg-surface-900 text-slate-400 hover:text-white text-[11px] font-bold transition flex items-center justify-center';
+    }
+  }
+
+  if (customInput && !isPreset) {
+    customInput.value = seconds;
+  }
+
+  localStorage.setItem('haiai_duration', seconds);
+
+  if (syncUrl) {
+    updateUrlParams();
+  }
+}
+
+function handleCustomDuration(val) {
+  const num = parseInt(val, 10);
+  if (!isNaN(num) && num > 0) {
+    setVideoDuration(num, true);
+  }
+}
+
+function focusCustomDuration() {
+  const input = document.getElementById('vduration-custom-input');
+  if (input) {
+    input.focus();
+    if (!input.value) {
+      input.value = state.videoDuration || 5;
+    }
+    setVideoDuration(input.value, true);
+  }
+}
+
 function setVideoStyle(styleName, syncUrl = true) {
   state.videoStyle = styleName;
   const map = {
@@ -780,6 +858,7 @@ async function generateVideo() {
       prompt: prompt,
       image_paths: state.videoImages.length > 0 ? state.videoImages.map(img => img.local_path) : (state.videoImageFile ? [state.videoImageFile] : []),
       aspect_ratio: state.videoRatio,
+      duration: state.videoDuration || 5,
       is_continuation: state.isContinuation && state.videoSessionId !== null,
       session_id: state.videoSessionId,
       scene_index: currentSceneNumber,
@@ -808,12 +887,13 @@ async function generateVideo() {
 
       // Update storyboard chain
       if (!state.isContinuation) {
-        state.storyboard = [{ scene: 1, url: videoUrl, prompt: prompt }];
+        state.storyboard = [{ scene: 1, url: videoUrl, prompt: prompt, duration: state.videoDuration || 5 }];
       } else {
         state.storyboard.push({
           scene: state.storyboard.length + 1,
           url: videoUrl,
           prompt: prompt,
+          duration: state.videoDuration || 5,
         });
       }
       renderStoryboard();
@@ -1035,7 +1115,10 @@ function renderStoryboard() {
     card.className = 'storyboard-card shrink-0 w-52 p-2.5 rounded-xl bg-surface-900 hover:bg-surface-800 border border-cyan-500/30 text-left space-y-2 transition cursor-grab active:cursor-grabbing select-none group relative shadow-md';
     card.innerHTML = `
       <div class="flex items-center justify-between">
-        <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300">CẢNH #${item.scene}</span>
+        <div class="flex items-center space-x-1.5">
+          <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300">CẢNH #${item.scene}</span>
+          ${item.duration ? `<span class="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-surface-800 text-cyan-300 border border-white/10">${item.duration}s</span>` : ''}
+        </div>
         <div class="flex items-center space-x-1">
           ${!isFirst ? `
             <button type="button" title="Chuyển sang trái" onclick="moveScene(${index}, -1, event)" class="p-1 rounded hover:bg-surface-700 text-slate-400 hover:text-white transition">

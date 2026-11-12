@@ -67,6 +67,7 @@ class VideoGenerateModel(BaseModel):
     prompt: str
     image_paths: list[str] = []
     aspect_ratio: str = "16:9"
+    duration: Optional[int] = 5
     is_continuation: bool = False
     session_id: Optional[str] = None
     scene_index: int = 1
@@ -137,16 +138,20 @@ RATIO_DESCRIPTIONS = {
 def build_hidden_video_prompt(
     user_prompt: str,
     aspect_ratio: str,
+    duration: Optional[int] = 5,
     is_continuation: bool = False,
     scene_index: int = 1,
     style_preset: Optional[str] = None,
 ) -> str:
     ratio_desc = RATIO_DESCRIPTIONS.get(aspect_ratio, f"tỉ lệ khung hình {aspect_ratio}")
     style_part = f" Phong cách chủ đạo: {style_preset}." if style_preset else ""
+    duration_val = duration if (duration and duration > 0) else 5
+    duration_desc = f"Thời lượng video: đúng {duration_val} giây ({duration_val} seconds duration clip, pacing & action timing calibrated for exactly {duration_val}s)."
 
     if is_continuation:
         return (
             f"Hãy tạo một video chuyên nghiệp nối tiếp liền mạch với cảnh video trước đó (Cảnh nối tiếp #{scene_index}). "
+            f"{duration_desc} "
             f"Yêu cầu bắt buộc: Giữ nguyên hoàn toàn sự đồng nhất về nhân vật, trang phục, khuôn mặt, bối cảnh môi trường, "
             f"ánh sáng, bảng màu và phong cách góc máy từ cảnh trước để tạo thành một thước phim liên tục mượt mà. "
             f"Chất lượng điện ảnh 4K Ultra HD, chuyển động vật lý tự nhiên, chi tiết sắc nét, âm thanh sống động đồng bộ hoàn hảo, "
@@ -155,7 +160,8 @@ def build_hidden_video_prompt(
         )
     else:
         return (
-            f"Hãy tạo một video chuyên nghiệp, chất lượng điện ảnh 4K Ultra HD, bố cục nghệ thuật xuất sắc, "
+            f"Hãy tạo một video chuyên nghiệp, {duration_desc} "
+            f"Chất lượng điện ảnh 4K Ultra HD, bố cục nghệ thuật xuất sắc, "
             f"chuyển động camera và vật lý mượt mà chân thực, ánh sáng điện ảnh có chiều sâu, chi tiết cực kỳ sắc nét, "
             f"kèm âm thanh và hiệu ứng tiếng động sống động đồng bộ hoàn hảo, {ratio_desc}.{style_part} "
             f"Nội dung cảnh quay: {user_prompt.strip()}"
@@ -575,6 +581,7 @@ async def generate_video(data: VideoGenerateModel):
         enhanced_prompt = build_hidden_video_prompt(
             user_prompt=data.prompt,
             aspect_ratio=data.aspect_ratio,
+            duration=data.duration,
             is_continuation=data.is_continuation,
             scene_index=data.scene_index,
             style_preset=data.style_preset,
@@ -613,6 +620,7 @@ async def generate_video(data: VideoGenerateModel):
             "videos": downloaded_urls,
             "count": len(downloaded_urls),
             "aspect_ratio": data.aspect_ratio,
+            "duration": data.duration or 5,
             "is_continuation": data.is_continuation,
             "errors": result.download_errors,
         }

@@ -471,6 +471,30 @@
                 </div>
               </div>
 
+              <!-- Video Duration Selector (5s, 8s, 10s, 15s, 20s + custom input) -->
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <label class="text-xs font-semibold text-slate-200 flex items-center space-x-1.5">
+                    <i data-lucide="timer" class="w-3.5 h-3.5 text-cyan-400"></i>
+                    <span>Thời lượng video</span>
+                  </label>
+                  <span id="video-duration-display" class="text-[11px] text-cyan-400 font-bold bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded-md">5 giây</span>
+                </div>
+                <div class="grid grid-cols-6 gap-1.5 mb-2">
+                  <button type="button" onclick="setVideoDuration(5)" id="vduration-5" class="vduration-btn py-2 px-1 rounded-xl border border-indigo-500 bg-indigo-500/20 text-white text-xs font-bold transition flex items-center justify-center">5s</button>
+                  <button type="button" onclick="setVideoDuration(8)" id="vduration-8" class="vduration-btn py-2 px-1 rounded-xl border border-surface-600 bg-surface-900 text-slate-400 hover:text-white text-xs font-bold transition flex items-center justify-center">8s</button>
+                  <button type="button" onclick="setVideoDuration(10)" id="vduration-10" class="vduration-btn py-2 px-1 rounded-xl border border-surface-600 bg-surface-900 text-slate-400 hover:text-white text-xs font-bold transition flex items-center justify-center">10s</button>
+                  <button type="button" onclick="setVideoDuration(15)" id="vduration-15" class="vduration-btn py-2 px-1 rounded-xl border border-surface-600 bg-surface-900 text-slate-400 hover:text-white text-xs font-bold transition flex items-center justify-center">15s</button>
+                  <button type="button" onclick="setVideoDuration(20)" id="vduration-20" class="vduration-btn py-2 px-1 rounded-xl border border-surface-600 bg-surface-900 text-slate-400 hover:text-white text-xs font-bold transition flex items-center justify-center">20s</button>
+                  <button type="button" onclick="focusCustomDuration()" id="vduration-custom-btn" class="vduration-btn py-2 px-1 rounded-xl border border-surface-600 bg-surface-900 text-slate-400 hover:text-white text-[11px] font-bold transition flex items-center justify-center">Khác</button>
+                </div>
+                <!-- Custom duration input -->
+                <div class="relative flex items-center">
+                  <input type="number" id="vduration-custom-input" min="1" max="120" placeholder="Tự nhập số giây (VD: 6, 12, 30)..." oninput="handleCustomDuration(this.value)" class="w-full bg-surface-900/90 border border-surface-600 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none transition">
+                  <span class="absolute right-3.5 text-xs text-slate-400 pointer-events-none">giây</span>
+                </div>
+              </div>
+
               <!-- Director Style Preset -->
               <div>
                 <label class="block text-xs font-semibold text-slate-200 mb-2">Phong cách Đạo diễn</label>
@@ -528,8 +552,9 @@
                   <i data-lucide="monitor-play" class="w-4 h-4 text-indigo-400"></i>
                   <h3 class="font-bold text-sm text-white">Màn hình Đạo diễn (Preview & Storyboard)</h3>
                 </div>
-                <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2">
                   <span id="active-ratio-badge" class="text-[11px] px-2.5 py-0.5 rounded-md bg-surface-800 border border-white/10 text-slate-300 font-semibold">Khung hình: 16:9</span>
+                  <span id="active-duration-badge" class="text-[11px] px-2.5 py-0.5 rounded-md bg-cyan-950/50 border border-cyan-500/20 text-cyan-300 font-semibold">Thời lượng: 5s</span>
                   <div id="video-timer" class="text-xs text-indigo-300 font-semibold hidden">
                     ⏱ <span id="timer-seconds" class="font-mono text-white">0</span>s
                   </div>
