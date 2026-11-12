@@ -10,10 +10,16 @@ const state = {
   videoSessionId: null,
   sceneIndex: 1,
   storyboard: [], // [{ scene: 1, url: '/outputs/...', prompt: '...' }]
-  videoImageFile: null,
+  videoImages: [], // Multi-image array: [{ id, local_path, url, name }]
+  get videoImageFile() {
+    return this.videoImages.length > 0 ? this.videoImages[0].local_path : null;
+  },
   // Image Studio state
   aspectRatio: '1:1',
-  imageFile: null,
+  imageFiles: [],  // Multi-image array: [{ id, local_path, url, name }]
+  get imageFile() {
+    return this.imageFiles.length > 0 ? this.imageFiles[0].local_path : null;
+  },
   lastGeneratedImageUrl: null,
   // Chat state
   chatSessionId: null,
@@ -535,59 +541,129 @@ function setupDropzones() {
     dropzone.addEventListener('drop', (e) => {
       e.preventDefault();
       dropzone.classList.remove('border-indigo-500');
-      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-        uploadReferenceImage(e.dataTransfer.files[0], type);
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        uploadReferenceImages(e.dataTransfer.files, type);
       }
     });
   });
 }
 
 function handleImageUpload(event, type) {
-  if (event.target.files && event.target.files[0]) {
-    uploadReferenceImage(event.target.files[0], type);
+  if (event.target.files && event.target.files.length > 0) {
+    uploadReferenceImages(event.target.files, type);
   }
 }
 
-async function uploadReferenceImage(file, type) {
-  const formData = new FormData();
-  formData.append('file', file);
+// Upload One or Multiple Reference Images
+async function uploadReferenceImages(files, type) {
+  const fileArray = Array.from(files).filter(f => f.type && f.type.startsWith('image/'));
+  if (fileArray.length === 0) return;
 
-  try {
+  const uploadPromises = fileArray.map(async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
     const res = await fetch('/api/upload', {
       method: 'POST',
       body: formData,
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Upload thất bại.');
+    return {
+      id: 'img_' + Math.random().toString(36).substring(2, 9),
+      local_path: data.local_path,
+      url: data.url,
+      name: file.name || 'image.png',
+    };
+  });
 
+  try {
+    const uploaded = await Promise.all(uploadPromises);
     if (type === 'video') {
-      state.videoImageFile = data.local_path;
-      document.getElementById('video-image-preview').src = data.url;
-      document.getElementById('video-image-preview-container').classList.remove('hidden');
-      document.getElementById('video-upload-prompt').classList.add('hidden');
+      state.videoImages.push(...uploaded);
     } else {
-      state.imageFile = data.local_path;
-      document.getElementById('image-file-preview').src = data.url;
-      document.getElementById('image-file-preview-container').classList.remove('hidden');
-      document.getElementById('image-upload-prompt').classList.add('hidden');
+      state.imageFiles.push(...uploaded);
     }
+    renderImageThumbnails(type);
+
+    const totalCount = (type === 'video' ? state.videoImages : state.imageFiles).length;
+    showToast(`Đã thêm ${uploaded.length} ảnh! (Hiện có ${totalCount} ảnh tham chiếu)`);
   } catch (err) {
     alert('Lỗi tải ảnh lên: ' + err.message);
   }
 }
 
-function removeImage(type) {
-  if (type === 'video') {
-    state.videoImageFile = null;
-    document.getElementById('video-image-input').value = '';
-    document.getElementById('video-image-preview-container').classList.add('hidden');
-    document.getElementById('video-upload-prompt').classList.remove('hidden');
-  } else {
-    state.imageFile = null;
-    document.getElementById('image-file-input').value = '';
-    document.getElementById('image-file-preview-container').classList.add('hidden');
-    document.getElementById('image-upload-prompt').classList.remove('hidden');
+// Render Multi-image Thumbnails Grid
+function renderImageThumbnails(type) {
+  const isVideo = type === 'video';
+  const list = isVideo ? state.videoImages : state.imageFiles;
+  const container = document.getElementById(isVideo ? 'video-image-preview-container' : 'image-file-preview-container');
+  const badge = document.getElementById(isVideo ? 'video-images-count-badge' : 'image-images-count-badge');
+  const countText = document.getElementById(isVideo ? 'video-images-count-text' : 'image-images-count-text');
+  const prompt = document.getElementById(isVideo ? 'video-upload-prompt' : 'image-upload-prompt');
+  const input = document.getElementById(isVideo ? 'video-image-input' : 'image-file-input');
+
+  if (!container) return;
+
+  if (list.length === 0) {
+    container.classList.add('hidden');
+    container.innerHTML = '';
+    if (badge) badge.classList.add('hidden');
+    if (prompt) prompt.classList.remove('hidden');
+    if (input) input.value = '';
+    return;
   }
+
+  container.classList.remove('hidden');
+  if (badge) {
+    badge.classList.remove('hidden');
+    if (countText) countText.innerText = `${list.length} ảnh`;
+  }
+
+  // Thumbnails Grid
+  container.innerHTML = list.map((item, index) => `
+    <div class="relative group rounded-xl overflow-hidden border border-white/20 bg-surface-900 shadow-md">
+      <img src="${item.url}" alt="Ảnh tham chiếu #${index + 1}" class="w-20 h-20 object-cover rounded-xl transition duration-200 group-hover:scale-105">
+      <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+        <button type="button" onclick="removeSingleImage('${type}', '${item.id}', event)" class="bg-rose-600 hover:bg-rose-500 text-white rounded-full p-1.5 shadow-lg transition" title="Xóa ảnh này">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+      <span class="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/70 text-[9px] font-mono text-white/90">#${index + 1}</span>
+    </div>
+  `).join('') + `
+    <!-- Plus box to add more images -->
+    <button type="button" onclick="document.getElementById('${isVideo ? 'video-image-input' : 'image-file-input'}').click()" class="w-20 h-20 rounded-xl border-2 border-dashed border-white/20 hover:border-indigo-400 hover:bg-indigo-500/10 flex flex-col items-center justify-center text-slate-400 hover:text-white transition group">
+      <i data-lucide="plus" class="w-5 h-5 ${isVideo ? 'text-indigo-400' : 'text-purple-400'} group-hover:scale-110 transition"></i>
+      <span class="text-[10px] mt-1 font-semibold">Thêm ảnh</span>
+    </button>
+  `;
+
+  lucide.createIcons();
+}
+
+function removeSingleImage(type, id, event) {
+  if (event) event.stopPropagation();
+  if (type === 'video') {
+    state.videoImages = state.videoImages.filter(img => img.id !== id);
+  } else {
+    state.imageFiles = state.imageFiles.filter(img => img.id !== id);
+  }
+  renderImageThumbnails(type);
+}
+
+function clearAllImages(type, event) {
+  if (event) event.stopPropagation();
+  if (type === 'video') {
+    state.videoImages = [];
+  } else {
+    state.imageFiles = [];
+  }
+  renderImageThumbnails(type);
+}
+
+// Backward-compatible removeImage
+function removeImage(type) {
+  clearAllImages(type);
 }
 
 // Toast Notification
@@ -616,44 +692,45 @@ function showToast(message, type = 'info') {
   }, 3500);
 }
 
-// Global Ctrl + V Image Paste Handler
+// Global Ctrl + V Image Paste Handler (Supports continuous multi-image pasting)
 window.addEventListener('paste', handleGlobalPaste);
 
 function handleGlobalPaste(event) {
   const items = (event.clipboardData || event.originalEvent?.clipboardData)?.items;
   if (!items) return;
 
+  const files = [];
   for (const item of items) {
     if (item.type && item.type.startsWith('image/')) {
       const file = item.getAsFile();
-      if (!file) continue;
-
-      event.preventDefault();
-
-      let targetType = 'video';
-      if (state.currentTab === 'image') {
-        targetType = 'image';
-      } else if (state.currentTab === 'video') {
-        targetType = 'video';
-      } else {
-        targetType = 'video';
-        switchTab('video');
-      }
-
-      // Flash target dropzone border to give instant visual indicator
-      const dropzone = document.getElementById(`${targetType}-dropzone`);
-      if (dropzone) {
-        dropzone.classList.add('border-indigo-400', 'bg-indigo-500/20');
-        setTimeout(() => {
-          dropzone.classList.remove('border-indigo-400', 'bg-indigo-500/20');
-        }, 1000);
-      }
-
-      showToast(`Đã nhận diện và dán ảnh từ Clipboard vào ${targetType === 'video' ? 'Tạo Video' : 'Tạo Ảnh'}!`);
-      uploadReferenceImage(file, targetType);
-      break;
+      if (file) files.push(file);
     }
   }
+
+  if (files.length === 0) return;
+
+  event.preventDefault();
+
+  let targetType = 'video';
+  if (state.currentTab === 'image') {
+    targetType = 'image';
+  } else if (state.currentTab === 'video') {
+    targetType = 'video';
+  } else {
+    targetType = 'video';
+    switchTab('video');
+  }
+
+  // Flash target dropzone border
+  const dropzone = document.getElementById(`${targetType}-dropzone`);
+  if (dropzone) {
+    dropzone.classList.add('border-indigo-400', 'bg-indigo-500/20');
+    setTimeout(() => {
+      dropzone.classList.remove('border-indigo-400', 'bg-indigo-500/20');
+    }, 1000);
+  }
+
+  uploadReferenceImages(files, targetType);
 }
 
 // VIDEO GENERATION
@@ -700,7 +777,7 @@ async function generateVideo() {
 
     const payload = {
       prompt: prompt,
-      image_paths: state.videoImageFile ? [state.videoImageFile] : [],
+      image_paths: state.videoImages.length > 0 ? state.videoImages.map(img => img.local_path) : (state.videoImageFile ? [state.videoImageFile] : []),
       aspect_ratio: state.videoRatio,
       is_continuation: state.isContinuation && state.videoSessionId !== null,
       session_id: state.videoSessionId,
@@ -822,7 +899,7 @@ async function generateImage() {
   try {
     const payload = {
       prompt: prompt,
-      image_paths: state.imageFile ? [state.imageFile] : [],
+      image_paths: state.imageFiles.length > 0 ? state.imageFiles.map(img => img.local_path) : (state.imageFile ? [state.imageFile] : []),
       aspect_ratio: state.aspectRatio,
     };
 
