@@ -13,11 +13,19 @@
         extend: {
           colors: {
             surface: {
-              950: '#050811',
-              900: '#090d16',
-              800: '#0f1626',
-              700: '#182238',
-              600: '#253352',
+              950: '#080c14',
+              900: '#0c121e',
+              800: '#121b2d',
+              700: '#18243c',
+              600: '#223252',
+              500: '#324772',
+            },
+            studio: {
+              cyan: '#42c3e5',
+              teal: '#1abc9c',
+              navy: '#202e50',
+              blue: '#0284c7',
+              sky: '#38bdf8',
             }
           }
         }
@@ -28,49 +36,58 @@
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
     body {
       font-family: 'Plus Jakarta Sans', sans-serif;
-      background-color: #050811;
+      background-color: #080c14;
     }
     ::-webkit-scrollbar {
       width: 6px;
       height: 6px;
     }
     ::-webkit-scrollbar-track {
-      background: #090d16;
+      background: #0c121e;
     }
     ::-webkit-scrollbar-thumb {
-      background: #1e293b;
+      background: #18243c;
       border-radius: 9999px;
     }
     ::-webkit-scrollbar-thumb:hover {
-      background: #334155;
+      background: #223252;
     }
     .glass-card {
-      background: rgba(15, 22, 38, 0.75);
-      backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.07);
+      background: rgba(18, 27, 45, 0.85);
+      backdrop-filter: blur(18px);
+      border: 1px solid rgba(66, 195, 229, 0.12);
     }
     .glow-border:focus-within {
-      border-color: #6366f1;
-      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+    }
+    /* Hide native number input stepper arrows */
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
     }
   </style>
 </head>
-<body class="text-slate-100 min-h-screen flex overflow-hidden selection:bg-indigo-600 selection:text-white">
+<body class="text-slate-100 min-h-screen flex overflow-hidden selection:bg-sky-500 selection:text-white">
 
   <!-- LEFT SIDEBAR NAVIGATION -->
   <aside class="w-64 bg-surface-900 border-r border-white/[0.06] flex flex-col justify-between shrink-0 select-none z-30">
     <!-- Top Brand -->
     <div>
       <div class="h-16 px-5 flex items-center space-x-3 border-b border-white/[0.06]">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-cyan-400 p-[1.5px] shadow-lg shadow-indigo-500/25">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-400 via-blue-500 to-teal-400 p-[1.5px] shadow-lg shadow-sky-500/20">
           <div class="w-full h-full bg-surface-900 rounded-[10px] flex items-center justify-center">
-            <i data-lucide="zap" class="w-5 h-5 text-indigo-400"></i>
+            <i data-lucide="zap" class="w-5 h-5 text-sky-400"></i>
           </div>
         </div>
         <div>
           <div class="flex items-center space-x-1.5">
-            <span class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-indigo-200 to-cyan-300 bg-clip-text text-transparent">HaiAI</span>
-            <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-indigo-500/15 text-indigo-300 font-bold border border-indigo-500/30">PRO</span>
+            <span class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-sky-100 to-cyan-300 bg-clip-text text-transparent">HaiAI</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-sky-500/15 text-sky-300 font-bold border border-sky-500/30">PRO</span>
           </div>
           <p class="text-[11px] text-slate-400">Creative AI Studio</p>
         </div>
@@ -80,7 +97,7 @@
       <div class="p-3 space-y-1">
         <p class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">Không gian làm việc</p>
 
-        <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="tab-btn w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all text-white bg-gradient-to-r from-indigo-600 to-violet-600 shadow-lg shadow-indigo-600/25">
+        <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="tab-btn w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all text-white bg-gradient-to-r from-sky-500 to-blue-600 shadow-lg shadow-sky-600/25">
           <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
           <span>Tổng quan (Dashboard)</span>
         </button>
@@ -172,7 +189,7 @@
     <header class="h-16 border-b border-white/[0.06] bg-surface-900/70 backdrop-blur-md px-6 flex items-center justify-between shrink-0 z-20">
       <div class="flex items-center space-x-3">
         <h1 id="page-header-title" class="font-bold text-base text-white">Tổng quan hệ thống (Dashboard)</h1>
-        <span class="hidden sm:inline-flex items-center space-x-1 text-[11px] px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+        <span class="hidden sm:inline-flex items-center space-x-1 text-[11px] px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-300 border border-sky-500/20">
           <i data-lucide="wand-sparkles" class="w-3 h-3 mr-1"></i>
           <span>Tự động tối ưu hóa Prompt chuyên nghiệp</span>
         </span>
@@ -180,8 +197,8 @@
 
       <div class="flex items-center space-x-3">
         <!-- Live Token Quota Badge -->
-        <div id="header-quota-badge" class="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300">
-          <i data-lucide="zap" class="w-3.5 h-3.5 text-indigo-400"></i>
+        <div id="header-quota-badge" class="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-sky-500/10 border border-sky-500/20 text-xs text-sky-300">
+          <i data-lucide="zap" class="w-3.5 h-3.5 text-sky-400"></i>
           <span>Quota: <b id="header-quota-tokens" class="text-white font-bold">350,000</b> Tokens</span>
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
         </div>
@@ -190,7 +207,7 @@
           <i data-lucide="globe" class="w-3.5 h-3.5 text-cyan-400"></i>
           <span>Định tuyến: <b>US High-Speed</b></span>
         </div>
-        <button onclick="switchTab('video')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white shadow flex items-center space-x-1.5 transition">
+        <button onclick="switchTab('video')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white shadow flex items-center space-x-1.5 transition">
           <i data-lucide="plus" class="w-3.5 h-3.5"></i>
           <span>Tạo Video Mới</span>
         </button>
@@ -204,9 +221,9 @@
       <div id="view-dashboard" class="tab-view space-y-6 max-w-7xl mx-auto">
         
         <!-- Hero Banner -->
-        <div class="relative rounded-2xl overflow-hidden p-6 sm:p-8 bg-gradient-to-r from-indigo-950 via-surface-800 to-slate-900 border border-indigo-500/20 shadow-2xl">
+        <div class="relative rounded-2xl overflow-hidden p-6 sm:p-8 bg-gradient-to-r from-[#0c1524] via-surface-800 to-[#09111e] border border-sky-500/20 shadow-2xl">
           <div class="relative z-10 max-w-2xl space-y-3">
-            <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-semibold">
+            <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-sky-500/20 border border-sky-400/30 text-sky-300 text-xs font-semibold">
               <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
               <span>HaiAI Studio 2.0 — Chuỗi Video Nối Tiếp & Đạo Diễn AI Tự Động</span>
             </div>
@@ -217,22 +234,22 @@
               Hệ thống tự động nâng cấp mô tả của bạn thành kịch bản quay phim 4K chuẩn điện ảnh, hỗ trợ đa tỉ lệ khung hình và tạo các cảnh video nối tiếp liền mạch giữ nguyên nhân vật.
             </p>
             <div class="pt-2 flex flex-wrap gap-3">
-              <button onclick="switchTab('video')" class="px-5 py-2.5 rounded-xl bg-white text-slate-950 hover:bg-indigo-50 font-bold text-xs flex items-center space-x-2 shadow-lg transition">
-                <i data-lucide="clapperboard" class="w-4 h-4 text-indigo-600"></i>
+              <button onclick="switchTab('video')" class="px-5 py-2.5 rounded-xl bg-white text-slate-950 hover:bg-sky-50 font-bold text-xs flex items-center space-x-2 shadow-lg transition">
+                <i data-lucide="clapperboard" class="w-4 h-4 text-sky-600"></i>
                 <span>Mở Studio Tạo Video</span>
               </button>
-              <button onclick="startSequentialFromDashboard()" class="px-4 py-2.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-white border border-indigo-400/30 font-semibold text-xs flex items-center space-x-2 transition">
+              <button onclick="startSequentialFromDashboard()" class="px-4 py-2.5 rounded-xl bg-sky-600/30 hover:bg-sky-600/50 text-white border border-sky-400/30 font-semibold text-xs flex items-center space-x-2 transition">
                 <i data-lucide="film" class="w-4 h-4 text-cyan-300"></i>
                 <span>Tạo Phim Nối Tiếp Nhiều Cảnh</span>
               </button>
               <button onclick="switchTab('image')" class="px-4 py-2.5 rounded-xl bg-surface-800 hover:bg-surface-700 text-slate-200 border border-white/10 font-semibold text-xs flex items-center space-x-2 transition">
-                <i data-lucide="palette" class="w-4 h-4 text-purple-400"></i>
+                <i data-lucide="palette" class="w-4 h-4 text-teal-400"></i>
                 <span>Tạo Ảnh Nghệ Thuật</span>
               </button>
             </div>
           </div>
-          <div class="absolute -right-12 -bottom-12 w-72 h-72 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none"></div>
-          <div class="absolute right-24 -top-12 w-56 h-56 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="absolute -right-12 -bottom-12 w-72 h-72 bg-sky-500/15 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="absolute right-24 -top-12 w-56 h-56 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
         </div>
 
         <!-- Usage Card (Exact UI from Account: Free plan & Additional tokens) -->
@@ -304,15 +321,15 @@
         <!-- Stats Cards Grid -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <!-- Token Quota Card -->
-          <div class="glass-card rounded-2xl p-5 flex items-center justify-between border-indigo-500/30">
+          <div class="glass-card rounded-2xl p-5 flex items-center justify-between border-sky-500/30">
             <div>
               <p class="text-xs font-medium text-slate-400">Hạn mức Token Quota</p>
-              <h3 id="stat-tokens" class="text-2xl font-extrabold text-indigo-300 mt-1">350,000</h3>
+              <h3 id="stat-tokens" class="text-2xl font-extrabold text-sky-300 mt-1">350,000</h3>
               <p class="text-[11px] text-emerald-400 mt-1 flex items-center">
                 <i data-lucide="zap" class="w-3 h-3 mr-1"></i> Sẵn sàng • Weekly Refill
               </p>
             </div>
-            <div class="w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center text-indigo-400">
+            <div class="w-12 h-12 rounded-2xl bg-sky-500/15 border border-sky-500/25 flex items-center justify-center text-sky-400">
               <i data-lucide="coins" class="w-6 h-6"></i>
             </div>
           </div>
@@ -325,7 +342,7 @@
                 <i data-lucide="check-circle-2" class="w-3 h-3 mr-1"></i> Chuẩn 4K + Âm thanh
               </p>
             </div>
-            <div class="w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center text-indigo-400">
+            <div class="w-12 h-12 rounded-2xl bg-sky-500/15 border border-sky-500/25 flex items-center justify-center text-sky-400">
               <i data-lucide="video" class="w-6 h-6"></i>
             </div>
           </div>
@@ -334,11 +351,11 @@
             <div>
               <p class="text-xs font-medium text-slate-400">Ảnh nghệ thuật</p>
               <h3 id="stat-images" class="text-2xl font-extrabold text-white mt-1">0</h3>
-              <p class="text-[11px] text-purple-400 mt-1 flex items-center">
+              <p class="text-[11px] text-teal-400 mt-1 flex items-center">
                 <i data-lucide="sparkles" class="w-3 h-3 mr-1"></i> Độ phân giải 8K HD
               </p>
             </div>
-            <div class="w-12 h-12 rounded-2xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center text-purple-400">
+            <div class="w-12 h-12 rounded-2xl bg-teal-500/15 border border-teal-500/25 flex items-center justify-center text-teal-400">
               <i data-lucide="image" class="w-6 h-6"></i>
             </div>
           </div>
@@ -405,7 +422,7 @@
               <div>
                 <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Chế độ đạo diễn Video</label>
                 <div class="grid grid-cols-2 gap-2 p-1 bg-surface-950 rounded-xl border border-white/[0.06]">
-                  <button type="button" onclick="setVideoMode(false)" id="mode-btn-single" class="py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition bg-indigo-600 text-white shadow">
+                  <button type="button" onclick="setVideoMode(false)" id="mode-btn-single" class="py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition bg-sky-600 text-white shadow shadow-sky-600/30">
                     <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
                     <span>Video Mới Độc Lập</span>
                   </button>
@@ -448,7 +465,7 @@
               <div>
                 <label class="block text-xs font-semibold text-slate-200 mb-2">Tỉ lệ khung hình (Aspect Ratio)</label>
                 <div class="grid grid-cols-5 gap-2">
-                  <button type="button" onclick="setVideoRatio('16:9')" id="vratio-16-9" class="vratio-btn border border-indigo-500 bg-indigo-500/20 text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition">
+                  <button type="button" onclick="setVideoRatio('16:9')" id="vratio-16-9" class="vratio-btn border border-sky-400 bg-sky-500/20 text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition shadow-sm shadow-sky-500/30">
                     <div class="w-6 h-3.5 border-2 border-current rounded-sm"></div>
                     <span>16:9</span>
                   </button>
@@ -481,17 +498,17 @@
                   <span id="video-duration-display" class="text-[11px] text-cyan-400 font-bold bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded-md">5 giây</span>
                 </div>
                 <div class="grid grid-cols-6 gap-1.5 mb-2">
-                  <button type="button" onclick="setVideoDuration(5)" id="vduration-5" class="vduration-btn py-2 px-1 rounded-xl border border-indigo-500 bg-indigo-500/20 text-white text-xs font-bold transition flex items-center justify-center">5s</button>
+                  <button type="button" onclick="setVideoDuration(5)" id="vduration-5" class="vduration-btn py-2 px-1 rounded-xl border border-sky-400 bg-sky-500/20 text-white text-xs font-bold transition flex items-center justify-center shadow-sm shadow-sky-500/30">5s</button>
                   <button type="button" onclick="setVideoDuration(8)" id="vduration-8" class="vduration-btn py-2 px-1 rounded-xl border border-surface-600 bg-surface-900 text-slate-400 hover:text-white text-xs font-bold transition flex items-center justify-center">8s</button>
                   <button type="button" onclick="setVideoDuration(10)" id="vduration-10" class="vduration-btn py-2 px-1 rounded-xl border border-surface-600 bg-surface-900 text-slate-400 hover:text-white text-xs font-bold transition flex items-center justify-center">10s</button>
                   <button type="button" onclick="setVideoDuration(15)" id="vduration-15" class="vduration-btn py-2 px-1 rounded-xl border border-surface-600 bg-surface-900 text-slate-400 hover:text-white text-xs font-bold transition flex items-center justify-center">15s</button>
                   <button type="button" onclick="setVideoDuration(20)" id="vduration-20" class="vduration-btn py-2 px-1 rounded-xl border border-surface-600 bg-surface-900 text-slate-400 hover:text-white text-xs font-bold transition flex items-center justify-center">20s</button>
                   <button type="button" onclick="focusCustomDuration()" id="vduration-custom-btn" class="vduration-btn py-2 px-1 rounded-xl border border-surface-600 bg-surface-900 text-slate-400 hover:text-white text-[11px] font-bold transition flex items-center justify-center">Khác</button>
                 </div>
-                <!-- Custom duration input -->
+                <!-- Custom duration input (5 - 300s, with proper pr-14 spacing so no overlap with 'giây') -->
                 <div class="relative flex items-center">
-                  <input type="number" id="vduration-custom-input" min="1" max="120" placeholder="Tự nhập số giây (VD: 6, 12, 30)..." oninput="handleCustomDuration(this.value)" class="w-full bg-surface-900/90 border border-surface-600 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none transition">
-                  <span class="absolute right-3.5 text-xs text-slate-400 pointer-events-none">giây</span>
+                  <input type="number" id="vduration-custom-input" min="5" max="300" placeholder="Tự nhập số giây (5 - 300)..." oninput="handleCustomDuration(this.value)" class="w-full bg-surface-900/90 border border-surface-600 focus:border-sky-400 focus:ring-1 focus:ring-sky-400 rounded-xl px-3.5 pr-14 py-2 text-xs text-white placeholder-slate-500 focus:outline-none transition">
+                  <span class="absolute right-3.5 text-xs font-semibold text-slate-400 pointer-events-none select-none">giây</span>
                 </div>
               </div>
 
@@ -499,7 +516,7 @@
               <div>
                 <label class="block text-xs font-semibold text-slate-200 mb-2">Phong cách Đạo diễn</label>
                 <div class="flex flex-wrap gap-1.5">
-                  <button type="button" onclick="setVideoStyle('Điện ảnh 4K Hollywood')" id="vstyle-hollywood" class="vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-indigo-500 bg-indigo-500/20 text-white font-semibold transition">🎬 Điện ảnh 4K</button>
+                  <button type="button" onclick="setVideoStyle('Điện ảnh 4K Hollywood')" id="vstyle-hollywood" class="vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-sky-400 bg-sky-500/20 text-white font-semibold transition shadow-sm shadow-sky-500/30">🎬 Điện ảnh 4K</button>
                   <button type="button" onclick="setVideoStyle('Siêu thực tế Photorealistic')" id="vstyle-real" class="vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-surface-600 bg-surface-900 text-slate-300 hover:text-white transition">📷 Siêu thực</button>
                   <button type="button" onclick="setVideoStyle('Hoạt hình 3D Pixar / Anime')" id="vstyle-anime" class="vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-surface-600 bg-surface-900 text-slate-300 hover:text-white transition">✨ Hoạt hình 3D</button>
                   <button type="button" onclick="setVideoStyle('Cyberpunk Sci-Fi Neon')" id="vstyle-cyber" class="vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-surface-600 bg-surface-900 text-slate-300 hover:text-white transition">🌆 Cyberpunk</button>
@@ -511,22 +528,22 @@
               <div>
                 <div class="flex items-center justify-between mb-1.5">
                   <label class="text-xs font-semibold text-slate-200">Ảnh gốc tham chiếu (Tùy chọn — Tạo video từ ảnh)</label>
-                  <div id="video-images-count-badge" class="hidden text-[11px] text-indigo-400 font-semibold flex items-center space-x-1.5">
+                  <div id="video-images-count-badge" class="hidden text-[11px] text-sky-400 font-semibold flex items-center space-x-1.5">
                     <i data-lucide="layers" class="w-3.5 h-3.5"></i>
                     <span id="video-images-count-text">0 ảnh</span>
                     <button type="button" onclick="clearAllImages('video', event)" class="ml-1 text-slate-400 hover:text-rose-400 underline transition">Xóa hết</button>
                   </div>
                 </div>
-                <div id="video-dropzone" class="border-2 border-dashed border-surface-600 hover:border-indigo-500 rounded-xl p-3.5 text-center cursor-pointer transition bg-surface-950/60">
+                <div id="video-dropzone" class="border-2 border-dashed border-surface-600 hover:border-sky-400 rounded-xl p-3.5 text-center cursor-pointer transition bg-surface-950/60">
                   <input type="file" id="video-image-input" accept="image/*" multiple class="hidden" onchange="handleImageUpload(event, 'video')">
                   
                   <!-- Multi-image Thumbnails Grid -->
                   <div id="video-image-preview-container" class="hidden flex flex-wrap gap-2.5 mb-2.5 justify-start"></div>
 
                   <div id="video-upload-prompt" class="flex items-center justify-center space-x-2.5 py-1">
-                    <i data-lucide="image-plus" class="w-5 h-5 text-indigo-400"></i>
+                    <i data-lucide="image-plus" class="w-5 h-5 text-sky-400"></i>
                     <div class="text-left">
-                      <p class="text-xs text-slate-200 font-medium">Kéo thả ảnh, bấm <kbd class="px-1.5 py-0.5 rounded bg-surface-800 border border-white/20 text-indigo-300 font-mono font-bold text-[10px]">Ctrl + V</kbd> hoặc <span class="text-indigo-400 underline">chọn file</span> <span class="text-slate-400 font-normal">(hỗ trợ nhiều ảnh)</span></p>
+                      <p class="text-xs text-slate-200 font-medium">Kéo thả ảnh, bấm <kbd class="px-1.5 py-0.5 rounded bg-surface-800 border border-white/20 text-sky-300 font-mono font-bold text-[10px]">Ctrl + V</kbd> hoặc <span class="text-sky-400 underline">chọn file</span> <span class="text-slate-400 font-normal">(hỗ trợ nhiều ảnh)</span></p>
                       <p class="text-[10px] text-slate-500">JPG, PNG, WEBP — Dán liên tục nhiều ảnh tùy thích</p>
                     </div>
                   </div>
@@ -534,7 +551,7 @@
               </div>
 
               <!-- Generate Button -->
-              <button id="btn-generate-video" onclick="generateVideo()" class="w-full py-3.5 px-5 rounded-xl font-bold text-sm bg-gradient-to-r from-indigo-600 via-violet-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white shadow-xl shadow-indigo-600/25 flex items-center justify-center space-x-2 transition disabled:opacity-50">
+              <button id="btn-generate-video" onclick="generateVideo()" class="w-full py-3.5 px-5 rounded-xl font-bold text-sm bg-gradient-to-r from-sky-500 via-blue-600 to-teal-500 hover:from-sky-400 hover:to-blue-500 text-white shadow-xl shadow-sky-600/25 flex items-center justify-center space-x-2 transition disabled:opacity-50">
                 <i data-lucide="clapperboard" class="w-4 h-4"></i>
                 <span id="btn-generate-video-text">Sản xuất Video Chuyên Nghiệp</span>
               </button>
@@ -549,13 +566,13 @@
               <!-- Top Player Header -->
               <div class="flex items-center justify-between pb-3.5 border-b border-white/[0.06]">
                 <div class="flex items-center space-x-2">
-                  <i data-lucide="monitor-play" class="w-4 h-4 text-indigo-400"></i>
+                  <i data-lucide="monitor-play" class="w-4 h-4 text-sky-400"></i>
                   <h3 class="font-bold text-sm text-white">Màn hình Đạo diễn (Preview & Storyboard)</h3>
                 </div>
                 <div class="flex items-center space-x-2">
                   <span id="active-ratio-badge" class="text-[11px] px-2.5 py-0.5 rounded-md bg-surface-800 border border-white/10 text-slate-300 font-semibold">Khung hình: 16:9</span>
                   <span id="active-duration-badge" class="text-[11px] px-2.5 py-0.5 rounded-md bg-cyan-950/50 border border-cyan-500/20 text-cyan-300 font-semibold">Thời lượng: 5s</span>
-                  <div id="video-timer" class="text-xs text-indigo-300 font-semibold hidden">
+                  <div id="video-timer" class="text-xs text-sky-300 font-semibold hidden">
                     ⏱ <span id="timer-seconds" class="font-mono text-white">0</span>s
                   </div>
                 </div>
@@ -566,7 +583,7 @@
                 
                 <!-- Idle State -->
                 <div id="video-idle-state" class="space-y-3 py-10">
-                  <div class="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto text-indigo-400">
+                  <div class="w-16 h-16 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center mx-auto text-sky-400">
                     <i data-lucide="film" class="w-8 h-8"></i>
                   </div>
                   <div class="max-w-sm">
@@ -579,13 +596,13 @@
 
                 <!-- Loading State -->
                 <div id="video-loading-state" class="hidden space-y-4 max-w-md w-full py-10">
-                  <div class="w-14 h-14 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <div class="w-14 h-14 border-4 border-sky-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
                   <div>
-                    <p id="video-progress-text" class="text-sm font-bold text-indigo-300">HaiAI Engine đang dựng bối cảnh và ánh sáng...</p>
+                    <p id="video-progress-text" class="text-sm font-bold text-sky-300">HaiAI Engine đang dựng bối cảnh và ánh sáng...</p>
                     <p class="text-xs text-slate-400 mt-1">Quá trình kết xuất video 4K kèm âm thanh thường mất khoảng 1 - 3 phút.</p>
                   </div>
                   <div class="w-full bg-surface-950 rounded-full h-2 overflow-hidden border border-white/10">
-                    <div class="bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-400 h-full w-2/3 animate-pulse"></div>
+                    <div class="bg-gradient-to-r from-sky-400 via-blue-500 to-teal-400 h-full w-2/3 animate-pulse"></div>
                   </div>
                 </div>
 
@@ -649,16 +666,16 @@
             <div class="glass-card rounded-2xl p-5 shadow-xl space-y-5">
               <div class="flex items-center justify-between">
                 <h2 class="font-bold text-base text-white flex items-center space-x-2">
-                  <i data-lucide="palette" class="w-5 h-5 text-purple-400"></i>
+                  <i data-lucide="palette" class="w-5 h-5 text-teal-400"></i>
                   <span>Studio Tạo Ảnh Nghệ Thuật</span>
                 </h2>
-                <span class="text-[11px] px-2 py-0.5 rounded bg-purple-500/15 text-purple-300 font-semibold border border-purple-500/30">8K Masterpiece</span>
+                <span class="text-[11px] px-2 py-0.5 rounded bg-teal-500/15 text-teal-300 font-semibold border border-teal-500/30">8K Masterpiece</span>
               </div>
 
               <div>
                 <div class="flex items-center justify-between mb-1.5">
                   <label class="text-xs font-semibold text-slate-200">Ý tưởng bức ảnh <span class="text-rose-400">*</span></label>
-                  <span class="text-[11px] text-purple-400">Tự động tối ưu ánh sáng & chi tiết</span>
+                  <span class="text-[11px] text-teal-400">Tự động tối ưu ánh sáng & chi tiết</span>
                 </div>
                 <div class="glow-border rounded-xl border border-surface-600 bg-surface-950/90 transition">
                   <textarea id="image-prompt" rows="4" placeholder="Mô tả bức ảnh bạn muốn tạo (VD: Chân dung nữ chiến binh cổ trang dưới rừng hoa anh đào rực rỡ, ánh nắng chiều xuyên qua tán lá)..." class="w-full bg-transparent p-3.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none resize-none"></textarea>
@@ -669,7 +686,7 @@
               <div>
                 <label class="block text-xs font-semibold text-slate-200 mb-2">Tỉ lệ khung hình (Aspect Ratio)</label>
                 <div class="grid grid-cols-5 gap-2">
-                  <button type="button" onclick="setAspectRatio('1:1')" id="ratio-1-1" class="ratio-btn border border-purple-500 bg-purple-500/20 text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition">
+                  <button type="button" onclick="setAspectRatio('1:1')" id="ratio-1-1" class="ratio-btn border border-sky-400 bg-sky-500/20 text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition shadow-sm shadow-sky-500/30">
                     <div class="w-4 h-4 border-2 border-current rounded-sm"></div>
                     <span>1:1</span>
                   </button>
@@ -696,29 +713,29 @@
               <div>
                 <div class="flex items-center justify-between mb-1.5">
                   <label class="text-xs font-semibold text-slate-200">Ảnh mẫu tham chiếu (Tùy chọn)</label>
-                  <div id="image-images-count-badge" class="hidden text-[11px] text-purple-400 font-semibold flex items-center space-x-1.5">
+                  <div id="image-images-count-badge" class="hidden text-[11px] text-teal-400 font-semibold flex items-center space-x-1.5">
                     <i data-lucide="layers" class="w-3.5 h-3.5"></i>
                     <span id="image-images-count-text">0 ảnh</span>
                     <button type="button" onclick="clearAllImages('image', event)" class="ml-1 text-slate-400 hover:text-rose-400 underline transition">Xóa hết</button>
                   </div>
                 </div>
-                <div id="image-dropzone" class="border-2 border-dashed border-surface-600 hover:border-purple-500 rounded-xl p-3.5 text-center cursor-pointer transition bg-surface-950/60">
+                <div id="image-dropzone" class="border-2 border-dashed border-surface-600 hover:border-teal-400 rounded-xl p-3.5 text-center cursor-pointer transition bg-surface-950/60">
                   <input type="file" id="image-file-input" accept="image/*" multiple class="hidden" onchange="handleImageUpload(event, 'image')">
                   
                   <!-- Multi-image Thumbnails Grid -->
                   <div id="image-file-preview-container" class="hidden flex flex-wrap gap-2.5 mb-2.5 justify-start"></div>
 
                   <div id="image-upload-prompt" class="flex items-center justify-center space-x-2.5 py-1">
-                    <i data-lucide="upload-cloud" class="w-5 h-5 text-purple-400"></i>
+                    <i data-lucide="upload-cloud" class="w-5 h-5 text-teal-400"></i>
                     <div class="text-left">
-                      <p class="text-xs text-slate-200 font-medium">Kéo thả ảnh mẫu, bấm <kbd class="px-1.5 py-0.5 rounded bg-surface-800 border border-white/20 text-purple-300 font-mono font-bold text-[10px]">Ctrl + V</kbd> hoặc <span class="text-purple-400 underline">chọn file</span> <span class="text-slate-400 font-normal">(hỗ trợ nhiều ảnh)</span></p>
+                      <p class="text-xs text-slate-200 font-medium">Kéo thả ảnh mẫu, bấm <kbd class="px-1.5 py-0.5 rounded bg-surface-800 border border-white/20 text-teal-300 font-mono font-bold text-[10px]">Ctrl + V</kbd> hoặc <span class="text-teal-400 underline">chọn file</span> <span class="text-slate-400 font-normal">(hỗ trợ nhiều ảnh)</span></p>
                       <p class="text-[10px] text-slate-500">JPG, PNG, WEBP — Dán liên tục nhiều ảnh tùy thích</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <button id="btn-generate-image" onclick="generateImage()" class="w-full py-3.5 px-5 rounded-xl font-bold text-sm bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-xl shadow-purple-600/25 flex items-center justify-center space-x-2 transition disabled:opacity-50">
+              <button id="btn-generate-image" onclick="generateImage()" class="w-full py-3.5 px-5 rounded-xl font-bold text-sm bg-gradient-to-r from-teal-600 via-sky-600 to-blue-600 hover:from-teal-500 hover:to-blue-500 text-white shadow-xl shadow-teal-600/25 flex items-center justify-center space-x-2 transition disabled:opacity-50">
                 <i data-lucide="wand-2" class="w-4 h-4"></i>
                 <span>Khởi tạo Ảnh Chuyên Nghiệp</span>
               </button>
@@ -730,14 +747,14 @@
             <div class="glass-card rounded-2xl p-5 shadow-xl min-h-[520px] flex flex-col justify-between">
               <div class="flex items-center justify-between pb-3.5 border-b border-white/[0.06]">
                 <h3 class="font-bold text-sm text-white flex items-center space-x-2">
-                  <i data-lucide="image" class="w-4 h-4 text-purple-400"></i>
+                  <i data-lucide="image" class="w-4 h-4 text-teal-400"></i>
                   <span>Khung hiển thị Ảnh Nghệ Thuật</span>
                 </h3>
               </div>
 
               <div class="my-auto py-8 flex flex-col items-center justify-center text-center">
                 <div id="image-idle-state" class="space-y-3">
-                  <div class="w-16 h-16 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mx-auto text-purple-400">
+                  <div class="w-16 h-16 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center mx-auto text-teal-400">
                     <i data-lucide="image" class="w-8 h-8"></i>
                   </div>
                   <div>
@@ -747,9 +764,9 @@
                 </div>
 
                 <div id="image-loading-state" class="hidden space-y-4 max-w-md w-full">
-                  <div class="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <div class="w-12 h-12 border-4 border-teal-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
                   <div>
-                    <p class="text-sm font-bold text-purple-300">HaiAI đang kết xuất ảnh chất lượng cao...</p>
+                    <p class="text-sm font-bold text-teal-300">HaiAI đang kết xuất ảnh chất lượng cao...</p>
                     <p class="text-xs text-slate-400 mt-1">Quá trình thường mất 20 - 45 giây.</p>
                   </div>
                 </div>
@@ -759,7 +776,7 @@
                     <img id="image-result" src="" class="max-h-[400px] w-auto object-contain">
                   </div>
                   <div class="flex items-center justify-between pt-1">
-                    <button onclick="useImageForVideo()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 transition">
+                    <button onclick="useImageForVideo()" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 transition">
                       <i data-lucide="clapperboard" class="w-3.5 h-3.5"></i>
                       <span>Chuyển sang Tạo Video</span>
                     </button>
@@ -783,7 +800,7 @@
           
           <div class="p-4 border-b border-white/[0.06] flex items-center justify-between">
             <div class="flex items-center space-x-3">
-              <div class="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+              <div class="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-400/30 flex items-center justify-center text-sky-400">
                 <i data-lucide="sparkles" class="w-5 h-5"></i>
               </div>
               <div>
@@ -798,7 +815,7 @@
 
           <div id="chat-messages" class="flex-1 overflow-y-auto p-5 space-y-4">
             <div class="flex items-start space-x-3">
-              <div class="w-8 h-8 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/30">
+              <div class="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center shrink-0 border border-sky-400/30">
                 <i data-lucide="sparkles" class="w-4 h-4"></i>
               </div>
               <div class="bg-surface-800 border border-white/[0.06] rounded-2xl rounded-tl-none p-4 max-w-2xl text-sm text-slate-200 leading-relaxed">
@@ -809,8 +826,8 @@
 
           <div class="p-4 border-t border-white/[0.06] bg-surface-950/60">
             <form onsubmit="sendChatMessage(event)" class="flex items-center space-x-2.5">
-              <input type="text" id="chat-input" placeholder="Nhập yêu cầu cho HaiAI (VD: Viết kịch bản 3 cảnh nối tiếp về chú mèo phiêu lưu trong rừng phép thuật)..." class="flex-1 bg-surface-800 border border-surface-600 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition">
-              <button type="submit" id="btn-send-chat" class="px-5 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-bold text-xs shadow-lg transition flex items-center space-x-1.5 shrink-0">
+              <input type="text" id="chat-input" placeholder="Nhập yêu cầu cho HaiAI (VD: Viết kịch bản 3 cảnh nối tiếp về chú mèo phiêu lưu trong rừng phép thuật)..." class="flex-1 bg-surface-800 border border-surface-600 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-400 transition">
+              <button type="submit" id="btn-send-chat" class="px-5 py-3 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-sky-600/25 transition flex items-center space-x-1.5 shrink-0">
                 <span>Gửi</span>
                 <i data-lucide="send" class="w-3.5 h-3.5"></i>
               </button>
@@ -828,7 +845,7 @@
             <p class="text-xs text-slate-400">Quản lý toàn bộ video và hình ảnh đã xuất bản</p>
           </div>
           <div class="flex items-center space-x-2">
-            <button onclick="filterGallery('all')" id="gfilter-all" class="gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white">Tất cả</button>
+            <button onclick="filterGallery('all')" id="gfilter-all" class="gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 text-white shadow-sm shadow-sky-600/30">Tất cả</button>
             <button onclick="filterGallery('video')" id="gfilter-video" class="gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-800 text-slate-300 hover:text-white">Video</button>
             <button onclick="filterGallery('image')" id="gfilter-image" class="gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-800 text-slate-300 hover:text-white">Hình ảnh</button>
             <button onclick="loadGallery()" class="p-1.5 bg-surface-800 hover:bg-surface-700 text-slate-200 rounded-lg border border-white/10 transition" title="Làm mới">
@@ -853,7 +870,7 @@
       </button>
 
       <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center">
+        <div class="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-400 border border-sky-400/30 flex items-center justify-center">
           <i data-lucide="shield-check" class="w-5 h-5"></i>
         </div>
         <div>
@@ -870,9 +887,9 @@
       <div id="otp-step-1" class="space-y-4">
         <div>
           <label class="block text-xs font-medium text-slate-300 mb-1">Email tài khoản</label>
-          <input type="email" id="auth-email-input" placeholder="nhap_email_cua_ban@gmail.com" class="w-full bg-surface-950 border border-surface-600 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition">
+          <input type="email" id="auth-email-input" placeholder="nhap_email_cua_ban@gmail.com" class="w-full bg-surface-950 border border-surface-600 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-400 transition">
         </div>
-        <button onclick="requestOtp()" id="btn-request-otp" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold shadow transition flex items-center justify-center space-x-2">
+        <button onclick="requestOtp()" id="btn-request-otp" class="w-full py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-sky-600/25 transition flex items-center justify-center space-x-2">
           <span>Gửi mã xác thực OTP</span>
         </button>
       </div>
@@ -880,7 +897,7 @@
       <div id="otp-step-2" class="space-y-4 hidden">
         <div>
           <label class="block text-xs font-medium text-slate-300 mb-1">Mã OTP (6 chữ số trong Email)</label>
-          <input type="text" id="auth-otp-input" maxlength="8" placeholder="123456" class="w-full bg-surface-950 border border-surface-600 rounded-xl px-3.5 py-2.5 text-center text-lg font-mono tracking-widest text-white focus:outline-none focus:border-indigo-500 transition">
+          <input type="text" id="auth-otp-input" maxlength="8" placeholder="123456" class="w-full bg-surface-950 border border-surface-600 rounded-xl px-3.5 py-2.5 text-center text-lg font-mono tracking-widest text-white focus:outline-none focus:border-sky-400 transition">
         </div>
         <div class="flex items-center space-x-2">
           <button onclick="backToStep1()" class="py-2.5 px-3 bg-surface-700 hover:bg-surface-600 text-slate-300 rounded-xl text-xs font-medium transition">

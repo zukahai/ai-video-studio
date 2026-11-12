@@ -145,10 +145,10 @@ function switchTab(tabId, syncUrl = true) {
     btn.classList.remove(
       'text-white',
       'bg-gradient-to-r',
-      'from-indigo-600',
-      'to-violet-600',
+      'from-sky-500',
+      'to-blue-600',
       'shadow-lg',
-      'shadow-indigo-600/25',
+      'shadow-sky-600/25',
       'font-semibold'
     );
     btn.classList.add('text-slate-400', 'hover:text-white', 'hover:bg-surface-800', 'font-medium');
@@ -162,10 +162,10 @@ function switchTab(tabId, syncUrl = true) {
     activeBtn.classList.add(
       'text-white',
       'bg-gradient-to-r',
-      'from-indigo-600',
-      'to-violet-600',
+      'from-sky-500',
+      'to-blue-600',
       'shadow-lg',
-      'shadow-indigo-600/25',
+      'shadow-sky-600/25',
       'font-semibold'
     );
   }
@@ -439,7 +439,7 @@ function setVideoMode(isSeq, syncUrl = true) {
     }
     if (btnGenText) btnGenText.innerText = `Quay Cảnh Nối Tiếp #${nextSceneNum}`;
   } else {
-    if (btnSingle) btnSingle.className = 'py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition bg-indigo-600 text-white shadow';
+    if (btnSingle) btnSingle.className = 'py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition bg-sky-600 text-white shadow shadow-sky-600/30';
     if (btnSeq) btnSeq.className = 'py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition text-slate-400 hover:text-white';
     if (banner) banner.classList.add('hidden');
     if (label) label.innerHTML = `Nội dung cảnh quay <span class="text-rose-400">*</span>`;
@@ -476,7 +476,7 @@ function setVideoRatio(ratio, syncUrl = true) {
     const btn = document.getElementById(`vratio-${r.replace(':', '-')}`);
     if (!btn) return;
     if (r === ratio) {
-      btn.className = 'vratio-btn border border-indigo-500 bg-indigo-500/20 text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition';
+      btn.className = 'vratio-btn border border-sky-400 bg-sky-500/20 text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition shadow-sm shadow-sky-500/30';
     } else {
       btn.className = 'vratio-btn border border-surface-600 bg-surface-900 text-slate-400 hover:text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition';
     }
@@ -491,7 +491,8 @@ function setVideoRatio(ratio, syncUrl = true) {
 
 function setVideoDuration(seconds, syncUrl = true) {
   seconds = parseInt(seconds, 10);
-  if (isNaN(seconds) || seconds <= 0) seconds = 5;
+  if (isNaN(seconds) || seconds < 5) seconds = 5;
+  if (seconds > 300) seconds = 300;
   state.videoDuration = seconds;
 
   // Update display badges
@@ -509,7 +510,7 @@ function setVideoDuration(seconds, syncUrl = true) {
     const btn = document.getElementById(`vduration-${sec}`);
     if (!btn) return;
     if (sec === seconds) {
-      btn.className = 'vduration-btn py-2 px-1 rounded-xl border border-indigo-500 bg-indigo-500/20 text-white text-xs font-bold transition flex items-center justify-center';
+      btn.className = 'vduration-btn py-2 px-1 rounded-xl border border-sky-400 bg-sky-500/20 text-white text-xs font-bold transition flex items-center justify-center shadow-sm shadow-sky-500/30';
     } else {
       btn.className = 'vduration-btn py-2 px-1 rounded-xl border border-surface-600 bg-surface-900 text-slate-400 hover:text-white text-xs font-bold transition flex items-center justify-center';
     }
@@ -520,7 +521,7 @@ function setVideoDuration(seconds, syncUrl = true) {
   const customInput = document.getElementById('vduration-custom-input');
   if (customBtn) {
     if (!isPreset) {
-      customBtn.className = 'vduration-btn py-2 px-1 rounded-xl border border-indigo-500 bg-indigo-500/20 text-white text-[11px] font-bold transition flex items-center justify-center';
+      customBtn.className = 'vduration-btn py-2 px-1 rounded-xl border border-sky-400 bg-sky-500/20 text-white text-[11px] font-bold transition flex items-center justify-center shadow-sm shadow-sky-500/30';
     } else {
       customBtn.className = 'vduration-btn py-2 px-1 rounded-xl border border-surface-600 bg-surface-900 text-slate-400 hover:text-white text-[11px] font-bold transition flex items-center justify-center';
     }
@@ -538,8 +539,9 @@ function setVideoDuration(seconds, syncUrl = true) {
 }
 
 function handleCustomDuration(val) {
-  const num = parseInt(val, 10);
-  if (!isNaN(num) && num > 0) {
+  let num = parseInt(val, 10);
+  if (!isNaN(num)) {
+    if (num > 300) num = 300;
     setVideoDuration(num, true);
   }
 }
@@ -568,7 +570,7 @@ function setVideoStyle(styleName, syncUrl = true) {
     const el = document.getElementById(id);
     if (!el) return;
     if (name === styleName) {
-      el.className = 'vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-indigo-500 bg-indigo-500/20 text-white font-semibold transition';
+      el.className = 'vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-sky-400 bg-sky-500/20 text-white font-semibold transition shadow-sm shadow-sky-500/30';
     } else {
       el.className = 'vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-surface-600 bg-surface-900 text-slate-300 hover:text-white transition';
     }
@@ -585,7 +587,7 @@ function setAspectRatio(ratio, syncUrl = true) {
     const btn = document.getElementById(`ratio-${r.replace(':', '-')}`);
     if (!btn) return;
     if (r === ratio) {
-      btn.className = 'ratio-btn border border-purple-500 bg-purple-500/20 text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition';
+      btn.className = 'ratio-btn border border-sky-400 bg-sky-500/20 text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition shadow-sm shadow-sky-500/30';
     } else {
       btn.className = 'ratio-btn border border-surface-600 bg-surface-900 text-slate-400 hover:text-white rounded-xl py-2.5 px-2 text-[11px] font-bold flex flex-col items-center space-y-1.5 transition';
     }
@@ -1233,7 +1235,7 @@ async function sendChatMessage(e) {
   const userBubble = document.createElement('div');
   userBubble.className = 'flex items-start justify-end space-x-3';
   userBubble.innerHTML = `
-    <div class="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl rounded-tr-none p-3.5 max-w-xl text-sm text-white shadow">
+    <div class="bg-gradient-to-r from-sky-500 to-blue-600 rounded-2xl rounded-tr-none p-3.5 max-w-xl text-sm text-white shadow shadow-sky-600/25">
       ${escapeHtml(text)}
     </div>
     <div class="w-8 h-8 rounded-xl bg-surface-700 text-slate-300 flex items-center justify-center shrink-0 border border-white/10">
@@ -1248,11 +1250,11 @@ async function sendChatMessage(e) {
   const typingBubble = document.createElement('div');
   typingBubble.className = 'flex items-start space-x-3';
   typingBubble.innerHTML = `
-    <div class="w-8 h-8 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/30">
+    <div class="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center shrink-0 border border-sky-400/30">
       <i data-lucide="sparkles" class="w-4 h-4"></i>
     </div>
     <div class="bg-surface-800 border border-white/[0.06] rounded-2xl rounded-tl-none p-3.5 max-w-xl text-sm text-slate-400 flex items-center space-x-2">
-      <span class="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span>
+      <span class="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
       <span>HaiAI đang biên kịch...</span>
     </div>
   `;
@@ -1364,7 +1366,7 @@ function filterGallery(filterType) {
     const btn = document.getElementById(`gfilter-${f}`);
     if (!btn) return;
     if (f === filterType) {
-      btn.className = 'gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white';
+      btn.className = 'gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 text-white shadow-sm shadow-sky-600/30';
     } else {
       btn.className = 'gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-800 text-slate-300 hover:text-white';
     }
@@ -1421,7 +1423,7 @@ function renderGalleryGrid() {
 
 function createMediaCard(item) {
   const card = document.createElement('div');
-  card.className = 'glass-card rounded-2xl overflow-hidden shadow-lg group hover:border-indigo-500/40 transition flex flex-col justify-between';
+  card.className = 'glass-card rounded-2xl overflow-hidden shadow-lg group hover:border-sky-400/40 transition flex flex-col justify-between';
 
   const mediaHtml = item.type === 'video'
     ? `<div class="aspect-video bg-black flex items-center justify-center relative">
@@ -1440,7 +1442,7 @@ function createMediaCard(item) {
       </div>
       <div class="flex items-center justify-between pt-1">
         <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md ${
-          item.type === 'video' ? 'bg-indigo-500/20 text-indigo-300' : 'bg-purple-500/20 text-purple-300'
+          item.type === 'video' ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30' : 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
         }">
           ${item.type === 'video' ? 'HaiAI Video' : 'HaiAI Image'}
         </span>
