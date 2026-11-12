@@ -97,6 +97,30 @@ async function checkAuthStatus() {
 
     state.authenticated = data.authenticated && data.is_alive;
     state.email = data.email;
+    state.quota = data.quota || {};
+
+    // Update tokens on Header & Sidebar & Dashboard
+    const tokens = (data.quota && data.quota.context_window_tokens) ? data.quota.context_window_tokens.toLocaleString() : '350,000';
+    const headerTokens = document.getElementById('header-quota-tokens');
+    if (headerTokens) headerTokens.innerText = tokens;
+
+    const sidebarTokens = document.getElementById('sidebar-quota-tokens');
+    if (sidebarTokens) sidebarTokens.innerText = tokens;
+
+    const statTokens = document.getElementById('stat-tokens');
+    if (statTokens) statTokens.innerText = tokens;
+
+    const viewerIdEl = document.getElementById('sidebar-viewer-id');
+    if (viewerIdEl && data.viewer_id) {
+      viewerIdEl.innerText = data.viewer_id;
+      viewerIdEl.title = `Viewer ID: ${data.viewer_id}`;
+    }
+
+    const quotaStatusEl = document.getElementById('sidebar-quota-status');
+    if (quotaStatusEl) {
+      quotaStatusEl.innerText = state.authenticated ? 'Sẵn sàng' : 'Chưa kết nối';
+      quotaStatusEl.className = state.authenticated ? 'font-semibold text-emerald-400' : 'font-semibold text-amber-400';
+    }
 
     if (state.authenticated) {
       dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400';

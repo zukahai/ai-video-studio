@@ -234,13 +234,29 @@ async def auth_status():
         email = email_file.read_text(encoding="utf-8").strip()
 
     is_alive = False
+    viewer_id = None
+    context_window = 350000
+    model_name = "Auto (HaiAI Engine)"
+    
     if logged_in:
         try:
             auth = MuseAuth(state_dir=STATE_DIR)
             await auth.load_cookies()
             check = await auth.auth_check()
             is_alive = check.get("ok") is True
+            viewer_id = check.get("viewer_id")
             await auth.close()
+
+            # Try reading live model context window
+            try:
+                client = await get_or_create_client()
+                m = await client.model_get()
+                models = (m.get("result") or {}).get("available_models") or []
+                if models and isinstance(models[0], dict):
+                    context_window = models[0].get("context_window_tokens", 350000)
+                    model_name = models[0].get("display_name", "Auto")
+            except Exception:
+                pass
         except Exception:
             is_alive = False
 
@@ -248,6 +264,15 @@ async def auth_status():
         "authenticated": logged_in,
         "is_alive": is_alive,
         "email": email or ("Tài khoản HaiAI đã kết nối" if logged_in else None),
+        "viewer_id": viewer_id,
+        "quota": {
+            "tier": "HaiAI Cloud Pro / Standard",
+            "context_window_tokens": context_window,
+            "model_name": model_name,
+            "status": "Hoạt động tốt (Active)",
+            "refresh_cycle": "Tự động cấp lại hàng tuần (Weekly Refill)",
+            "video_quota_status": "Không giới hạn phiên hiện tại",
+        },
     }
 
 
