@@ -88,6 +88,13 @@ class ChatModel(BaseModel):
     image_paths: list[str] = []
 
 
+class MovieBreakdownModel(BaseModel):
+    script: str
+    style_preset: Optional[str] = "Điện ảnh 4K Hollywood"
+    aspect_ratio: Optional[str] = "16:9"
+    target_scenes: Optional[int] = 4
+
+
 class MergeVideosModel(BaseModel):
     video_urls: list[str]
     output_filename: Optional[str] = None
@@ -879,6 +886,203 @@ async def chat_interaction(data: ChatModel):
             status_code=500,
             detail=f"Lỗi chat với H-AI: {exc}",
         )
+
+
+MOVIE_CHARACTER_COLORS = [
+    "#ef4444",  # Crimson Red
+    "#3b82f6",  # Electric Blue
+    "#10b981",  # Emerald Green
+    "#f59e0b",  # Amber Gold
+    "#8b5cf6",  # Purple
+    "#ec4899",  # Pink
+    "#06b6d4",  # Cyan
+    "#f97316",  # Orange
+    "#14b8a6",  # Teal
+    "#a855f7",  # Violet
+]
+
+
+def _fallback_movie_breakdown(script: str, style_preset: str = "Điện ảnh 4K Hollywood", target_scenes: int = 4) -> dict:
+    script_clean = script.strip()
+    paras = [p.strip() for p in re.split(r'\n+|\.\s+', script_clean) if len(p.strip()) > 10]
+    if not paras:
+        paras = [script_clean] if script_clean else ["Khởi đầu câu chuyện kịch tính trong không gian điện ảnh."]
+
+    common_names = ["Bà lão", "Ông lão", "Chàng trai", "Cô gái", "Hiệp sĩ", "Phù thủy", "Công chúa", "Hoàng tử", "Con rồng", "Thợ săn", "Chiến binh", "Robot", "Người lạ"]
+    found_chars = []
+    for name in common_names:
+        if name.lower() in script_clean.lower():
+            found_chars.append(name)
+
+    # Detect capitalized words
+    cap_words = re.findall(r'\b[A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬĐÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴ][a-zàáảãạăắằẳẵặâấầẩẫậđèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ]+\b', script_clean)
+    stopwords = {"Ngày", "Một", "Khi", "Nhưng", "Và", "Trong", "Trên", "Sau", "Bỗng", "Có", "Thế", "Rồi", "Đó", "Nếu", "Vì", "Bởi", "Tuy"}
+    for word in cap_words:
+        if word not in stopwords and len(word) > 2 and word not in found_chars and len(found_chars) < 5:
+            found_chars.append(word)
+
+    if not found_chars:
+        found_chars = ["Nhân vật chính"]
+
+    characters = []
+    for idx, name in enumerate(found_chars[:6]):
+        characters.append({
+            "id": f"char_{idx+1}",
+            "name": name,
+            "description": f"Nhân vật {name} mang phong thái điện ảnh đặc trưng {style_preset}, trang phục và biểu cảm sắc nét chuẩn 4K.",
+            "color": MOVIE_CHARACTER_COLORS[idx % len(MOVIE_CHARACTER_COLORS)],
+            "images": []
+        })
+
+    num_scenes = max(2, min(target_scenes, max(2, len(paras))))
+    scenes = []
+    durations = [5, 8, 8, 10, 10, 15]
+
+    for i in range(num_scenes):
+        chunk_idx = min(i, len(paras) - 1)
+        chunk_text = paras[chunk_idx] if paras else f"Diễn biến kịch tính phân cảnh {i+1}"
+        involved = [c["name"] for c in characters if c["name"].lower() in chunk_text.lower()]
+        if not involved and characters:
+            involved = [characters[i % len(characters)]["name"]]
+
+        prompt = f"Cinematic 4K, {style_preset}, Scene {i+1}: {chunk_text}. With {', '.join(involved)}, photorealistic lighting, 8k masterpiece, smooth cinematic camera motion"
+
+        scenes.append({
+            "scene_index": i + 1,
+            "situation": chunk_text,
+            "dialogue": f"Lời thoại Cảnh #{i+1}: (Cảm xúc cao trào theo diễn biến)",
+            "duration": durations[i % len(durations)],
+            "characters_involved": involved,
+            "prompt": prompt,
+            "status": "idle",
+            "video_url": None
+        })
+
+    return {
+        "title": f"Phim Ngắn: {script_clean[:40]}...",
+        "logline": script_clean[:120] + ("..." if len(script_clean) > 120 else ""),
+        "characters": characters,
+        "scenes": scenes
+    }
+
+
+@app.post("/api/movie/breakdown")
+async def breakdown_movie(data: MovieBreakdownModel):
+    script = data.script.strip()
+    if not script:
+        raise HTTPException(status_code=400, detail="Vui lòng nhập kịch bản hoặc ý tưởng phim.")
+
+    style_preset = data.style_preset or "Điện ảnh 4K Hollywood"
+    target_scenes = max(2, min(10, data.target_scenes or 4))
+
+    # Try AI Director breakdown via client
+    try:
+        client = await get_or_create_client()
+        director_prompt = f"""Bạn là một Đạo diễn & Biên kịch điện ảnh bậc thầy (H-AI Movie Director).
+Nhiệm vụ: Hãy phân tích kịch bản sau thành một bộ phim ngắn gồm đúng {target_scenes} phân cảnh liên kết chặt chẽ (chuỗi phim nối tiếp):
+
+CỐT TRUYỆN:
+\"\"\"{script}\"\"\"
+
+PHONG CÁCH QUAY PHIM: {style_preset}
+
+YÊU CẦU:
+1. Trích xuất TẤT CẢ các nhân vật có trong câu chuyện. Với mỗi nhân vật, mô tả chi tiết ngoại hình, độ tuổi, trang phục để tạo ảnh tham chiếu.
+2. Chia thành đúng {target_scenes} phân cảnh theo thứ tự thời gian. Mỗi phân cảnh có:
+   - situation: Tình huống diễn biến của cảnh quay.
+   - dialogue: Lời thoại hoặc độc thoại phù hợp.
+   - duration: Số giây phù hợp (chọn 5, 8, 10, 15, hoặc 20).
+   - characters_involved: Mảng tên các nhân vật có mặt trong cảnh.
+   - prompt: Prompt chi tiết chuẩn điện ảnh 4K (tiếng Anh hoặc tiếng Việt chuẩn cinematic) mô tả góc máy, ánh sáng, chi tiết nhân vật và hành động.
+
+ĐỊNH DẠNG ĐẦU RA BẮT BUỘC: DUY NHẤT một khối JSON hợp lệ theo mẫu:
+{{
+  "title": "Tên bộ phim",
+  "logline": "Tóm tắt 1 câu cốt truyện",
+  "characters": [
+    {{
+      "id": "char_1",
+      "name": "Tên nhân vật",
+      "description": "Mô tả chi tiết ngoại hình, trang phục",
+      "color": "#ef4444"
+    }}
+  ],
+  "scenes": [
+    {{
+      "scene_index": 1,
+      "situation": "Mô tả ngắn tình huống cảnh quay",
+      "dialogue": "Lời thoại nhân vật",
+      "duration": 8,
+      "characters_involved": ["Tên nhân vật"],
+      "prompt": "Cinematic prompt 4k..."
+    }}
+  ]
+}}
+"""
+        events = await client.chat_stream(
+            prompt=director_prompt,
+            images=[],
+            session_id=None,
+            stream_timeout=15.0,
+        )
+
+        session_id = None
+        extracted_ids = extract_session_ids(events)
+        if extracted_ids:
+            session_id = extracted_ids[-1]
+
+        reply_text = ""
+        deadline = time.monotonic() + 45.0
+        while time.monotonic() < deadline:
+            hist = await client.history(session_id=session_id, limit=20)
+            chat_events = (hist.get("result") or {}).get("chat_events") or []
+            for ev in reversed(chat_events):
+                if not isinstance(ev, dict):
+                    continue
+                if ev.get("event_name") == "message.assistant":
+                    text = ev.get("display_text") or (ev.get("payload") or {}).get("content") or ""
+                    if text.strip() and ev.get("display_text_ready", True):
+                        reply_text = text.strip()
+                        break
+            if reply_text:
+                break
+            await asyncio.sleep(1.2)
+
+        if reply_text:
+            # Extract JSON block
+            match = re.search(r'\{[\s\S]*\}', reply_text)
+            if match:
+                parsed = json.loads(match.group(0))
+                if isinstance(parsed, dict) and "characters" in parsed and "scenes" in parsed:
+                    # Assign unique colors if missing
+                    for idx, char in enumerate(parsed["characters"]):
+                        if "color" not in char or not char["color"]:
+                            char["color"] = MOVIE_CHARACTER_COLORS[idx % len(MOVIE_CHARACTER_COLORS)]
+                        char["images"] = char.get("images", [])
+                        if "id" not in char:
+                            char["id"] = f"char_{idx+1}"
+
+                    for sc in parsed["scenes"]:
+                        sc["status"] = "idle"
+                        sc["video_url"] = None
+                        if "duration" not in sc or sc["duration"] not in [5, 8, 10, 15, 20]:
+                            sc["duration"] = 8
+
+                    return {
+                        "status": "success",
+                        "data": parsed,
+                        "source": "ai_director"
+                    }
+    except Exception as exc:
+        logger.warning(f"AI director breakdown fallback triggered: {exc}")
+
+    # Fallback director
+    fallback_data = _fallback_movie_breakdown(script, style_preset, target_scenes)
+    return {
+        "status": "success",
+        "data": fallback_data,
+        "source": "smart_director"
+    }
 
 
 @app.get("/api/gallery")

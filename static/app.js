@@ -37,6 +37,7 @@ const state = {
 const TAB_TITLES = {
   dashboard: 'Tổng quan hệ thống (Dashboard)',
   video: 'H-AI Video Studio — Sản xuất & Nối tiếp Cảnh quay',
+  movie: 'H-AI Movie Studio — Tự động Đạo diễn & Sản xuất Phim',
   image: 'H-AI Image Studio — Sáng tạo Hình ảnh 8K',
   chat: 'Trợ lý Đạo diễn & Biên kịch H-AI',
   gallery: 'Thư viện Tác phẩm H-AI',
@@ -69,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
   checkAuthStatus();
   setupDropzones();
   setupDashboardLazyScroll();
+  restoreMovieStateCache();
   loadDashboardAndGallery();
 });
 
@@ -205,6 +207,11 @@ function switchTab(tabId, syncUrl = true) {
 
   if (tabId === 'dashboard' || tabId === 'gallery') {
     loadDashboardAndGallery();
+  }
+  if (tabId === 'movie') {
+    renderMovieCharacters();
+    renderMovieScenes();
+    renderCharacterLegend();
   }
   lucide.createIcons();
 
@@ -1706,4 +1713,1265 @@ function continueFromVideoUrl(url) {
 function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+
+// ============================================================================
+// ==================== H-AI AUTO MOVIE STUDIO ENGINE =========================
+// ============================================================================
+
+const MOVIE_PALETTE = [
+  '#ef4444', // Red (e.g. Bà lão)
+  '#3b82f6', // Electric Blue (e.g. Hiệp sĩ)
+  '#10b981', // Emerald Green
+  '#f59e0b', // Amber
+  '#8b5cf6', // Purple
+  '#ec4899', // Pink
+  '#06b6d4', // Cyan
+  '#f97316', // Orange
+  '#14b8a6', // Teal
+  '#a855f7', // Violet
+];
+
+const movieState = {
+  title: 'Kịch bản Phim Mới',
+  logline: '',
+  script: '',
+  stylePreset: 'Điện ảnh 4K Hollywood',
+  aspectRatio: '16:9',
+  targetScenes: 4,
+  characters: [], // [{ id, name, description, color, images: [{ id, local_path, url, name }] }]
+  scenes: [], // [{ scene_index, situation, dialogue, duration, characters_involved: [], prompt, status: 'idle'|'generating'|'done', video_url: null }]
+  sessionId: null,
+  isGenerating: false,
+  currentGeneratingIndex: -1,
+  shouldStop: false,
+  // Cinema Theater
+  theaterCurrentIndex: 0,
+  theaterIsPlaying: false,
+};
+
+// ==================== CACHING & RESTORATION ====================
+function saveMovieStateCache() {
+  try {
+    const data = {
+      title: movieState.title,
+      logline: movieState.logline,
+      script: movieState.script,
+      stylePreset: movieState.stylePreset,
+      aspectRatio: movieState.aspectRatio,
+      targetScenes: movieState.targetScenes,
+      characters: movieState.characters,
+      scenes: movieState.scenes,
+      sessionId: movieState.sessionId,
+      updatedAt: Date.now(),
+    };
+    localStorage.setItem('h_ai_movie_studio_cache', JSON.stringify(data));
+  } catch (err) {
+    console.warn('Lỗi lưu cache tạo phim:', err);
+  }
+}
+
+function restoreMovieStateCache() {
+  try {
+    const raw = localStorage.getItem('h_ai_movie_studio_cache');
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!data) return false;
+
+    movieState.title = data.title || 'Kịch bản Phim Mới';
+    movieState.logline = data.logline || '';
+    movieState.script = data.script || '';
+    movieState.stylePreset = data.stylePreset || 'Điện ảnh 4K Hollywood';
+    movieState.aspectRatio = data.aspectRatio || '16:9';
+    movieState.targetScenes = data.targetScenes || 4;
+    movieState.characters = Array.isArray(data.characters) ? data.characters : [];
+    movieState.scenes = Array.isArray(data.scenes) ? data.scenes : [];
+    movieState.sessionId = data.sessionId || null;
+
+    // Restore UI Inputs
+    const scriptInput = document.getElementById('movie-script-input');
+    if (scriptInput && movieState.script) scriptInput.value = movieState.script;
+
+    const styleSelect = document.getElementById('movie-style-select');
+    if (styleSelect && movieState.stylePreset) styleSelect.value = movieState.stylePreset;
+
+    const ratioSelect = document.getElementById('movie-ratio-select');
+    if (ratioSelect && movieState.aspectRatio) ratioSelect.value = movieState.aspectRatio;
+
+    const scenesTarget = document.getElementById('movie-scenes-target');
+    if (scenesTarget && movieState.targetScenes) scenesTarget.value = String(movieState.targetScenes);
+
+    renderMovieCharacters();
+    renderMovieScenes();
+    renderCharacterLegend();
+    return true;
+  } catch (err) {
+    console.warn('Lỗi đọc cache tạo phim:', err);
+  }
+  return false;
+}
+
+// Sample Script
+function loadSampleScript() {
+  const sample = `Ngày xửa ngày xưa, ở bìa rừng tuyết trắng có một Bà lão sống trong túp lều gỗ. Một đêm bão tuyết mù mịt, Bà lão đang ngồi sưởi ấm bên bếp lửa thì có tiếng gõ cửa dồn dập.
+Khi Bà lão mở cửa, một Chàng hiệp sĩ bị thương nặng ngã vào hiên nhà, trên tay ôm chặt một Quả trứng rồng hoàng kim phát sáng rực rỡ.
+Chàng hiệp sĩ cầu xin Bà lão bảo vệ quả trứng trước Đội quân bóng tối. Bà lão đưa Chàng hiệp sĩ vào nhà, lấy thảo dược chữa lành vết thương và cùng nhau chuẩn bị chiến đấu.`;
+
+  const scriptInput = document.getElementById('movie-script-input');
+  if (scriptInput) {
+    scriptInput.value = sample;
+    movieState.script = sample;
+    saveMovieStateCache();
+  }
+}
+
+function onMovieStyleChange(val) {
+  movieState.stylePreset = val;
+  saveMovieStateCache();
+}
+
+function onMovieRatioChange(val) {
+  movieState.aspectRatio = val;
+  saveMovieStateCache();
+}
+
+// ==================== SCRIPT ANALYSIS & BREAKDOWN ====================
+async function analyzeAndBreakdownScript() {
+  const scriptInput = document.getElementById('movie-script-input');
+  const script = scriptInput ? scriptInput.value.trim() : '';
+
+  if (!script) {
+    alert('Vui lòng nhập cốt truyện hoặc kịch bản bạn muốn làm phim.');
+    if (scriptInput) scriptInput.focus();
+    return;
+  }
+
+  const btn = document.getElementById('btn-breakdown-script');
+  const btnText = document.getElementById('btn-breakdown-text');
+  const originalText = btnText ? btnText.innerText : 'Phân Tích Kịch Bản';
+
+  try {
+    if (btn) btn.disabled = true;
+    if (btnText) btnText.innerText = 'Đang phân tích kịch bản & nhân vật...';
+
+    const style = document.getElementById('movie-style-select')?.value || 'Điện ảnh 4K Hollywood';
+    const ratio = document.getElementById('movie-ratio-select')?.value || '16:9';
+    const targetScenes = parseInt(document.getElementById('movie-scenes-target')?.value || '4', 10);
+
+    movieState.script = script;
+    movieState.stylePreset = style;
+    movieState.aspectRatio = ratio;
+    movieState.targetScenes = targetScenes;
+
+    const res = await fetch('/api/movie/breakdown', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        script: script,
+        style_preset: style,
+        aspect_ratio: ratio,
+        target_scenes: targetScenes,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Không thể phân tích kịch bản.');
+
+    const result = data.data || {};
+    movieState.title = result.title || 'Phim Điện Ảnh H-AI';
+    movieState.logline = result.logline || '';
+
+    // Assign characters with distinct colors
+    const characters = Array.isArray(result.characters) ? result.characters : [];
+    characters.forEach((char, idx) => {
+      if (!char.id) char.id = `char_${idx + 1}`;
+      if (!char.color) char.color = MOVIE_PALETTE[idx % MOVIE_PALETTE.length];
+      if (!Array.isArray(char.images)) char.images = [];
+    });
+    movieState.characters = characters;
+
+    // Assign scenes
+    const scenes = Array.isArray(result.scenes) ? result.scenes : [];
+    scenes.forEach((sc, idx) => {
+      sc.scene_index = idx + 1;
+      sc.status = 'idle';
+      sc.video_url = null;
+      if (!sc.duration) sc.duration = 8;
+      if (!Array.isArray(sc.characters_involved)) sc.characters_involved = [];
+    });
+    movieState.scenes = scenes;
+    movieState.sessionId = null; // Fresh movie session
+
+    saveMovieStateCache();
+    renderMovieCharacters();
+    renderMovieScenes();
+    renderCharacterLegend();
+
+    alert(`🎬 Phân tích thành công!
+Đã trích xuất ${characters.length} nhân vật và ${scenes.length} phân cảnh chi tiết.
+Bạn có thể tải ảnh tham chiếu cho nhân vật hoặc bấm [Bắt Đầu Tạo Phim Tự Động] ngay!`);
+  } catch (err) {
+    alert('Lỗi phân tích kịch bản: ' + err.message);
+  } finally {
+    if (btn) btn.disabled = false;
+    if (btnText) btnText.innerText = originalText;
+    lucide.createIcons();
+  }
+}
+
+// ==================== CHARACTER MANAGEMENT ====================
+function renderCharacterLegend() {
+  const container = document.getElementById('movie-characters-legend');
+  if (!container) return;
+
+  if (movieState.characters.length === 0) {
+    container.innerHTML = `<span class="text-[11px] text-slate-500 italic">Chưa có nhân vật nào. Nhập kịch bản hoặc bấm "+ Thêm nhân vật".</span>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <span class="text-[11px] font-semibold text-slate-400 mr-1 flex items-center shrink-0">
+      <i data-lucide="tag" class="w-3 h-3 mr-1 text-cyan-400"></i> Bảng màu nhân vật:
+    </span>
+  `;
+
+  movieState.characters.forEach(char => {
+    const pill = document.createElement('span');
+    pill.className = 'inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold border transition';
+    pill.style.color = char.color;
+    pill.style.backgroundColor = `${char.color}18`;
+    pill.style.borderColor = `${char.color}44`;
+    pill.innerHTML = `
+      <span class="w-2 h-2 rounded-full" style="background-color: ${char.color}"></span>
+      <span>${escapeHtml(char.name)}</span>
+    `;
+    container.appendChild(pill);
+  });
+  lucide.createIcons();
+}
+
+function renderMovieCharacters() {
+  const container = document.getElementById('movie-characters-list');
+  const countBadge = document.getElementById('movie-char-count-badge');
+  if (!container) return;
+
+  if (countBadge) countBadge.innerText = `${movieState.characters.length} nhân vật`;
+
+  if (movieState.characters.length === 0) {
+    container.innerHTML = `
+      <div class="py-8 text-center text-slate-500 text-xs space-y-1">
+        <i data-lucide="users" class="w-8 h-8 mx-auto text-slate-600"></i>
+        <p>Chưa có nhân vật nào. Bấm <b>Phân Tích Kịch Bản</b> hoặc <b>+ Thêm nhân vật</b>.</p>
+      </div>
+    `;
+    lucide.createIcons();
+    return;
+  }
+
+  container.innerHTML = '';
+
+  movieState.characters.forEach((char, idx) => {
+    const card = document.createElement('div');
+    card.className = 'p-3.5 rounded-xl bg-surface-900/90 border border-white/[0.08] hover:border-cyan-500/30 transition space-y-3';
+    card.dataset.charId = char.id;
+
+    // Render character image thumbnails
+    let imagesHtml = '';
+    if (char.images && char.images.length > 0) {
+      imagesHtml = `
+        <div class="flex flex-wrap gap-2 pt-1 pb-1">
+          ${char.images.map((img, imgIdx) => `
+            <div class="relative w-12 h-12 rounded-lg overflow-hidden border border-white/20 group">
+              <img src="${img.url}" class="w-full h-full object-cover">
+              <button type="button" onclick="deleteCharacterImage('${char.id}', ${imgIdx}, event)" class="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    card.innerHTML = `
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-2.5 flex-1 min-w-0 mr-2">
+          <!-- Color Swatch Button -->
+          <div class="relative group cursor-pointer" title="Bấm để đổi màu nhân vật">
+            <input type="color" value="${char.color}" onchange="changeCharacterColor('${char.id}', this.value)" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
+            <span class="w-6 h-6 rounded-full block border-2 border-white/40 shadow-sm" style="background-color: ${char.color}"></span>
+          </div>
+
+          <input type="text" value="${escapeHtml(char.name)}" oninput="updateCharacterName('${char.id}', this.value)" placeholder="Tên nhân vật..." class="bg-surface-950 border border-surface-600 focus:border-cyan-400 rounded-lg px-2.5 py-1 text-xs font-bold text-white focus:outline-none flex-1">
+        </div>
+
+        <button type="button" onclick="deleteCharacter('${char.id}')" title="Xóa nhân vật" class="p-1 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+
+      <div>
+        <label class="block text-[10px] font-semibold text-slate-400 mb-1">Mô tả ngoại hình & phục trang (để tạo ảnh chuẩn):</label>
+        <textarea rows="2" oninput="updateCharacterDesc('${char.id}', this.value)" placeholder="Chi tiết ngoại hình, độ tuổi, khuôn mặt, áo quần..." class="w-full bg-surface-950/80 border border-surface-600 focus:border-cyan-400 rounded-lg p-2 text-xs text-slate-200 focus:outline-none resize-none">${escapeHtml(char.description || '')}</textarea>
+      </div>
+
+      <!-- Reference Images & Paste Zone -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between text-[10px] text-slate-400">
+          <span>Ảnh tham chiếu (${char.images ? char.images.length : 0} ảnh):</span>
+          <span class="text-cyan-400 font-semibold">Ctrl + V để dán ảnh</span>
+        </div>
+
+        ${imagesHtml}
+
+        <div id="char-dropzone-${char.id}" tabindex="0" onpaste="handleCharacterPaste(event, '${char.id}')" class="border border-dashed border-surface-600 hover:border-cyan-400 rounded-lg p-2 text-center bg-surface-950/50 hover:bg-surface-950 transition cursor-pointer flex items-center justify-between px-3">
+          <input type="file" id="char-file-${char.id}" accept="image/*" multiple class="hidden" onchange="handleCharacterUpload(event, '${char.id}')">
+          <div onclick="document.getElementById('char-file-${char.id}').click()" class="flex items-center space-x-2 text-left">
+            <i data-lucide="image-plus" class="w-4 h-4 text-cyan-400 shrink-0"></i>
+            <span class="text-[11px] text-slate-300">Bấm chọn ảnh hoặc bấm <kbd class="px-1 py-0.5 rounded bg-surface-800 text-[10px] text-cyan-300 font-mono">Ctrl+V</kbd> dán</span>
+          </div>
+          <button type="button" onclick="generateCharacterPortrait('${char.id}')" id="btn-gen-char-${char.id}" class="px-2 py-1 rounded bg-gradient-to-r from-teal-600 to-sky-600 hover:from-teal-500 hover:to-sky-500 text-white text-[10px] font-bold flex items-center space-x-1 shrink-0 shadow-sm transition">
+            <i data-lucide="sparkles" class="w-3 h-3"></i>
+            <span>AI Vẽ</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    container.appendChild(card);
+  });
+
+  lucide.createIcons();
+}
+
+function addNewCharacter() {
+  const idx = movieState.characters.length + 1;
+  const newColor = MOVIE_PALETTE[(idx - 1) % MOVIE_PALETTE.length];
+  movieState.characters.push({
+    id: `char_${Date.now()}`,
+    name: `Nhân vật #${idx}`,
+    description: `Trang phục và phong thái chuẩn điện ảnh ${movieState.stylePreset}.`,
+    color: newColor,
+    images: [],
+  });
+  saveMovieStateCache();
+  renderMovieCharacters();
+  renderCharacterLegend();
+  renderMovieScenes(); // update highlights
+}
+
+function deleteCharacter(charId) {
+  const char = movieState.characters.find(c => c.id === charId);
+  if (!char) return;
+  if (!confirm(`Bạn có chắc chắn muốn xóa nhân vật "${char.name}" không?`)) return;
+
+  movieState.characters = movieState.characters.filter(c => c.id !== charId);
+  saveMovieStateCache();
+  renderMovieCharacters();
+  renderCharacterLegend();
+  renderMovieScenes();
+}
+
+function updateCharacterName(charId, newName) {
+  const char = movieState.characters.find(c => c.id === charId);
+  if (char) {
+    char.name = newName.trim() || 'Nhân vật';
+    saveMovieStateCache();
+    renderCharacterLegend();
+    renderMovieScenes();
+  }
+}
+
+function updateCharacterDesc(charId, newDesc) {
+  const char = movieState.characters.find(c => c.id === charId);
+  if (char) {
+    char.description = newDesc;
+    saveMovieStateCache();
+  }
+}
+
+function changeCharacterColor(charId, newColor) {
+  const char = movieState.characters.find(c => c.id === charId);
+  if (char) {
+    char.color = newColor;
+    saveMovieStateCache();
+    renderMovieCharacters();
+    renderCharacterLegend();
+    renderMovieScenes();
+  }
+}
+
+// Character Image Upload & Paste
+async function handleCharacterUpload(e, charId) {
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  await uploadFilesForCharacter(files, charId);
+}
+
+async function handleCharacterPaste(e, charId) {
+  const clipboardData = e.clipboardData || window.clipboardData;
+  if (!clipboardData) return;
+  const items = clipboardData.items || [];
+  const files = [];
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type.indexOf('image') !== -1) {
+      const blob = items[i].getAsFile();
+      if (blob) files.push(blob);
+    }
+  }
+  if (files.length > 0) {
+    e.preventDefault();
+    await uploadFilesForCharacter(files, charId);
+  }
+}
+
+async function uploadFilesForCharacter(files, charId) {
+  const char = movieState.characters.find(c => c.id === charId);
+  if (!char) return;
+
+  for (const file of files) {
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        if (!char.images) char.images = [];
+        char.images.push({
+          id: `img_${Date.now()}_${Math.random()}`,
+          local_path: data.local_path,
+          url: data.url,
+          name: file.name,
+        });
+      }
+    } catch (err) {
+      console.warn('Lỗi tải ảnh nhân vật:', err);
+    }
+  }
+  saveMovieStateCache();
+  renderMovieCharacters();
+}
+
+function deleteCharacterImage(charId, imgIdx, e) {
+  if (e) e.stopPropagation();
+  const char = movieState.characters.find(c => c.id === charId);
+  if (char && char.images) {
+    char.images.splice(imgIdx, 1);
+    saveMovieStateCache();
+    renderMovieCharacters();
+  }
+}
+
+// AI Generate Character Portrait Concept Art
+async function generateCharacterPortrait(charId) {
+  const char = movieState.characters.find(c => c.id === charId);
+  if (!char) return;
+
+  const btn = document.getElementById(`btn-gen-char-${charId}`);
+  if (btn) btn.disabled = true;
+
+  try {
+    const prompt = `Chân dung nhân vật ${char.name}, ${char.description || ''}, phong cách ${movieState.stylePreset}, điện ảnh 8K, độ nét cao, ánh sáng chuyên nghiệp`;
+    const res = await fetch('/api/image/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: prompt,
+        aspect_ratio: '1:1',
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Không thể tạo ảnh.');
+
+    if (data.images && data.images.length > 0) {
+      const imgUrl = data.images[0];
+      if (!char.images) char.images = [];
+      char.images.push({
+        id: `img_${Date.now()}`,
+        local_path: null,
+        url: imgUrl,
+        name: `AI_Portrait_${char.name}.png`,
+      });
+      saveMovieStateCache();
+      renderMovieCharacters();
+    }
+  } catch (err) {
+    alert('Lỗi tạo ảnh nhân vật: ' + err.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ==================== CHARACTER NAME HIGHLIGHTING ====================
+// User requirement: "tên mỗi nhân vật cho một màu riêng để lúc hiện ở kịch bản cho dễ nhìn, ví dụ bà lão là tên màu đỏ thì ở kịch bản từng promt mà có nhắc tới bà lão thì chữ bà lão đó cũng màu đó"
+function highlightCharacterNamesInText(text) {
+  if (!text) return '';
+  let formatted = escapeHtml(text);
+
+  // Sort characters by longest name first to avoid partial overlap replacement
+  const sortedChars = [...movieState.characters].sort((a, b) => b.name.length - a.name.length);
+
+  sortedChars.forEach(char => {
+    if (!char.name || char.name.length < 2) return;
+    const escapedName = escapeHtml(char.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(\\b${escapedName}\\b|@${escapedName})`, 'gi');
+
+    formatted = formatted.replace(regex, (match) => {
+      return `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold mx-0.5" style="color: ${char.color}; background-color: ${char.color}22; border: 1px solid ${char.color}55;">${match}</span>`;
+    });
+  });
+
+  return formatted;
+}
+
+// ==================== SCENE STORYBOARD RENDERING ====================
+function renderMovieScenes() {
+  const container = document.getElementById('movie-scenes-container');
+  const countBadge = document.getElementById('movie-scenes-count-badge');
+  const durText = document.getElementById('movie-total-duration-text');
+  const renderedText = document.getElementById('movie-rendered-count-text');
+
+  if (!container) return;
+
+  const totalScenes = movieState.scenes.length;
+  const renderedCount = movieState.scenes.filter(s => s.video_url).length;
+  const totalDuration = movieState.scenes.reduce((sum, s) => sum + (parseInt(s.duration, 10) || 8), 0);
+
+  if (countBadge) countBadge.innerText = `${totalScenes} cảnh`;
+  if (durText) durText.innerText = `${totalDuration}s`;
+  if (renderedText) renderedText.innerText = `${renderedCount}/${totalScenes} cảnh`;
+
+  if (totalScenes === 0) {
+    container.innerHTML = `
+      <div class="py-16 text-center text-slate-500 text-xs space-y-2">
+        <i data-lucide="clapperboard" class="w-10 h-10 mx-auto text-slate-600"></i>
+        <p class="text-sm">Chưa có phân cảnh nào.</p>
+        <p class="text-slate-400">Hãy nhập kịch bản bên trái rồi bấm <b>Phân Tích Kịch Bản</b> để tạo phân cảnh tự động.</p>
+      </div>
+    `;
+    lucide.createIcons();
+    return;
+  }
+
+  container.innerHTML = '';
+
+  movieState.scenes.forEach((scene, idx) => {
+    const card = document.createElement('div');
+    const isGenerating = scene.status === 'generating';
+    const isDone = scene.status === 'done' || Boolean(scene.video_url);
+
+    card.className = `p-4 rounded-2xl bg-surface-900 border transition space-y-3 relative ${
+      isGenerating
+        ? 'border-cyan-400 ring-2 ring-cyan-400/40 shadow-lg shadow-cyan-500/20'
+        : isDone
+        ? 'border-emerald-500/40 bg-surface-900/90 shadow-md'
+        : 'border-white/[0.08] hover:border-cyan-500/20'
+    }`;
+
+    // Characters involved tags
+    const charTags = (scene.characters_involved || []).map(name => {
+      const char = movieState.characters.find(c => c.name.toLowerCase() === name.toLowerCase());
+      const color = char ? char.color : '#38bdf8';
+      return `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold" style="color: ${color}; background-color: ${color}22; border: 1px solid ${color}44;">@${escapeHtml(name)}</span>`;
+    }).join(' ');
+
+    // Video Player / Preview
+    let mediaSection = '';
+    if (scene.video_url) {
+      mediaSection = `
+        <div class="relative rounded-xl overflow-hidden bg-black border border-white/10 aspect-video flex items-center justify-center">
+          <video src="${scene.video_url}" controls playsinline class="w-full h-full object-contain"></video>
+        </div>
+      `;
+    } else if (isGenerating) {
+      mediaSection = `
+        <div class="rounded-xl overflow-hidden bg-cyan-950/30 border border-cyan-400/40 py-6 text-center space-y-2">
+          <div class="w-8 h-8 border-3 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p class="text-xs font-bold text-cyan-300">Đang sản xuất cảnh này...</p>
+        </div>
+      `;
+    }
+
+    card.innerHTML = `
+      <!-- Scene Card Header -->
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center space-x-2">
+          <span class="text-xs font-extrabold uppercase px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">CẢNH #${scene.scene_index}</span>
+          <div class="flex items-center space-x-1">
+            ${charTags}
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-1.5">
+          <!-- Duration selector (User request: 'số giây phù hợp') -->
+          <select onchange="updateSceneDuration(${idx}, this.value)" class="bg-surface-950 border border-surface-600 focus:border-cyan-400 rounded-lg px-2 py-1 text-xs text-cyan-300 font-bold focus:outline-none cursor-pointer">
+            <option value="5" ${scene.duration == 5 ? 'selected' : ''}>5 giây</option>
+            <option value="8" ${scene.duration == 8 ? 'selected' : ''}>8 giây</option>
+            <option value="10" ${scene.duration == 10 ? 'selected' : ''}>10 giây</option>
+            <option value="15" ${scene.duration == 15 ? 'selected' : ''}>15 giây</option>
+            <option value="20" ${scene.duration == 20 ? 'selected' : ''}>20 giây</option>
+          </select>
+
+          <!-- Reorder & Action buttons -->
+          <button type="button" title="Chuyển lên" onclick="moveMovieScene(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} class="p-1 rounded hover:bg-surface-800 text-slate-400 hover:text-white disabled:opacity-30 transition">
+            <i data-lucide="chevron-up" class="w-4 h-4"></i>
+          </button>
+          <button type="button" title="Chuyển xuống" onclick="moveMovieScene(${idx}, 1)" ${idx === totalScenes - 1 ? 'disabled' : ''} class="p-1 rounded hover:bg-surface-800 text-slate-400 hover:text-white disabled:opacity-30 transition">
+            <i data-lucide="chevron-down" class="w-4 h-4"></i>
+          </button>
+          <button type="button" title="Xóa phân cảnh" onclick="deleteMovieScene(${idx})" class="p-1 rounded hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      ${mediaSection}
+
+      <!-- Situation / Tình huống (Colored representation) -->
+      <div class="space-y-1">
+        <label class="text-[11px] font-semibold text-slate-400 flex items-center justify-between">
+          <span>Tình huống & Bối cảnh:</span>
+          <span class="text-[10px] text-cyan-400">Gõ @ để gắn thẻ nhân vật</span>
+        </label>
+        <div class="p-2.5 rounded-xl bg-surface-950/80 border border-white/[0.06] text-xs text-slate-200 leading-relaxed min-h-[38px] cursor-text" onclick="focusSceneEditable(this, 'situation', ${idx})">
+          ${highlightCharacterNamesInText(scene.situation || 'Chưa có tình huống')}
+        </div>
+      </div>
+
+      <!-- Dialogue / Lời thoại (Colored representation) -->
+      <div class="space-y-1">
+        <label class="text-[11px] font-semibold text-amber-300/80 flex items-center space-x-1">
+          <i data-lucide="message-square" class="w-3 h-3 text-amber-400"></i>
+          <span>Lời thoại / Thuyết minh:</span>
+        </label>
+        <div class="p-2.5 rounded-xl bg-amber-950/20 border border-amber-500/20 text-xs text-amber-200 leading-relaxed min-h-[36px] cursor-text" onclick="focusSceneEditable(this, 'dialogue', ${idx})">
+          ${highlightCharacterNamesInText(scene.dialogue || 'Không có thoại')}
+        </div>
+      </div>
+
+      <!-- Video Prompt -->
+      <div class="space-y-1">
+        <label class="text-[11px] font-semibold text-slate-400 flex items-center justify-between">
+          <span>Prompt quay phim AI (Cinematic Prompt):</span>
+          <span class="text-[10px] text-slate-500">Chỉnh sửa mô tả góc máy & ánh sáng</span>
+        </label>
+        <textarea rows="2" oninput="updateSceneField(${idx}, 'prompt', this.value)" class="mention-target w-full bg-surface-950 border border-surface-600 focus:border-cyan-400 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none resize-none leading-relaxed">${escapeHtml(scene.prompt || '')}</textarea>
+      </div>
+
+      <!-- Single Scene Action Row -->
+      <div class="flex items-center justify-between pt-1 text-xs">
+        <span class="text-[10px] ${isDone ? 'text-emerald-400 font-bold' : isGenerating ? 'text-cyan-400 animate-pulse font-bold' : 'text-slate-500'}">
+          ${isDone ? '✓ Đã quay xong' : isGenerating ? '● Đang quay video...' : '○ Chờ sản xuất'}
+        </span>
+
+        <button type="button" onclick="generateSingleMovieScene(${idx})" class="px-3 py-1 rounded-lg bg-surface-800 hover:bg-surface-700 text-cyan-300 border border-cyan-500/30 text-xs font-semibold flex items-center space-x-1 transition cursor-pointer">
+          <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+          <span>${isDone ? 'Quay lại cảnh này' : 'Quay cảnh này'}</span>
+        </button>
+      </div>
+    `;
+
+    container.appendChild(card);
+  });
+
+  lucide.createIcons();
+  attachMentionListeners();
+}
+
+// Inline Editable for Situation & Dialogue with @ Autocomplete
+function focusSceneEditable(containerEl, field, sceneIdx) {
+  const currentVal = movieState.scenes[sceneIdx] ? (movieState.scenes[sceneIdx][field] || '') : '';
+  const textarea = document.createElement('textarea');
+  textarea.className = 'mention-target w-full bg-surface-950 border border-cyan-400 rounded-xl p-2.5 text-xs text-slate-100 focus:outline-none resize-none leading-relaxed';
+  textarea.rows = 2;
+  textarea.value = currentVal;
+
+  textarea.onblur = () => {
+    updateSceneField(sceneIdx, field, textarea.value);
+    renderMovieScenes();
+  };
+
+  containerEl.replaceWith(textarea);
+  textarea.focus();
+  setupMentionInput(textarea);
+}
+
+function updateSceneField(idx, field, val) {
+  if (movieState.scenes[idx]) {
+    movieState.scenes[idx][field] = val;
+    saveMovieStateCache();
+  }
+}
+
+function updateSceneDuration(idx, val) {
+  const num = parseInt(val, 10);
+  if (movieState.scenes[idx]) {
+    movieState.scenes[idx].duration = isNaN(num) ? 8 : num;
+    saveMovieStateCache();
+    renderMovieScenes();
+  }
+}
+
+function addNewScene() {
+  const nextIdx = movieState.scenes.length + 1;
+  const involved = movieState.characters.length > 0 ? [movieState.characters[0].name] : [];
+  movieState.scenes.push({
+    scene_index: nextIdx,
+    situation: `Diễn biến Cảnh #${nextIdx}...`,
+    dialogue: `Lời thoại Cảnh #${nextIdx}...`,
+    duration: 8,
+    characters_involved: involved,
+    prompt: `Cinematic 4K, ${movieState.stylePreset}, Scene ${nextIdx}. Featuring ${involved.join(', ')}, photorealistic lighting, 8k masterpiece`,
+    status: 'idle',
+    video_url: null,
+  });
+  saveMovieStateCache();
+  renderMovieScenes();
+}
+
+function deleteMovieScene(idx) {
+  const sc = movieState.scenes[idx];
+  if (!sc) return;
+  if (!confirm(`Bạn có chắc chắn muốn xóa Cảnh #${sc.scene_index} không?`)) return;
+
+  movieState.scenes.splice(idx, 1);
+  movieState.scenes.forEach((s, i) => {
+    s.scene_index = i + 1;
+  });
+  saveMovieStateCache();
+  renderMovieScenes();
+}
+
+function moveMovieScene(idx, delta) {
+  const newIdx = idx + delta;
+  if (newIdx < 0 || newIdx >= movieState.scenes.length) return;
+
+  const item = movieState.scenes.splice(idx, 1)[0];
+  movieState.scenes.splice(newIdx, 0, item);
+  movieState.scenes.forEach((s, i) => {
+    s.scene_index = i + 1;
+  });
+  saveMovieStateCache();
+  renderMovieScenes();
+}
+
+function clearMovieScenes() {
+  if (movieState.scenes.length > 0) {
+    if (!confirm('Bạn có chắc chắn muốn làm sạch toàn bộ kịch bản và phân cảnh để làm phim mới từ đầu không?')) return;
+  }
+  movieState.scenes = [];
+  movieState.characters = [];
+  movieState.sessionId = null;
+  saveMovieStateCache();
+  renderMovieCharacters();
+  renderMovieScenes();
+  renderCharacterLegend();
+}
+
+// ==================== @ CHARACTER MENTION AUTOCOMPLETE ====================
+// User requirement: "gõ @ sẽ gợi ý những nhân vật có trong chuyện"
+let activeMentionTarget = null;
+
+function attachMentionListeners() {
+  document.querySelectorAll('.mention-target').forEach(el => {
+    setupMentionInput(el);
+  });
+}
+
+function setupMentionInput(inputEl) {
+  inputEl.addEventListener('input', (e) => handleMentionInput(e, inputEl));
+  inputEl.addEventListener('keydown', (e) => handleMentionKeydown(e, inputEl));
+}
+
+function handleMentionInput(e, inputEl) {
+  activeMentionTarget = inputEl;
+  const cursor = inputEl.selectionStart;
+  const textBefore = inputEl.value.substring(0, cursor);
+  const atMatch = textBefore.match(/@([a-zA-Z0-9àáảãạăắằẳẵặâấầẩẫậđèéẻẽẹêếềểễệìíỉĩịòóỎõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ\s]*)$/);
+
+  const popup = document.getElementById('char-mention-autocomplete');
+  if (!popup) return;
+
+  if (atMatch && movieState.characters.length > 0) {
+    const query = atMatch[1].toLowerCase().trim();
+    const matches = movieState.characters.filter(c => c.name.toLowerCase().includes(query));
+
+    if (matches.length > 0) {
+      // Position popup below input
+      const rect = inputEl.getBoundingClientRect();
+      popup.style.top = `${rect.bottom + window.scrollY + 4}px`;
+      popup.style.left = `${Math.min(rect.left + window.scrollX, window.innerWidth - 270)}px`;
+      popup.classList.remove('hidden');
+
+      popup.innerHTML = `
+        <div class="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase border-b border-white/[0.06]">
+          Gợi ý nhân vật (@):
+        </div>
+        ${matches.map((char, mIdx) => `
+          <button type="button" onclick="selectMentionCharacter('${escapeHtml(char.name)}')" class="mention-item w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-lg hover:bg-surface-800 text-left transition ${mIdx === 0 ? 'bg-surface-800/60' : ''}">
+            <span class="w-3 h-3 rounded-full shrink-0" style="background-color: ${char.color}"></span>
+            <div class="min-w-0 flex-1">
+              <span class="font-bold text-xs text-white block truncate">${escapeHtml(char.name)}</span>
+              <span class="text-[10px] text-slate-400 block truncate">${escapeHtml(char.description || '')}</span>
+            </div>
+          </button>
+        `).join('')}
+      `;
+      return;
+    }
+  }
+
+  popup.classList.add('hidden');
+}
+
+function handleMentionKeydown(e, inputEl) {
+  const popup = document.getElementById('char-mention-autocomplete');
+  if (!popup || popup.classList.contains('hidden')) return;
+
+  if (e.key === 'Escape') {
+    popup.classList.add('hidden');
+  } else if (e.key === 'Enter') {
+    const firstBtn = popup.querySelector('.mention-item');
+    if (firstBtn) {
+      e.preventDefault();
+      firstBtn.click();
+    }
+  }
+}
+
+function selectMentionCharacter(charName) {
+  const popup = document.getElementById('char-mention-autocomplete');
+  if (popup) popup.classList.add('hidden');
+
+  if (!activeMentionTarget) return;
+
+  const cursor = activeMentionTarget.selectionStart;
+  const text = activeMentionTarget.value;
+  const before = text.substring(0, cursor);
+  const after = text.substring(cursor);
+
+  const atIdx = before.lastIndexOf('@');
+  if (atIdx !== -1) {
+    activeMentionTarget.value = before.substring(0, atIdx) + `${charName} ` + after;
+    activeMentionTarget.focus();
+    activeMentionTarget.dispatchEvent(new Event('input'));
+  }
+}
+
+// Close popup on outside click
+document.addEventListener('click', (e) => {
+  const popup = document.getElementById('char-mention-autocomplete');
+  if (popup && !popup.contains(e.target) && e.target !== activeMentionTarget) {
+    popup.classList.add('hidden');
+  }
+});
+
+// ==================== AUTO MOVIE GENERATION SEQUENTIAL ENGINE ====================
+// User requirement: "có nút cho phép tạo phim tự động, sẽ tạo tự động theo từng phân cảnh trong kịch bản theo hình thức nối tiếp (để giữ lại các đặc trưng nhân vật)"
+let movieTimerInterval = null;
+
+async function startAutoMovieGeneration() {
+  if (movieState.scenes.length === 0) {
+    alert('Chưa có phân cảnh nào. Vui lòng bấm [Phân Tích Kịch Bản] trước.');
+    return;
+  }
+
+  if (!state.authenticated) {
+    openAuthModal();
+    return;
+  }
+
+  if (movieState.isGenerating) {
+    alert('Hệ thống đang sản xuất phim...');
+    return;
+  }
+
+  const unrenderedScenes = movieState.scenes.filter(s => !s.video_url);
+  if (unrenderedScenes.length === 0) {
+    const confirmRe = confirm('Tất cả phân cảnh đã hoàn thành video. Bạn có muốn quay lại từ đầu không?');
+    if (!confirmRe) return;
+    movieState.scenes.forEach(s => { s.video_url = null; s.status = 'idle'; });
+    movieState.sessionId = null;
+  }
+
+  movieState.isGenerating = true;
+  movieState.shouldStop = false;
+
+  const banner = document.getElementById('movie-progress-banner');
+  const bar = document.getElementById('movie-progress-bar');
+  const titleEl = document.getElementById('movie-progress-title');
+  const descEl = document.getElementById('movie-progress-desc');
+  const timerEl = document.getElementById('movie-progress-timer');
+  const btnStart = document.getElementById('btn-start-movie-gen');
+  const btnStartText = document.getElementById('btn-start-movie-gen-text');
+
+  if (banner) banner.classList.remove('hidden');
+  if (btnStart) btnStart.disabled = true;
+  if (btnStartText) btnStartText.innerText = 'Đang Sản Xuất Phim...';
+
+  let totalSeconds = 0;
+  if (movieTimerInterval) clearInterval(movieTimerInterval);
+  movieTimerInterval = setInterval(() => {
+    totalSeconds++;
+    if (timerEl) timerEl.innerText = `⏱ ${totalSeconds}s`;
+  }, 1000);
+
+  const total = movieState.scenes.length;
+
+  for (let i = 0; i < total; i++) {
+    if (movieState.shouldStop) {
+      alert('Đã dừng tiến trình sản xuất phim.');
+      break;
+    }
+
+    const scene = movieState.scenes[i];
+    if (scene.video_url) continue; // already generated
+
+    movieState.currentGeneratingIndex = i;
+    scene.status = 'generating';
+    renderMovieScenes();
+
+    if (titleEl) titleEl.innerText = `Đang sản xuất Cảnh ${i + 1}/${total}: "${escapeHtml(scene.situation).substring(0, 35)}..."`;
+    if (descEl) descEl.innerText = `Áp dụng công nghệ nối tiếp giữ nhân vật · Khung hình ${movieState.aspectRatio} · ${scene.duration || 8}s`;
+    if (bar) bar.style.width = `${Math.round(((i) / total) * 100)}%`;
+
+    try {
+      // Gather character reference images for this scene
+      const involvedImages = [];
+      (scene.characters_involved || []).forEach(name => {
+        const char = movieState.characters.find(c => c.name.toLowerCase() === name.toLowerCase());
+        if (char && char.images && char.images.length > 0) {
+          char.images.forEach(img => {
+            if (img.local_path) involvedImages.push(img.local_path);
+          });
+        }
+      });
+
+      // If no specific character image, collect any character images
+      if (involvedImages.length === 0) {
+        movieState.characters.forEach(c => {
+          if (c.images) {
+            c.images.forEach(img => {
+              if (img.local_path) involvedImages.push(img.local_path);
+            });
+          }
+        });
+      }
+
+      const isContinuation = (i > 0 && movieState.sessionId !== null);
+      const payload = {
+        prompt: scene.prompt || scene.situation,
+        image_paths: involvedImages,
+        aspect_ratio: movieState.aspectRatio,
+        duration: parseInt(scene.duration, 10) || 8,
+        is_continuation: isContinuation,
+        session_id: movieState.sessionId,
+        scene_index: scene.scene_index,
+        style_preset: movieState.stylePreset,
+        timeout: 600.0,
+      };
+
+      const res = await fetch('/api/video/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Không thể tạo phân cảnh.');
+
+      if (data.session_id) {
+        movieState.sessionId = data.session_id;
+      }
+
+      if (data.videos && data.videos.length > 0) {
+        scene.video_url = data.videos[0];
+        scene.status = 'done';
+        saveMovieStateCache();
+        renderMovieScenes();
+        checkAuthStatus(true).catch(() => {});
+      } else {
+        throw new Error('Không nhận được video phân cảnh.');
+      }
+    } catch (err) {
+      console.error(`Lỗi tạo cảnh #${scene.scene_index}:`, err);
+      scene.status = 'error';
+      renderMovieScenes();
+      const cont = confirm(`Lỗi sản xuất Cảnh #${scene.scene_index}: ${err.message}
+Bạn có muốn tiếp tục các cảnh còn lại không?`);
+      if (!cont) break;
+    }
+  }
+
+  // Finish
+  clearInterval(movieTimerInterval);
+  movieState.isGenerating = false;
+  if (btnStart) btnStart.disabled = false;
+  if (btnStartText) btnStartText.innerText = 'Bắt Đầu Tạo Phim Tự Động';
+  if (bar) bar.style.width = '100%';
+
+  setTimeout(() => {
+    if (banner) banner.classList.add('hidden');
+  }, 2500);
+
+  const completedCount = movieState.scenes.filter(s => s.video_url).length;
+  if (completedCount > 0) {
+    const playNow = confirm(`🎉 Chúc mừng! Đã hoàn thành ${completedCount}/${total} phân cảnh phim!
+Bạn có muốn mở Rạp Chiếu Phim để xem liên tục toàn bộ bộ phim ngay không?`);
+    if (playNow) {
+      openCinemaTheater();
+    }
+  }
+}
+
+function stopAutoMovieGeneration() {
+  movieState.shouldStop = true;
+}
+
+// Generate single scene manually
+async function generateSingleMovieScene(idx) {
+  const scene = movieState.scenes[idx];
+  if (!scene) return;
+
+  if (!state.authenticated) {
+    openAuthModal();
+    return;
+  }
+
+  scene.status = 'generating';
+  renderMovieScenes();
+
+  try {
+    const involvedImages = [];
+    (scene.characters_involved || []).forEach(name => {
+      const char = movieState.characters.find(c => c.name.toLowerCase() === name.toLowerCase());
+      if (char && char.images) {
+        char.images.forEach(img => {
+          if (img.local_path) involvedImages.push(img.local_path);
+        });
+      }
+    });
+
+    const isContinuation = (idx > 0 && movieState.sessionId !== null);
+    const payload = {
+      prompt: scene.prompt || scene.situation,
+      image_paths: involvedImages,
+      aspect_ratio: movieState.aspectRatio,
+      duration: parseInt(scene.duration, 10) || 8,
+      is_continuation: isContinuation,
+      session_id: movieState.sessionId,
+      scene_index: scene.scene_index,
+      style_preset: movieState.stylePreset,
+      timeout: 600.0,
+    };
+
+    const res = await fetch('/api/video/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Không thể tạo phân cảnh.');
+
+    if (data.session_id) movieState.sessionId = data.session_id;
+
+    if (data.videos && data.videos.length > 0) {
+      scene.video_url = data.videos[0];
+      scene.status = 'done';
+      saveMovieStateCache();
+      renderMovieScenes();
+      checkAuthStatus(true).catch(() => {});
+    }
+  } catch (err) {
+    alert(`Lỗi quay cảnh #${scene.scene_index}: ` + err.message);
+    scene.status = 'idle';
+    renderMovieScenes();
+  }
+}
+
+// ==================== CINEMA THEATER CONTINUOUS PLAYBACK ====================
+// User requirement: "có 1 nút bấm để phát phim, sẽ phát từng phân cảnh, tự chiếu qua phân cảnh khác khi hết phân cảnh trước đó"
+function openCinemaTheater() {
+  const readyScenes = movieState.scenes.filter(s => s.video_url);
+  if (readyScenes.length === 0) {
+    alert('Chưa có phân cảnh nào được xuất bản thành video.
+Hãy bấm [Bắt Đầu Tạo Phim Tự Động] để sản xuất các phân cảnh trước!');
+    return;
+  }
+
+  const modal = document.getElementById('movie-theater-modal');
+  if (!modal) return;
+
+  modal.classList.remove('hidden');
+  document.getElementById('theater-movie-title').innerText = movieState.title || 'H-AI Cinema Masterpiece';
+
+  theaterPlayScene(0);
+}
+
+function closeCinemaTheater() {
+  const modal = document.getElementById('movie-theater-modal');
+  const player = document.getElementById('theater-video-player');
+  if (player) {
+    player.pause();
+    player.src = '';
+  }
+  if (modal) modal.classList.add('hidden');
+}
+
+function theaterPlayScene(readyIndex) {
+  const readyScenes = movieState.scenes.filter(s => s.video_url);
+  if (!readyScenes[readyIndex]) return;
+
+  movieState.theaterCurrentIndex = readyIndex;
+  const currentScene = readyScenes[readyIndex];
+
+  const player = document.getElementById('theater-video-player');
+  const indicator = document.getElementById('theater-scene-indicator');
+  const dialogueEl = document.getElementById('theater-subtitle-dialogue');
+  const situationEl = document.getElementById('theater-subtitle-situation');
+
+  if (indicator) {
+    indicator.innerText = `Đang chiếu Cảnh #${currentScene.scene_index} (Phân cảnh ${readyIndex + 1}/${readyScenes.length})`;
+  }
+  if (dialogueEl) {
+    dialogueEl.innerText = currentScene.dialogue ? `"${currentScene.dialogue}"` : '';
+  }
+  if (situationEl) {
+    situationEl.innerText = currentScene.situation || '';
+  }
+
+  if (player) {
+    player.src = currentScene.video_url;
+    player.play().catch(() => {});
+
+    // Seamless automatic transition to next scene when current scene ends
+    player.onended = () => {
+      theaterNextScene();
+    };
+  }
+
+  renderTheaterPlaylistStrip();
+  lucide.createIcons();
+}
+
+function theaterNextScene() {
+  const readyScenes = movieState.scenes.filter(s => s.video_url);
+  if (movieState.theaterCurrentIndex < readyScenes.length - 1) {
+    theaterPlayScene(movieState.theaterCurrentIndex + 1);
+  } else {
+    // End of movie
+    const playAgain = confirm('🎬 Đã chiếu hết toàn bộ các phân cảnh trong bộ phim!
+Bạn có muốn phát lại từ đầu không?');
+    if (playAgain) {
+      theaterPlayScene(0);
+    }
+  }
+}
+
+function theaterPrevScene() {
+  if (movieState.theaterCurrentIndex > 0) {
+    theaterPlayScene(movieState.theaterCurrentIndex - 1);
+  }
+}
+
+function theaterTogglePlay() {
+  const player = document.getElementById('theater-video-player');
+  const icon = document.getElementById('theater-play-icon');
+  const text = document.getElementById('theater-play-text');
+  if (!player) return;
+
+  if (player.paused) {
+    player.play();
+    if (text) text.innerText = 'Tạm dừng';
+    if (icon) icon.setAttribute('data-lucide', 'pause');
+  } else {
+    player.pause();
+    if (text) text.innerText = 'Phát';
+    if (icon) icon.setAttribute('data-lucide', 'play');
+  }
+  lucide.createIcons();
+}
+
+function renderTheaterPlaylistStrip() {
+  const strip = document.getElementById('theater-playlist-strip');
+  if (!strip) return;
+
+  const readyScenes = movieState.scenes.filter(s => s.video_url);
+  strip.innerHTML = '';
+
+  readyScenes.forEach((sc, idx) => {
+    const isPlaying = idx === movieState.theaterCurrentIndex;
+    const item = document.createElement('div');
+    item.className = `shrink-0 w-36 p-2 rounded-xl border transition cursor-pointer flex items-center space-x-2 select-none ${
+      isPlaying
+        ? 'border-cyan-400 bg-cyan-950/60 ring-2 ring-cyan-400/40'
+        : 'border-white/10 bg-surface-950/60 hover:bg-surface-800'
+    }`;
+    item.onclick = () => theaterPlayScene(idx);
+
+    item.innerHTML = `
+      <div class="w-7 h-7 rounded-lg ${isPlaying ? 'bg-cyan-500 text-white animate-pulse' : 'bg-surface-800 text-slate-400'} flex items-center justify-center shrink-0">
+        <i data-lucide="${isPlaying ? 'play' : 'film'}" class="w-3.5 h-3.5 fill-current"></i>
+      </div>
+      <div class="min-w-0">
+        <span class="text-[11px] font-bold ${isPlaying ? 'text-cyan-300' : 'text-slate-200'} block truncate">Cảnh #${sc.scene_index}</span>
+        <span class="text-[9px] text-slate-400 block truncate">${sc.duration || 8}s · ${escapeHtml(sc.situation || '')}</span>
+      </div>
+    `;
+    strip.appendChild(item);
+  });
+  lucide.createIcons();
+}
+
+// ==================== MERGE & DOWNLOAD MOVIE ====================
+// User requirement: "merger các phân cảnh thành video và tải xuống"
+async function mergeAndDownloadMovie() {
+  const readyScenes = movieState.scenes.filter(s => s.video_url);
+  if (readyScenes.length === 0) {
+    alert('Không có phân cảnh nào đã hoàn thành video để ghép.');
+    return;
+  }
+
+  const btn = document.getElementById('btn-merge-movie');
+  const originalText = btn ? btn.innerHTML : 'Ghép & Tải MP4';
+
+  if (readyScenes.length === 1) {
+    triggerDownload(readyScenes[0].video_url, `H-AI_Movie_Scene1_${Date.now()}.mp4`);
+    return;
+  }
+
+  try {
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = `Đang ghép ${readyScenes.length} cảnh...`;
+    }
+
+    const res = await fetch('/api/video/merge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        video_urls: readyScenes.map(s => s.video_url),
+        output_filename: `H-AI_FullMovie_${Date.now()}.mp4`,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Không thể ghép video.');
+
+    triggerDownload(data.url, data.filename || `H-AI_FullMovie_${Date.now()}.mp4`);
+    alert(`🎬 Ghép thành công ${readyScenes.length} phân cảnh thành 1 bộ phim hoàn chỉnh!
+Trình duyệt đang tự động tải file MP4 về máy.`);
+  } catch (err) {
+    alert('Lỗi ghép phim: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      lucide.createIcons();
+    }
+  }
 }
