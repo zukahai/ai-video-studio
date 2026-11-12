@@ -179,9 +179,10 @@ function startSequentialFromDashboard() {
 }
 
 // Auth Status
-async function checkAuthStatus() {
+async function checkAuthStatus(force = false) {
   try {
-    const res = await fetch('/api/auth/status');
+    const url = force ? '/api/auth/status?force=true' : '/api/auth/status';
+    const res = await fetch(url);
     const data = await res.json();
     const dot = document.getElementById('status-dot');
     const text = document.getElementById('status-text');
@@ -824,6 +825,9 @@ async function generateVideo() {
       document.getElementById('video-result-container').classList.remove('hidden');
       player.play().catch(() => {});
       loadDashboardAndGallery();
+
+      // Cập nhật lại Quota & Token live ngay sau khi tạo video xong
+      checkAuthStatus(true).catch(e => console.warn('Cập nhật quota thất bại:', e));
     } else {
       throw new Error('Không nhận được video trả về.');
     }
@@ -834,6 +838,167 @@ async function generateVideo() {
   } finally {
     clearInterval(videoTimerInterval);
     btn.disabled = false;
+  }
+}
+
+let draggedSceneIndex = null;
+
+function deleteScene(index, event) {
+  if (event) event.stopPropagation();
+  const item = state.storyboard[index];
+  if (!item) return;
+
+  const desc = item.prompt ? (item.prompt.length > 35 ? item.prompt.substring(0, 35) + '...' : item.prompt) : '';
+  const confirmed = confirm(`Bạn có chắc chắn muốn xóa Cảnh #${item.scene} ${desc ? '("' + desc + '") ' : ''}khỏi chuỗi phim không?`);
+  if (!confirmed) return;
+
+  state.storyboard.splice(index, 1);
+  state.storyboard.forEach((s, i) => {
+    s.scene = i + 1;
+  });
+
+  if (state.storyboard.length === 0) {
+    resetSequentialChain();
+  } else {
+    // Switch player to preview nearest remaining scene
+    const nextIdx = Math.min(index, state.storyboard.length - 1);
+    const nextItem = state.storyboard[nextIdx];
+    const player = document.getElementById('video-player');
+    if (player && nextItem) {
+      player.src = nextItem.url;
+      const dl = document.getElementById('video-download-btn');
+      if (dl) dl.href = nextItem.url;
+    }
+  }
+  renderStoryboard();
+}
+
+function moveScene(index, delta, event) {
+  if (event) event.stopPropagation();
+  const newIndex = index + delta;
+  if (newIndex < 0 || newIndex >= state.storyboard.length) return;
+
+  const item = state.storyboard.splice(index, 1)[0];
+  state.storyboard.splice(newIndex, 0, item);
+  state.storyboard.forEach((s, i) => {
+    s.scene = i + 1;
+  });
+  renderStoryboard();
+}
+
+function handleSceneDragStart(e, index) {
+  draggedSceneIndex = index;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', index);
+  e.currentTarget.classList.add('opacity-40', 'scale-95');
+}
+
+function handleSceneDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const card = e.currentTarget;
+  card.classList.add('border-cyan-400', 'ring-2', 'ring-cyan-400/50');
+}
+
+function handleSceneDragLeave(e) {
+  e.currentTarget.classList.remove('border-cyan-400', 'ring-2', 'ring-cyan-400/50');
+}
+
+function handleSceneDrop(e, targetIndex) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('border-cyan-400', 'ring-2', 'ring-cyan-400/50');
+  if (draggedSceneIndex === null || draggedSceneIndex === targetIndex) return;
+
+  const item = state.storyboard.splice(draggedSceneIndex, 1)[0];
+  state.storyboard.splice(targetIndex, 0, item);
+  state.storyboard.forEach((s, i) => {
+    s.scene = i + 1;
+  });
+  draggedSceneIndex = null;
+  renderStoryboard();
+}
+
+function handleSceneDragEnd(e) {
+  draggedSceneIndex = null;
+  document.querySelectorAll('.storyboard-card').forEach(el => {
+    el.classList.remove('opacity-40', 'scale-95', 'border-cyan-400', 'ring-2', 'ring-cyan-400/50');
+  });
+}
+
+function previewSceneVideo(index) {
+  const item = state.storyboard[index];
+  if (!item) return;
+  const player = document.getElementById('video-player');
+  if (player) {
+    player.src = item.url;
+    player.play().catch(() => {});
+  }
+  const dl = document.getElementById('video-download-btn');
+  if (dl) dl.href = item.url;
+}
+
+function triggerDownload(url, filename) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+async function mergeAndDownloadStoryboard() {
+  if (!state.storyboard || state.storyboard.length === 0) {
+    alert('Không có phân cảnh nào trong chuỗi Storyboard để ghép.');
+    return;
+  }
+
+  const btn = document.getElementById('btn-merge-storyboard');
+  const btnText = document.getElementById('merge-btn-text');
+  const originalText = btnText ? btnText.innerText : 'Ghép & Tải Toàn Bộ Phim';
+
+  // If only 1 scene, download it directly
+  if (state.storyboard.length === 1) {
+    const singleUrl = state.storyboard[0].url;
+    triggerDownload(singleUrl, `HaiAI_Scene_1_${Date.now()}.mp4`);
+    return;
+  }
+
+  try {
+    if (btn) btn.disabled = true;
+    if (btnText) btnText.innerText = `Đang ghép ${state.storyboard.length} cảnh...`;
+
+    const res = await fetch('/api/video/merge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        video_urls: state.storyboard.map(s => s.url),
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || 'Không thể ghép video.');
+    }
+
+    // Set player to preview full merged movie
+    const player = document.getElementById('video-player');
+    if (player && data.url) {
+      player.src = data.url;
+      player.play().catch(() => {});
+      const dl = document.getElementById('video-download-btn');
+      if (dl) dl.href = data.url;
+    }
+
+    // Automatically trigger browser download
+    const filename = data.filename || `HaiAI_FullMovie_${state.storyboard.length}Scenes_${Date.now()}.mp4`;
+    triggerDownload(data.url, filename);
+
+    alert(`🎬 Đã ghép thành công ${state.storyboard.length} phân cảnh thành 1 bộ phim hoàn chỉnh!\nTrình phát đang chiếu phim ghép và file đang được tự động tải về.`);
+  } catch (err) {
+    alert('Lỗi ghép phim: ' + err.message);
+  } finally {
+    if (btn) btn.disabled = false;
+    if (btnText) btnText.innerText = originalText;
   }
 }
 
@@ -851,25 +1016,49 @@ function renderStoryboard() {
   }
 
   container.classList.remove('hidden');
-  countEl.innerText = `${state.storyboard.length} cảnh liên kết`;
+  if (countEl) countEl.innerText = `· ${state.storyboard.length} cảnh liên kết`;
   list.innerHTML = '';
 
-  state.storyboard.forEach((item) => {
-    const card = document.createElement('button');
-    card.type = 'button';
-    card.onclick = () => {
-      const player = document.getElementById('video-player');
-      player.src = item.url;
-      document.getElementById('video-download-btn').href = item.url;
-      player.play().catch(() => {});
-    };
-    card.className = 'shrink-0 w-44 p-2.5 rounded-xl bg-surface-900 hover:bg-surface-800 border border-cyan-500/30 text-left space-y-1.5 transition group';
+  state.storyboard.forEach((item, index) => {
+    const card = document.createElement('div');
+    card.draggable = true;
+    card.dataset.index = index;
+    card.ondragstart = (e) => handleSceneDragStart(e, index);
+    card.ondragover = (e) => handleSceneDragOver(e);
+    card.ondragleave = (e) => handleSceneDragLeave(e);
+    card.ondrop = (e) => handleSceneDrop(e, index);
+    card.ondragend = (e) => handleSceneDragEnd(e);
+
+    const isFirst = index === 0;
+    const isLast = index === state.storyboard.length - 1;
+
+    card.className = 'storyboard-card shrink-0 w-52 p-2.5 rounded-xl bg-surface-900 hover:bg-surface-800 border border-cyan-500/30 text-left space-y-2 transition cursor-grab active:cursor-grabbing select-none group relative shadow-md';
     card.innerHTML = `
       <div class="flex items-center justify-between">
-        <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300">Cảnh #${item.scene}</span>
-        <i data-lucide="play-circle" class="w-3.5 h-3.5 text-slate-400 group-hover:text-cyan-400"></i>
+        <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300">CẢNH #${item.scene}</span>
+        <div class="flex items-center space-x-1">
+          ${!isFirst ? `
+            <button type="button" title="Chuyển sang trái" onclick="moveScene(${index}, -1, event)" class="p-1 rounded hover:bg-surface-700 text-slate-400 hover:text-white transition">
+              <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+            </button>
+          ` : ''}
+          ${!isLast ? `
+            <button type="button" title="Chuyển sang phải" onclick="moveScene(${index}, 1, event)" class="p-1 rounded hover:bg-surface-700 text-slate-400 hover:text-white transition">
+              <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+            </button>
+          ` : ''}
+          <button type="button" title="Xóa phân cảnh này" onclick="deleteScene(${index}, event)" class="p-1 rounded hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
       </div>
-      <p class="text-[11px] text-slate-300 truncate">${escapeHtml(item.prompt)}</p>
+      <div onclick="previewSceneVideo(${index})" class="cursor-pointer space-y-1">
+        <p class="text-[11px] text-slate-300 line-clamp-2 leading-tight">${escapeHtml(item.prompt || 'Không có mô tả')}</p>
+        <div class="flex items-center space-x-1 text-[10px] text-cyan-400 group-hover:text-cyan-300">
+          <i data-lucide="play" class="w-3 h-3 fill-current"></i>
+          <span>Bấm để xem thử</span>
+        </div>
+      </div>
     `;
     list.appendChild(card);
   });
@@ -921,6 +1110,9 @@ async function generateImage() {
       document.getElementById('image-loading-state').classList.add('hidden');
       document.getElementById('image-result-container').classList.remove('hidden');
       loadDashboardAndGallery();
+
+      // Cập nhật lại Quota & Token live ngay sau khi tạo ảnh xong
+      checkAuthStatus(true).catch(e => console.warn('Cập nhật quota thất bại:', e));
     } else {
       throw new Error('Không nhận được ảnh trả về.');
     }

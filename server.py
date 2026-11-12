@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import shutil
+import subprocess
 import time
 import uuid
 from pathlib import Path
@@ -84,6 +85,11 @@ class ChatModel(BaseModel):
     prompt: str
     session_id: Optional[str] = None
     image_paths: list[str] = []
+
+
+class MergeVideosModel(BaseModel):
+    video_urls: list[str]
+    output_filename: Optional[str] = None
 
 
 def is_authenticated() -> bool:
@@ -302,10 +308,20 @@ async def fetch_live_subscription(auth: Optional[MuseAuth] = None) -> Optional[d
         return _subscription_cache["data"]
 
 
+def invalidate_subscription_cache():
+    global _subscription_cache
+    _subscription_cache = {
+        "data": None,
+        "timestamp": 0.0,
+    }
+
+
 # --- API Routes ---
 
 @app.get("/api/auth/status")
-async def auth_status():
+async def auth_status(force: bool = False):
+    if force:
+        invalidate_subscription_cache()
     logged_in = is_authenticated()
     email = None
     email_file = STATE_DIR / "email.txt"
@@ -588,6 +604,9 @@ async def generate_video(data: VideoGenerateModel):
                     p = new_path
             downloaded_urls.append(f"/outputs/{p.name}")
 
+        # Invalidate subscription cache to immediately fetch latest live quota
+        invalidate_subscription_cache()
+
         return {
             "status": "success",
             "session_id": result.session_id,
@@ -602,6 +621,98 @@ async def generate_video(data: VideoGenerateModel):
             status_code=500,
             detail=f"Lỗi tạo video từ HaiAI: {exc}. Kiểm tra kết nối VPN và thử lại.",
         )
+
+
+@app.post("/api/video/merge")
+async def merge_videos(data: MergeVideosModel):
+    if not data.video_urls or len(data.video_urls) == 0:
+        raise HTTPException(status_code=400, detail="Danh sách video cần ghép trống.")
+
+    # If only 1 video provided, return it directly
+    if len(data.video_urls) == 1:
+        return {
+            "status": "success",
+            "url": data.video_urls[0],
+            "count": 1,
+            "message": "Chỉ có 1 cảnh, không cần ghép.",
+        }
+
+    # Resolve video paths from URLs
+    resolved_paths: list[Path] = []
+    for u in data.video_urls:
+        clean_name = Path(u.split("?")[0]).name
+        file_path = OUTPUTS_DIR / clean_name
+        if not file_path.exists():
+            alt_path = UPLOADS_DIR / clean_name
+            if alt_path.exists():
+                file_path = alt_path
+            else:
+                raise HTTPException(status_code=404, detail=f"Không tìm thấy file video: {clean_name}")
+        resolved_paths.append(file_path.resolve())
+
+    # Prepare temp concat list file
+    timestamp = int(time.time())
+    output_name = data.output_filename or f"haiai_movie_{timestamp}.mp4"
+    if not output_name.endswith(".mp4"):
+        output_name += ".mp4"
+    output_path = OUTPUTS_DIR / output_name
+
+    concat_list_file = OUTPUTS_DIR / f"concat_list_{timestamp}.txt"
+    try:
+        with open(concat_list_file, "w", encoding="utf-8") as f:
+            for p in resolved_paths:
+                f.write(f"file '{p.as_posix()}'\n")
+
+        import imageio_ffmpeg
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+
+        # 1. Try fast stream copy (lossless, instant)
+        cmd_copy = [
+            ffmpeg_exe,
+            "-y",
+            "-f", "concat",
+            "-safe", "0",
+            "-i", str(concat_list_file),
+            "-c", "copy",
+            str(output_path),
+        ]
+        proc = subprocess.run(cmd_copy, capture_output=True, text=True)
+        if proc.returncode != 0 or not output_path.exists() or output_path.stat().st_size == 0:
+            logger.warning(f"FFmpeg copy concat không khả dụng ({proc.stderr[:200] if proc.stderr else 'unknown'}), chuyển sang chế độ re-encode tương thích...")
+            # 2. Fallback to re-encode (guaranteed compatibility across different presets)
+            cmd_reencode = [
+                ffmpeg_exe,
+                "-y",
+                "-f", "concat",
+                "-safe", "0",
+                "-i", str(concat_list_file),
+                "-c:v", "libx264",
+                "-preset", "veryfast",
+                "-crf", "22",
+                "-c:a", "aac",
+                "-b:a", "192k",
+                str(output_path),
+            ]
+            proc_re = subprocess.run(cmd_reencode, capture_output=True, text=True)
+            if proc_re.returncode != 0 or not output_path.exists():
+                raise RuntimeError(f"Lỗi ghép video với FFmpeg: {proc_re.stderr[-300:] if proc_re.stderr else 'unknown'}")
+
+        return {
+            "status": "success",
+            "url": f"/outputs/{output_name}",
+            "filename": output_name,
+            "count": len(resolved_paths),
+            "size_bytes": output_path.stat().st_size,
+        }
+    except Exception as exc:
+        logger.error(f"Lỗi khi ghép video: {exc}")
+        raise HTTPException(status_code=500, detail=f"Lỗi khi ghép chuỗi cảnh phim: {exc}")
+    finally:
+        if concat_list_file.exists():
+            try:
+                concat_list_file.unlink()
+            except Exception:
+                pass
 
 
 @app.post("/api/image/generate")
@@ -678,6 +789,9 @@ async def generate_image(data: ImageGenerateModel):
             if data_bytes:
                 dest_path.write_bytes(data_bytes)
                 downloaded_urls.append(f"/outputs/{dest_name}")
+
+        # Invalidate subscription cache to immediately fetch latest live quota
+        invalidate_subscription_cache()
 
         return {
             "status": "success",
