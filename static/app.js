@@ -212,6 +212,7 @@ function switchTab(tabId, syncUrl = true) {
     renderMovieCharacters();
     renderMovieScenes();
     renderCharacterLegend();
+    healMovieCharactersCache();
   }
   lucide.createIcons();
 
@@ -1829,6 +1830,7 @@ function restoreMovieStateCache() {
     renderMovieCharacters();
     renderMovieScenes();
     renderCharacterLegend();
+    healMovieCharactersCache();
     return true;
   } catch (err) {
     console.warn('Lỗi đọc cache tạo phim:', err);
@@ -2020,6 +2022,63 @@ function renderCharacterLegend() {
   lucide.createIcons();
 }
 
+// Auto-recover broken or 404 character portrait URLs
+async function handleCharacterImageError(imgEl, charId, imgIdx) {
+  imgEl.onerror = null; // Prevent loop
+  const char = movieState.characters.find(c => c.id === charId);
+  if (!char) return;
+
+  try {
+    const res = await fetch(`/api/movie/existing_character_images?name=${encodeURIComponent(char.name)}`);
+    const data = await res.json();
+    if (data.status === 'success' && data.images && data.images.length > 0) {
+      const existingUrls = char.images.map(x => x.url);
+      const replacement = data.images.find(x => !existingUrls.includes(x.url)) || data.images[0];
+      if (replacement && char.images[imgIdx]) {
+        char.images[imgIdx].url = replacement.url;
+        char.images[imgIdx].local_path = replacement.local_path;
+        char.images[imgIdx].name = replacement.name;
+        imgEl.src = replacement.url;
+        saveMovieStateCache();
+        renderMovieScenes();
+        return;
+      }
+    }
+  } catch (e) {}
+
+  imgEl.src = '/static/favicon.png';
+  imgEl.classList.add('opacity-40');
+}
+
+// Auto-heal movie characters images from existing files on disk
+async function healMovieCharactersCache() {
+  let changed = false;
+  for (const char of movieState.characters) {
+    const hasBroken = Array.isArray(char.images) && char.images.some(img => !img.url || img.url.includes("char_nguoi_em_") || img.url.includes("char_nguoi_anh_") || img.url.includes("char_vo_nguoi_em_"));
+    const isEmpty = !Array.isArray(char.images) || char.images.length === 0;
+    if (hasBroken || isEmpty) {
+      try {
+        const res = await fetch(`/api/movie/existing_character_images?name=${encodeURIComponent(char.name)}`);
+        const data = await res.json();
+        if (data.status === 'success' && data.images && data.images.length > 0) {
+          char.images = data.images.slice(0, 3).map((img, i) => ({
+            id: `img_${char.id}_${i+1}`,
+            name: `Ảnh ${i+1}: ${['Cận cảnh mặt', 'Bán thân 3/4', 'Toàn thân đứng'][i] || 'Tham chiếu'}`,
+            url: img.url,
+            local_path: img.local_path,
+          }));
+          changed = true;
+        }
+      } catch (e) {}
+    }
+  }
+  if (changed) {
+    saveMovieStateCache();
+    renderMovieCharacters();
+    renderMovieScenes();
+  }
+}
+
 function renderMovieCharacters() {
   const container = document.getElementById('movie-characters-list');
   const countBadge = document.getElementById('movie-char-count-badge');
@@ -2054,7 +2113,7 @@ function renderMovieCharacters() {
           ${char.images.map((img, imgIdx) => `
             <div class="relative group rounded-xl overflow-hidden border bg-surface-950 p-1 flex flex-col items-center shadow-sm" style="border-color: ${char.color}55">
               <div class="relative w-14 h-14 rounded-lg overflow-hidden bg-black/40">
-                <img src="${img.url}" class="w-full h-full object-cover">
+                <img src="${img.url}" class="w-full h-full object-cover" onerror="handleCharacterImageError(this, '${char.id}', ${imgIdx})">
                 <button type="button" onclick="deleteCharacterImage('${char.id}', ${imgIdx}, event)" title="Xóa ảnh này" class="absolute inset-0 bg-black/70 text-rose-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer">
                   <i data-lucide="trash-2" class="w-4 h-4"></i>
                 </button>

@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import time
 import uuid
+import unicodedata
 from pathlib import Path
 from typing import Any, Optional
 
@@ -151,8 +152,15 @@ RATIO_DESCRIPTIONS = {
 }
 
 
+def remove_accents(text: str) -> str:
+    nfkd = unicodedata.normalize("NFKD", text)
+    res = "".join([c for c in nfkd if not unicodedata.combining(c)])
+    return res.replace("đ", "d").replace("Đ", "D")
+
+
 def slugify_simple(text: str) -> str:
-    cleaned = re.sub(r"[^\w\s-]", "", text.strip().lower())
+    t = remove_accents(text)
+    cleaned = re.sub(r"[^\w\s-]", "", t.strip().lower())
     return re.sub(r"[-\s]+", "_", cleaned) or "char"
 
 
@@ -348,6 +356,61 @@ def extract_all_media_refs(value: Any) -> list[dict]:
 
     walk(value)
     return found
+
+
+async def download_media_ref(client: MuseClient, ref: dict, dest_path: Path) -> bool:
+    """Download a media reference reliably to dest_path, returning True if successful."""
+    # 1. Primary & most reliable: download sandbox path directly via RPC
+    if ref.get("path"):
+        try:
+            tmp_ext = Path(ref["path"]).suffix or ".webp"
+            tmp_path = dest_path.with_suffix(tmp_ext)
+            await client._fs().download(ref["path"], tmp_path)
+            if tmp_path.exists() and tmp_path.stat().st_size > 0:
+                try:
+                    from PIL import Image
+                    im = Image.open(tmp_path)
+                    im.save(dest_path, "PNG")
+                    if tmp_path != dest_path:
+                        tmp_path.unlink(missing_ok=True)
+                except Exception:
+                    if tmp_path != dest_path:
+                        shutil.move(str(tmp_path), str(dest_path))
+                return True
+        except Exception as exc:
+            logger.warning(f"Failed download via client._fs().download: {exc}")
+
+    # 2. Idea-cards media URL
+    if ref.get("url") and "/idea-cards/media/" in ref["url"]:
+        try:
+            data = await client._fs().idea_media_from_url(ref["url"])
+            if data and len(data) > 0:
+                dest_path.write_bytes(data)
+                return True
+        except Exception as exc:
+            logger.warning(f"Failed idea_media_from_url: {exc}")
+
+    # 3. Media handle
+    if ref.get("media_handle"):
+        try:
+            data = await client._fs().idea_media(ref["media_handle"])
+            if data and len(data) > 0:
+                dest_path.write_bytes(data)
+                return True
+        except Exception as exc:
+            logger.warning(f"Failed idea_media: {exc}")
+
+    # 4. Fallback: try public HTTP URL
+    if ref.get("url") and ref["url"].startswith(("http://", "https://")):
+        try:
+            r = await client.auth.browser.get(ref["url"])
+            if r.status_code < 400 and len(r.content) > 0:
+                dest_path.write_bytes(r.content)
+                return True
+        except Exception:
+            pass
+
+    return False
 
 
 # --- Live Subscription & Quota Fetcher (Exact real account metrics) ---
@@ -900,38 +963,10 @@ async def generate_image(data: ImageGenerateModel):
 
         downloaded_urls = []
         for index, ref in enumerate(found_images):
-            ext = ".png" if "png" in (ref["mime_type"] or "") else ".jpg"
-            dest_name = f"haiai_img_{int(time.time())}_{index+1}{ext}"
+            dest_name = f"haiai_img_{int(time.time())}_{index+1}.png"
             dest_path = OUTPUTS_DIR / dest_name
-
-            data_bytes = None
-            if ref.get("url") and "/idea-cards/media/" in ref["url"]:
-                try:
-                    data_bytes = await client._fs().idea_media_from_url(ref["url"])
-                except Exception:
-                    pass
-            elif ref.get("media_handle"):
-                try:
-                    data_bytes = await client._fs().idea_media(ref["media_handle"])
-                except Exception:
-                    pass
-            elif ref.get("url") and ref["url"].startswith(("http://", "https://")):
-                try:
-                    r = await client.auth.browser.get(ref["url"])
-                    if r.status_code < 400:
-                        data_bytes = r.content
-                except Exception:
-                    pass
-            elif ref.get("path"):
-                try:
-                    dest_path = await client._fs().download(ref["path"], dest_path)
-                    downloaded_urls.append(f"/outputs/{dest_name}")
-                    continue
-                except Exception:
-                    pass
-
-            if data_bytes:
-                dest_path.write_bytes(data_bytes)
+            ok = await download_media_ref(client, ref, dest_path)
+            if ok and dest_path.exists() and dest_path.stat().st_size > 0:
                 downloaded_urls.append(f"/outputs/{dest_name}")
 
         # Invalidate subscription cache to immediately fetch latest live quota
@@ -1592,36 +1627,12 @@ async def generate_character_portrait_endpoint(data: CharacterPortraitRequest):
             raise HTTPException(status_code=504, detail="H-AI chưa trả về ảnh trong thời gian quy định.")
 
         ref = found_images[0]
-        ext = ".png" if "png" in (ref.get("mime_type") or "") else ".jpg"
-        dest_name = f"char_{slugify_simple(data.character_name)}_{data.angle_index}_{int(time.time())}{ext}"
+        dest_name = f"char_{slugify_simple(data.character_name)}_{data.angle_index}_{int(time.time())}.png"
         dest_path = OUTPUTS_DIR / dest_name
 
-        data_bytes = None
-        if ref.get("url") and "/idea-cards/media/" in ref["url"]:
-            try:
-                data_bytes = await client._fs().idea_media_from_url(ref["url"])
-            except Exception:
-                pass
-        elif ref.get("media_handle"):
-            try:
-                data_bytes = await client._fs().idea_media(ref["media_handle"])
-            except Exception:
-                pass
-        elif ref.get("url") and ref["url"].startswith(("http://", "https://")):
-            try:
-                r = await client.auth.browser.get(ref["url"])
-                if r.status_code < 400:
-                    data_bytes = r.content
-            except Exception:
-                pass
-        elif ref.get("path"):
-            try:
-                dest_path = await client._fs().download(ref["path"], dest_path)
-            except Exception:
-                pass
-
-        if data_bytes:
-            dest_path.write_bytes(data_bytes)
+        ok = await download_media_ref(client, ref, dest_path)
+        if not ok or not dest_path.exists() or dest_path.stat().st_size == 0:
+            raise HTTPException(status_code=500, detail="Không thể tải file ảnh từ máy chủ AI về máy cục bộ.")
 
         invalidate_subscription_cache()
 
@@ -1639,6 +1650,31 @@ async def generate_character_portrait_endpoint(data: CharacterPortraitRequest):
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Lỗi tạo ảnh nhân vật: {exc}")
+
+
+@app.get("/api/movie/existing_character_images")
+async def get_existing_character_images(name: str):
+    slug = slugify_simple(name)
+    slug_dash = slug.replace("_", "-")
+    found = []
+    if OUTPUTS_DIR.exists():
+        for file in sorted(OUTPUTS_DIR.iterdir(), key=lambda f: f.stat().st_mtime, reverse=True):
+            if file.is_file() and file.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp"):
+                fname_lower = file.name.lower()
+                # Exclude video frames or full movies
+                if fname_lower.startswith("haiai_movie") or "fullmovie" in fname_lower:
+                    continue
+                # Exact word-boundary awareness (e.g. don't mix "nguoi_em" with "vo_nguoi_em")
+                if slug == "nguoi_em" and ("vo_nguoi_em" in fname_lower or "vo-nguoi-em" in fname_lower):
+                    continue
+                if slug in fname_lower or (len(slug) > 3 and slug_dash in fname_lower):
+                    found.append({
+                        "id": f"img_{file.stem}",
+                        "name": file.name,
+                        "url": f"/outputs/{file.name}",
+                        "local_path": str(file.resolve()),
+                    })
+    return {"status": "success", "images": found[:6]}
 
 
 @app.get("/api/gallery")
