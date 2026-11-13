@@ -773,36 +773,34 @@
                 </div>
               </div>
 
-              <!-- Options: Style, Ratio, Scene Count -->
-              <div class="grid grid-cols-2 gap-3">
+              <!-- Options: Style, Ratio & Scene Count in 3 clean columns -->
+              <div class="grid grid-cols-3 gap-2.5">
                 <div>
-                  <label class="block text-[11px] font-semibold text-slate-300 mb-1">Phong cách Đạo diễn</label>
-                  <select id="movie-style-select" onchange="onMovieStyleChange(this.value)" class="w-full bg-surface-900 border border-surface-600 focus:border-cyan-400 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none cursor-pointer">
-                    <option value="Điện ảnh 4K Hollywood">🎬 Điện ảnh 4K Hollywood</option>
-                    <option value="Hoạt hình 3D Pixar / Anime">✨ Hoạt hình 3D Pixar / Anime</option>
-                    <option value="Siêu thực tế Photorealistic">📷 Siêu thực tế Photorealistic</option>
-                    <option value="Cyberpunk Sci-Fi Neon">🌆 Cyberpunk Sci-Fi Neon</option>
+                  <label class="block text-[11px] font-semibold text-slate-300 mb-1 truncate" title="Phong cách Đạo diễn">Phong cách</label>
+                  <select id="movie-style-select" onchange="onMovieStyleChange(this.value)" class="w-full bg-surface-900 border border-surface-600 focus:border-cyan-400 rounded-xl px-2.5 py-2 text-xs text-slate-200 focus:outline-none cursor-pointer">
+                    <option value="Điện ảnh 4K Hollywood">🎬 Điện ảnh 4K</option>
+                    <option value="Hoạt hình 3D Pixar / Anime">✨ Hoạt hình 3D</option>
+                    <option value="Siêu thực tế Photorealistic">📷 Siêu thực tế</option>
+                    <option value="Cyberpunk Sci-Fi Neon">🌆 Cyberpunk</option>
                     <option value="TVC Quảng cáo thương mại">💎 TVC Quảng cáo</option>
                   </select>
                 </div>
 
                 <div>
-                  <label class="block text-[11px] font-semibold text-slate-300 mb-1">Tỉ lệ khung hình</label>
-                  <select id="movie-ratio-select" onchange="onMovieRatioChange(this.value)" class="w-full bg-surface-900 border border-surface-600 focus:border-cyan-400 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none cursor-pointer">
-                    <option value="16:9">16:9 (Ngang chuẩn điện ảnh)</option>
-                    <option value="9:16">9:16 (Dọc TikTok/Reels/Shorts)</option>
-                    <option value="1:1">1:1 (Vuông Instagram)</option>
-                    <option value="21:9">21:9 (Ultrawide Cinema)</option>
-                    <option value="4:3">4:3 (Classic TV)</option>
+                  <label class="block text-[11px] font-semibold text-slate-300 mb-1 truncate" title="Tỉ lệ khung hình">Khung hình</label>
+                  <select id="movie-ratio-select" onchange="onMovieRatioChange(this.value)" class="w-full bg-surface-900 border border-surface-600 focus:border-cyan-400 rounded-xl px-2.5 py-2 text-xs text-slate-200 focus:outline-none cursor-pointer">
+                    <option value="16:9">16:9 (Ngang)</option>
+                    <option value="9:16">9:16 (Dọc TikTok)</option>
+                    <option value="1:1">1:1 (Vuông)</option>
+                    <option value="21:9">21:9 (Ultrawide)</option>
+                    <option value="4:3">4:3 (Classic)</option>
                   </select>
                 </div>
-              </div>
 
-              <div class="flex items-center justify-between pt-1">
-                <div class="flex items-center space-x-2">
-                  <span class="text-xs text-slate-300 font-medium">Số phân cảnh:</span>
-                  <select id="movie-scenes-target" class="bg-surface-900 border border-surface-600 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none cursor-pointer">
-                    <option value="auto" selected>Tự động (AI đề xuất)</option>
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-300 mb-1 truncate" title="Số phân cảnh">Số phân cảnh</label>
+                  <select id="movie-scenes-target" class="w-full bg-surface-900 border border-surface-600 focus:border-cyan-400 rounded-xl px-2.5 py-2 text-xs text-slate-200 focus:outline-none cursor-pointer">
+                    <option value="auto" selected>Tự động (AI)</option>
                     <option value="3">3 cảnh</option>
                     <option value="4">4 cảnh</option>
                     <option value="5">5 cảnh</option>
@@ -810,16 +808,19 @@
                     <option value="8">8 cảnh</option>
                   </select>
                 </div>
-                <div class="flex items-center space-x-2">
-                  <button type="button" onclick="clearMovieProject()" title="Làm sạch kịch bản & nhân vật để bắt đầu mới" class="px-3 py-2.5 bg-surface-800 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 border border-white/10 hover:border-rose-500/30 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer">
-                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                    <span>Làm sạch</span>
-                  </button>
-                  <button type="button" onclick="analyzeAndBreakdownScript()" id="btn-breakdown-script" class="px-4 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-sky-600/20 transition cursor-pointer">
-                    <i data-lucide="wand-sparkles" class="w-4 h-4"></i>
-                    <span id="btn-breakdown-text">Phân Tích Kịch Bản</span>
-                  </button>
-                </div>
+              </div>
+
+              <!-- Action Buttons Row: Balanced, Spacious, No Text Wrap -->
+              <div class="flex items-center space-x-2.5 pt-1">
+                <button type="button" onclick="clearMovieProject()" title="Làm sạch kịch bản & phân cảnh hiện tại để bắt đầu mới" class="shrink-0 px-4 py-2.5 bg-surface-800 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 border border-white/10 hover:border-rose-500/30 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer whitespace-nowrap">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  <span>Làm sạch</span>
+                </button>
+
+                <button type="button" onclick="analyzeAndBreakdownScript()" id="btn-breakdown-script" class="flex-1 py-2.5 px-4 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-2 shadow-lg shadow-sky-600/25 transition cursor-pointer whitespace-nowrap">
+                  <i data-lucide="wand-sparkles" class="w-4 h-4 shrink-0"></i>
+                  <span id="btn-breakdown-text">Phân Tích Kịch Bản</span>
+                </button>
               </div>
             </div>
 
@@ -1174,7 +1175,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261113_05"></script>
+  <script src="/static/app.js?v=20261113_06"></script>
   <script>
     lucide.createIcons();
   </script>
