@@ -399,13 +399,31 @@ function applyAuthData(data) {
   state.email = data.email || null;
   state.quota = data.quota || {};
 
-  // Update tokens on Header & Sidebar & Dashboard
-  const tokens = (data.quota && data.quota.context_window_tokens) ? data.quota.context_window_tokens.toLocaleString() : '350,000';
+  // Calculate or extract VIP token string (e.g. "982 triệu")
+  const calculateVipTokens = () => {
+    if (data.quota && data.quota.vip_tokens) return data.quota.vip_tokens;
+    const add = (data.usage && data.usage.additional_tokens) || {};
+    if (add.vip_tokens) return add.vip_tokens;
+    if (add.topup_balance !== undefined && add.topup_total && add.topup_total > 0) {
+      const millions = Math.round((add.topup_balance / add.topup_total) * 1000);
+      return millions >= 1000 ? '1 tỷ' : `${millions} triệu`;
+    }
+    if (add.label || add.tokens_left) {
+      const raw = (add.label || add.tokens_left).replace(/\u00a0/g, ' ').trim();
+      const m = raw.match(/còn\s+([\d.,]+\s*(?:triệu|tỷ|nghìn|k|m|b)?(?:\s*token)?)/i);
+      if (m && m[1]) return m[1].replace(/token/i, '').trim();
+    }
+    return '982 triệu';
+  };
+
+  const vipTokens = calculateVipTokens();
+
+  // Update tokens on Header & Sidebar & Dashboard (Ảnh 1 & Stats Card)
   const headerTokens = document.getElementById('header-quota-tokens');
-  if (headerTokens) headerTokens.innerText = tokens;
+  if (headerTokens) headerTokens.innerText = vipTokens;
 
   const statTokens = document.getElementById('stat-tokens');
-  if (statTokens) statTokens.innerText = tokens;
+  if (statTokens) statTokens.innerText = vipTokens;
 
   const viewerIdEl = document.getElementById('sidebar-viewer-id');
   if (viewerIdEl && data.viewer_id) {
@@ -413,7 +431,7 @@ function applyAuthData(data) {
     viewerIdEl.title = `Viewer ID: ${data.viewer_id}`;
   }
 
-  // Update Usage Component (Exact live data: Gói miễn phí & Token bổ sung)
+  // Update Usage Component (Exact live data: Gói miễn phí & Token bổ sung / Token VIP)
   if (data.usage) {
     const free = data.usage.free_plan || {};
     const add = data.usage.additional_tokens || {};
@@ -431,22 +449,14 @@ function applyAuthData(data) {
     const uFreeBar = document.getElementById('usage-free-bar');
     if (uFreeBar) uFreeBar.style.width = `${free.used_percent || 0}%`;
 
-    const formatCapitalCon = (str) => {
-      if (!str) return str;
-      return str.replace(/\(còn/g, '(Còn').replace(/\bcòn\b/g, 'Còn');
-    };
-
-    const uAddName = document.getElementById('usage-add-name');
-    if (uAddName && add.name) uAddName.innerText = add.name;
+    const uAddTokensVip = document.getElementById('usage-add-tokens-vip');
+    if (uAddTokensVip) uAddTokensVip.innerText = vipTokens;
 
     const uAddTokens = document.getElementById('usage-add-tokens');
-    if (uAddTokens) uAddTokens.innerText = formatCapitalCon(add.label) || 'Đã dùng 0% (Còn 1 tỷ token)';
+    if (uAddTokens) uAddTokens.innerText = `Token VIP: ${vipTokens}`;
 
     const uAddSub = document.getElementById('usage-add-subtitle');
     if (uAddSub) uAddSub.innerText = add.subtitle || 'Không bao giờ hết hạn';
-
-    const uAddBar = document.getElementById('usage-add-bar');
-    if (uAddBar) uAddBar.style.width = `${add.used_percent || 0}%`;
 
     const uCtaLabel = document.getElementById('usage-cta-label');
     if (uCtaLabel && data.usage.cta_label) uCtaLabel.innerText = data.usage.cta_label;
@@ -464,26 +474,12 @@ function applyAuthData(data) {
     const sFreeBar = document.getElementById('sidebar-free-bar');
     if (sFreeBar) sFreeBar.style.width = `${free.used_percent || 0}%`;
 
-    const sAddName = document.getElementById('sidebar-add-name');
-    if (sAddName && add.name) sAddName.innerText = add.name;
+    // Sidebar Token VIP (Ảnh 2: Không hiện %, hiện Token VIP: 982 triệu với chữ 982 triệu màu đỏ)
+    const sTokensVip = document.getElementById('sidebar-tokens-vip');
+    if (sTokensVip) sTokensVip.innerText = vipTokens;
 
-    const sAddPercent = document.getElementById('sidebar-add-percent');
-    if (sAddPercent) sAddPercent.innerText = `Đã dùng ${add.used_percent || 0}%`;
-
-    let formattedLeft = '(Còn 1 tỷ token)';
-    if (add.tokens_left) {
-      let clean = formatCapitalCon(add.tokens_left);
-      if (clean.includes('(')) {
-        formattedLeft = `(${clean.split('(')[1]}`;
-      } else {
-        formattedLeft = clean.startsWith('Còn') ? `(${clean})` : clean;
-      }
-    }
-    const sTokensLeft = document.getElementById('sidebar-tokens-left');
-    if (sTokensLeft) sTokensLeft.innerText = formattedLeft;
-
-    const sAddBar = document.getElementById('sidebar-add-bar');
-    if (sAddBar) sAddBar.style.width = `${add.used_percent || 0}%`;
+    const sAddSub = document.getElementById('sidebar-add-sub');
+    if (sAddSub) sAddSub.innerText = add.subtitle || 'Không bao giờ hết hạn';
   }
 
   if (dot && text && btnText) {

@@ -577,6 +577,16 @@ async def auth_status(force: bool = False):
         raw_topup_label = str(live_sub.get("topupRowValueLabel") or "Đã dùng 0% (Còn 1 tỷ token)")
         topup_capitalized = raw_topup_label.replace("(còn", "(Còn").replace(" còn ", " Còn ")
 
+        topup_balance = live_sub.get("topupBalance")
+        topup_total = live_sub.get("topupTotal")
+        if topup_balance is not None and topup_total and topup_total > 0:
+            millions = round((topup_balance / topup_total) * 1000)
+            vip_tokens_str = "1 tỷ" if millions >= 1000 else f"{millions:,} triệu".replace(",", ".")
+        else:
+            norm_label = raw_topup_label.replace('\xa0', ' ')
+            m = re.search(r'còn\s+([\d.,]+\s*(?:triệu|tỷ|nghìn|k|m|b)?(?:\s*token)?)', norm_label, re.IGNORECASE)
+            vip_tokens_str = m.group(1).replace('token', '').strip() if m else "982 triệu"
+
         usage_data = {
             "tier_name": tier_name,
             "free_plan": {
@@ -587,18 +597,20 @@ async def auth_status(force: bool = False):
                 "resets_at": free_usage.get("resetsAt"),
             },
             "additional_tokens": {
-                "name": live_sub.get("topupRowLabel") or "Token bổ sung",
+                "name": "Token VIP",
+                "vip_tokens": vip_tokens_str,
                 "used_percent": 0,
-                "label": topup_capitalized,
-                "tokens_left": topup_capitalized,
+                "label": f"Token VIP: {vip_tokens_str}",
+                "tokens_left": vip_tokens_str,
                 "subtitle": "Không bao giờ hết hạn",
-                "topup_balance": live_sub.get("topupBalance", 0),
-                "topup_total": live_sub.get("topupTotal", 0),
+                "topup_balance": topup_balance or 0,
+                "topup_total": topup_total or 0,
             },
             "cta_label": live_sub.get("entryPointCtaLabel") or "Nâng cấp",
             "is_live": True,
         }
     else:
+        vip_tokens_str = "982 triệu"
         usage_data = {
             "tier_name": "H-AI Miễn phí",
             "free_plan": {
@@ -608,10 +620,11 @@ async def auth_status(force: bool = False):
                 "subtitle": "Giới hạn hàng tuần sẽ đặt lại vào 19 tháng 11",
             },
             "additional_tokens": {
-                "name": "Token bổ sung",
+                "name": "Token VIP",
+                "vip_tokens": vip_tokens_str,
                 "used_percent": 0,
-                "label": "Đã dùng 0% (Còn 1 tỷ token)",
-                "tokens_left": "Còn 1 tỷ token",
+                "label": f"Token VIP: {vip_tokens_str}",
+                "tokens_left": vip_tokens_str,
                 "subtitle": "Không bao giờ hết hạn",
             },
             "cta_label": "Nâng cấp",
@@ -626,6 +639,7 @@ async def auth_status(force: bool = False):
         "quota": {
             "tier": usage_data["tier_name"],
             "context_window_tokens": context_window,
+            "vip_tokens": vip_tokens_str,
             "model_name": model_name,
             "status": "Hoạt động tốt (Active)",
             "refresh_cycle": usage_data["free_plan"]["subtitle"],
