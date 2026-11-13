@@ -25,18 +25,16 @@ def _mime_for(path: Path) -> str:
 def _prepare_image_bytes(
     path: Path,
     *,
-    max_dimension: int = 2048,
-    target_bytes: int = 3_500_000,
+    max_dimension: int = 1280,
+    target_bytes: int = 500_000,
 ) -> tuple[bytes, str, str]:
     raw = path.read_bytes()
     mime = _mime_for(path)
     if not mime.startswith("image/"):
         raise ValueError(f"{path} is not a supported image")
 
-    # The Muse web client sends image attachments inline as base64.  Browser-side
-    # preprocessing can shrink large images; mirror that behavior enough to keep
-    # the whole chat.stream request inside Noise's ~16 MiB assembly budget.
-    if len(raw) <= target_bytes:
+    # If already small and not oversized dimension, return as is
+    if len(raw) <= target_bytes and path.suffix.lower() in (".jpg", ".jpeg", ".webp"):
         return raw, mime, path.name
 
     with Image.open(io.BytesIO(raw)) as image:
@@ -49,28 +47,28 @@ def _prepare_image_bytes(
         )
         if has_alpha:
             out = io.BytesIO()
-            image.save(out, format="WEBP", quality=88, method=6)
+            image.save(out, format="WEBP", quality=82, method=6)
             data = out.getvalue()
             return data, "image/webp", path.stem + ".webp"
 
         image = image.convert("RGB")
-        quality = 90
+        quality = 85
         data = b""
-        while quality >= 55:
+        while quality >= 45:
             out = io.BytesIO()
             image.save(out, format="JPEG", quality=quality, optimize=True)
             data = out.getvalue()
             if len(data) <= target_bytes:
                 break
-            quality -= 8
+            quality -= 10
         return data, "image/jpeg", path.stem + ".jpg"
 
 
-def build_image_item(path: str | Path) -> dict:
+def build_image_item(path: str | Path, target_bytes: int = 500_000) -> dict:
     source = Path(path)
     if not source.is_file():
         raise FileNotFoundError(source)
-    data, mime, filename = _prepare_image_bytes(source)
+    data, mime, filename = _prepare_image_bytes(source, target_bytes=target_bytes)
     return {
         "type": "image",
         "mime_type": mime,
@@ -80,7 +78,10 @@ def build_image_item(path: str | Path) -> dict:
 
 
 def build_items(images: list[str | Path], prompt: str) -> list[dict]:
-    items = [build_image_item(path) for path in images]
+    # Calculate per-image budget dynamically so all images total <= 3.5 MB
+    img_count = len(images)
+    per_img_budget = max(250_000, 3_500_000 // max(1, img_count))
+    items = [build_image_item(path, target_bytes=per_img_budget) for path in images]
     items.append({"type": "text", "text": prompt})
     return items
 

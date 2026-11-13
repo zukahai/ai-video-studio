@@ -776,6 +776,10 @@ async def generate_video(data: VideoGenerateModel):
             if resolved and resolved not in resolved_images:
                 resolved_images.append(resolved)
 
+        # Cap reference images to at most 3 images to prevent Noise WebSocket payload overflow
+        if len(resolved_images) > 3:
+            resolved_images = resolved_images[:3]
+
         # Inject invisible professional & continuation prompt with strict character consistency
         enhanced_prompt = build_hidden_video_prompt(
             user_prompt=data.prompt,

@@ -11,8 +11,8 @@ import struct
 from typing import Iterator
 
 MAX_NOISE_CHUNK_PAYLOAD = 65_489
-MAX_NOISE_CHUNKS = 256
-MAX_ASSEMBLY_BYTES = 16 * 1024 * 1024
+MAX_NOISE_CHUNKS = 1024
+MAX_ASSEMBLY_BYTES = 64 * 1024 * 1024
 
 
 def varint(value: int) -> bytes:
