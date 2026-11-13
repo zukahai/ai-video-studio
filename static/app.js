@@ -1952,7 +1952,13 @@ async function analyzeAndBreakdownScript() {
     renderMovieScenes();
     renderCharacterLegend();
 
-    alert('🎬 Phân tích thành công!\nĐã trích xuất ' + characters.length + ' nhân vật và ' + scenes.length + ' phân cảnh chi tiết.\nBạn có thể tải ảnh tham chiếu cho nhân vật hoặc bấm [Sản Xuất Phim Tự Động] ngay!');
+    // Auto-generate 3 standard character portraits for any character missing images
+    const charsNeedingImages = movieState.characters.filter(c => !c.images || c.images.length === 0);
+    if (charsNeedingImages.length > 0) {
+      autoGenerateMissingCharacterPortraits(charsNeedingImages);
+    }
+
+    alert('🎬 Phân tích kịch bản thành công!\nĐã trích xuất ' + characters.length + ' nhân vật (mỗi nhân vật 3 ảnh tham chiếu) và ' + scenes.length + ' phân cảnh chi tiết.\nKhi quay từng cảnh, hệ thống sẽ tự động đính kèm ảnh của nhân vật tương ứng để giữ nguyên đặc trưng tạo hình!');
   } catch (err) {
     alert('Lỗi phân tích kịch bản: ' + err.message);
   } finally {
@@ -2039,22 +2045,28 @@ function renderMovieCharacters() {
     card.className = 'p-3.5 rounded-xl bg-surface-900/90 border border-white/[0.08] hover:border-cyan-500/30 transition space-y-3';
     card.dataset.charId = char.id;
 
-    // Render character image thumbnails
+    // Render character image thumbnails with angle badge labels
     let imagesHtml = '';
-    if (char.images && char.images.length > 0) {
+    const imgCount = char.images ? char.images.length : 0;
+    if (imgCount > 0) {
       imagesHtml = `
         <div class="flex flex-wrap gap-2 pt-1 pb-1">
           ${char.images.map((img, imgIdx) => `
-            <div class="relative w-12 h-12 rounded-lg overflow-hidden border border-white/20 group">
-              <img src="${img.url}" class="w-full h-full object-cover">
-              <button type="button" onclick="deleteCharacterImage('${char.id}', ${imgIdx}, event)" class="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                <i data-lucide="x" class="w-3.5 h-3.5"></i>
-              </button>
+            <div class="relative group rounded-xl overflow-hidden border bg-surface-950 p-1 flex flex-col items-center shadow-sm" style="border-color: ${char.color}55">
+              <div class="relative w-14 h-14 rounded-lg overflow-hidden bg-black/40">
+                <img src="${img.url}" class="w-full h-full object-cover">
+                <button type="button" onclick="deleteCharacterImage('${char.id}', ${imgIdx}, event)" title="Xóa ảnh này" class="absolute inset-0 bg-black/70 text-rose-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
+              <span class="text-[9px] text-slate-300 font-bold mt-1 px-1 text-center truncate max-w-[65px]" title="${escapeHtml(img.name || '')}">${escapeHtml(img.name || `Ảnh #${imgIdx + 1}`)}</span>
             </div>
           `).join('')}
         </div>
       `;
     }
+
+    const isGeneratingPortraits = char._isGenerating;
 
     card.innerHTML = `
       <div class="flex items-center justify-between">
@@ -2066,6 +2078,7 @@ function renderMovieCharacters() {
           </div>
 
           <input type="text" value="${escapeHtml(char.name)}" oninput="updateCharacterName('${char.id}', this.value)" placeholder="Tên nhân vật..." class="bg-surface-950 border border-surface-600 focus:border-cyan-400 rounded-lg px-2.5 py-1 text-xs font-bold text-white focus:outline-none flex-1">
+          ${imgCount >= 3 ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 whitespace-nowrap">✓ Đủ 3 góc</span>' : ''}
         </div>
 
         <button type="button" onclick="deleteCharacter('${char.id}')" title="Xóa nhân vật" class="p-1 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition">
@@ -2081,7 +2094,10 @@ function renderMovieCharacters() {
       <!-- Reference Images & Paste Zone -->
       <div class="space-y-1.5">
         <div class="flex items-center justify-between text-[10px] text-slate-400">
-          <span>Ảnh tham chiếu (${char.images ? char.images.length : 0} ảnh):</span>
+          <div class="flex items-center space-x-1.5">
+            <span>Ảnh tham chiếu (${imgCount}/3 ảnh chuẩn):</span>
+            ${isGeneratingPortraits ? `<span class="text-cyan-300 animate-pulse font-bold flex items-center space-x-1"><i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i><span>${char._genStatusText || 'Đang tạo...'}</span></span>` : ''}
+          </div>
           <span class="text-cyan-400 font-semibold">Ctrl + V để dán ảnh</span>
         </div>
 
@@ -2093,9 +2109,9 @@ function renderMovieCharacters() {
             <i data-lucide="image-plus" class="w-4 h-4 text-cyan-400 shrink-0"></i>
             <span class="text-[11px] text-slate-300">Bấm chọn ảnh hoặc bấm <kbd class="px-1 py-0.5 rounded bg-surface-800 text-[10px] text-cyan-300 font-mono">Ctrl+V</kbd> dán</span>
           </div>
-          <button type="button" onclick="generateCharacterPortrait('${char.id}')" id="btn-gen-char-${char.id}" class="px-2 py-1 rounded bg-gradient-to-r from-teal-600 to-sky-600 hover:from-teal-500 hover:to-sky-500 text-white text-[10px] font-bold flex items-center space-x-1 shrink-0 shadow-sm transition">
-            <i data-lucide="sparkles" class="w-3 h-3"></i>
-            <span>AI Vẽ</span>
+          <button type="button" onclick="generateAll3CharacterPortraits('${char.id}')" id="btn-gen-char-${char.id}" ${isGeneratingPortraits ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 hover:from-teal-500 hover:to-sky-500 disabled:opacity-50 text-white text-[10px] font-bold flex items-center space-x-1 shrink-0 shadow-sm transition cursor-pointer">
+            <i data-lucide="${isGeneratingPortraits ? 'loader-2' : 'sparkles'}" class="w-3.5 h-3.5 ${isGeneratingPortraits ? 'animate-spin' : ''}"></i>
+            <span>${isGeneratingPortraits ? (char._genStatusText || 'Đang vẽ...') : (imgCount >= 3 ? 'AI Vẽ Lại 3 Ảnh' : 'AI Tạo 3 Ảnh')}</span>
           </button>
         </div>
       </div>
@@ -2228,44 +2244,120 @@ function deleteCharacterImage(charId, imgIdx, e) {
   }
 }
 
-// AI Generate Character Portrait Concept Art
-async function generateCharacterPortrait(charId) {
+// AI Generate 3 Standard Character Portraits (Cận mặt, Bán thân, Toàn thân)
+async function generateAll3CharacterPortraits(charId) {
   const char = movieState.characters.find(c => c.id === charId);
   if (!char) return;
 
   const btn = document.getElementById(`btn-gen-char-${charId}`);
   if (btn) btn.disabled = true;
 
-  try {
-    const prompt = `Chân dung nhân vật ${char.name}, ${char.description || ''}, phong cách ${movieState.stylePreset}, điện ảnh 8K, độ nét cao, ánh sáng chuyên nghiệp`;
-    const res = await fetch('/api/image/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        prompt: prompt,
-        aspect_ratio: '1:1',
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Không thể tạo ảnh.');
+  char._isGenerating = true;
+  if (!Array.isArray(char.images)) char.images = [];
 
-    if (data.images && data.images.length > 0) {
-      const imgUrl = data.images[0];
-      if (!char.images) char.images = [];
-      char.images.push({
-        id: `img_${Date.now()}`,
-        local_path: null,
-        url: imgUrl,
-        name: `AI_Portrait_${char.name}.png`,
-      });
-      saveMovieStateCache();
+  const angles = [
+    { index: 1, name: "Ảnh 1: Cận Cảnh Mặt" },
+    { index: 2, name: "Ảnh 2: Bán Thân 3/4" },
+    { index: 3, name: "Ảnh 3: Toàn Thân Đứng" }
+  ];
+
+  try {
+    for (const ang of angles) {
+      char._genStatusText = `${ang.name}...`;
       renderMovieCharacters();
+
+      const res = await fetch('/api/movie/generate_character_portrait', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          character_id: char.id,
+          character_name: char.name,
+          character_description: char.description || '',
+          style_preset: movieState.stylePreset,
+          angle_index: ang.index,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || `Không thể tạo ${ang.name}`);
+
+      if (data.image) {
+        // Remove old image with same angle name if any
+        char.images = char.images.filter(x => !(x.name && x.name.includes(`Ảnh ${ang.index}:`)));
+        char.images.push(data.image);
+        saveMovieStateCache();
+        renderMovieCharacters();
+        renderMovieScenes();
+      }
     }
   } catch (err) {
-    alert('Lỗi tạo ảnh nhân vật: ' + err.message);
+    alert(`Lỗi tạo 3 ảnh cho "${char.name}": ` + err.message);
   } finally {
-    if (btn) btn.disabled = false;
+    delete char._isGenerating;
+    delete char._genStatusText;
+    renderMovieCharacters();
   }
+}
+
+// Automatic background generation of 3 portraits for new script characters
+async function autoGenerateMissingCharacterPortraits(charsList) {
+  for (const char of charsList) {
+    if (!char.images || char.images.length === 0) {
+      await generateAll3CharacterPortraits(char.id);
+    }
+  }
+}
+
+// Helper: Collect all reference images for a scene's involved characters
+function getInvolvedCharacterImages(scene) {
+  const involved = [];
+  const charNames = (scene.characters_involved || []).map(s => (s || '').trim().toLowerCase());
+
+  movieState.characters.forEach(char => {
+    const cName = (char.name || '').trim().toLowerCase();
+    const isMatched = charNames.includes(cName) || 
+                      charNames.some(cn => cn.includes(cName) || cName.includes(cn)) ||
+                      (charNames.length === 0 && (
+                        (scene.situation || '').toLowerCase().includes(cName) ||
+                        (scene.dialogue || '').toLowerCase().includes(cName)
+                      ));
+    if (isMatched && Array.isArray(char.images)) {
+      char.images.forEach(img => {
+        const p = img.local_path || img.url;
+        if (p && !involved.some(x => x.path === p)) {
+          involved.push({
+            path: p,
+            url: img.url || img.local_path,
+            name: img.name || 'Ảnh tham chiếu',
+            charName: char.name,
+            color: char.color || '#06b6d4'
+          });
+        }
+      });
+    }
+  });
+
+  // If still empty and there are characters with images, include all available character images
+  if (involved.length === 0 && movieState.characters.length > 0) {
+    movieState.characters.forEach(char => {
+      if (Array.isArray(char.images)) {
+        char.images.forEach(img => {
+          const p = img.local_path || img.url;
+          if (p && !involved.some(x => x.path === p)) {
+            involved.push({
+              path: p,
+              url: img.url || img.local_path,
+              name: img.name || 'Ảnh tham chiếu',
+              charName: char.name,
+              color: char.color || '#06b6d4'
+            });
+          }
+        });
+      }
+    });
+  }
+
+  return involved;
 }
 
 // ==================== CHARACTER NAME HIGHLIGHTING ====================
@@ -2334,7 +2426,8 @@ function renderMovieScenes() {
         : 'border-white/[0.08] hover:border-cyan-500/20'
     }`;
 
-    // Characters involved tags
+    // Characters involved tags & reference images
+    const refImages = getInvolvedCharacterImages(scene);
     const charTags = (scene.characters_involved || []).map(name => {
       const char = movieState.characters.find(c => c.name.toLowerCase() === name.toLowerCase());
       const color = char ? char.color : '#38bdf8';
@@ -2416,6 +2509,24 @@ function renderMovieScenes() {
         <div class="p-2.5 rounded-xl bg-amber-950/20 border border-amber-500/20 text-xs text-amber-200 leading-relaxed min-h-[36px] cursor-text" onclick="focusSceneEditable(this, 'dialogue', ${idx})">
           ${highlightCharacterNamesInText(scene.dialogue || 'Không có thoại')}
         </div>
+      </div>
+
+      <!-- Attached Character Reference Images for Consistency -->
+      <div class="p-2 rounded-xl bg-surface-950/70 border border-white/[0.05] flex items-center justify-between text-[11px]">
+        <div class="flex items-center space-x-2 overflow-hidden">
+          <span class="text-cyan-400 font-bold flex items-center space-x-1 shrink-0">
+            <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+            <span>Gửi kèm ảnh nhân vật (${refImages.length} ảnh):</span>
+          </span>
+          <div class="flex items-center space-x-1.5 overflow-x-auto py-0.5">
+            ${refImages.length > 0 ? refImages.map(img => `
+              <div class="relative w-7 h-7 rounded-md border shrink-0 overflow-hidden" style="border-color: ${img.color || '#06b6d4'}" title="${escapeHtml(img.name)} (${escapeHtml(img.charName)})">
+                <img src="${img.url}" class="w-full h-full object-cover">
+              </div>
+            `).join('') : '<span class="text-slate-500 italic text-[10px]">Chưa có ảnh (sẽ dùng mô tả văn bản)</span>'}
+          </div>
+        </div>
+        <span class="text-[10px] text-emerald-400 shrink-0 ml-2 font-semibold">✓ Khóa đặc trưng</span>
       </div>
 
       <!-- Video Prompt -->
@@ -2706,26 +2817,7 @@ async function startAutoMovieGeneration() {
 
     try {
       // Gather character reference images for this scene
-      const involvedImages = [];
-      (scene.characters_involved || []).forEach(name => {
-        const char = movieState.characters.find(c => c.name.toLowerCase() === name.toLowerCase());
-        if (char && char.images && char.images.length > 0) {
-          char.images.forEach(img => {
-            if (img.local_path) involvedImages.push(img.local_path);
-          });
-        }
-      });
-
-      // If no specific character image, collect any character images
-      if (involvedImages.length === 0) {
-        movieState.characters.forEach(c => {
-          if (c.images) {
-            c.images.forEach(img => {
-              if (img.local_path) involvedImages.push(img.local_path);
-            });
-          }
-        });
-      }
+      const involvedImages = getInvolvedCharacterImages(scene).map(x => x.path);
 
       const isContinuation = (i > 0 && movieState.sessionId !== null);
       const payload = {
@@ -2812,15 +2904,7 @@ async function generateSingleMovieScene(idx) {
   renderMovieScenes();
 
   try {
-    const involvedImages = [];
-    (scene.characters_involved || []).forEach(name => {
-      const char = movieState.characters.find(c => c.name.toLowerCase() === name.toLowerCase());
-      if (char && char.images) {
-        char.images.forEach(img => {
-          if (img.local_path) involvedImages.push(img.local_path);
-        });
-      }
-    });
+    const involvedImages = getInvolvedCharacterImages(scene).map(x => x.path);
 
     const isContinuation = (idx > 0 && movieState.sessionId !== null);
     const payload = {

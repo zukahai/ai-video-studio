@@ -101,6 +101,14 @@ class MergeVideosModel(BaseModel):
     output_filename: Optional[str] = None
 
 
+class CharacterPortraitRequest(BaseModel):
+    character_id: str
+    character_name: str
+    character_description: str
+    style_preset: Optional[str] = "Điện ảnh 4K Hollywood"
+    angle_index: int = 1  # 1: Cận cảnh mặt, 2: Bán thân 3/4, 3: Toàn thân đứng
+
+
 def is_authenticated() -> bool:
     cookie_file = STATE_DIR / "cookies.json"
     return cookie_file.exists() and cookie_file.stat().st_size > 10
@@ -143,6 +151,45 @@ RATIO_DESCRIPTIONS = {
 }
 
 
+def slugify_simple(text: str) -> str:
+    cleaned = re.sub(r"[^\w\s-]", "", text.strip().lower())
+    return re.sub(r"[-\s]+", "_", cleaned) or "char"
+
+
+def resolve_media_path(path_str: str) -> Optional[Path]:
+    if not path_str or not isinstance(path_str, str):
+        return None
+    p = Path(path_str)
+    try:
+        if p.exists() and p.is_file():
+            return p.resolve()
+    except Exception:
+        pass
+    clean = path_str.replace("\\", "/").lstrip("/")
+    if clean.startswith("outputs/"):
+        target = OUTPUTS_DIR / clean[len("outputs/"):]
+        if target.exists() and target.is_file():
+            return target.resolve()
+    if clean.startswith("uploads/"):
+        target = UPLOADS_DIR / clean[len("uploads/"):]
+        if target.exists() and target.is_file():
+            return target.resolve()
+    if clean.startswith("static/"):
+        target = STATIC_DIR / clean[len("static/"):]
+        if target.exists() and target.is_file():
+            return target.resolve()
+    fname = Path(path_str).name
+    if fname:
+        for folder in (OUTPUTS_DIR, UPLOADS_DIR, STATIC_DIR, STATIC_DIR / "characters"):
+            cand = folder / fname
+            if cand.exists() and cand.is_file():
+                return cand.resolve()
+    proj_cand = BASE_DIR / clean
+    if proj_cand.exists() and proj_cand.is_file():
+        return proj_cand.resolve()
+    return None
+
+
 def is_narration_dialogue(text: str) -> bool:
     if not text:
         return False
@@ -166,6 +213,7 @@ def build_hidden_video_prompt(
     scene_index: int = 1,
     style_preset: Optional[str] = None,
     dialogue: Optional[str] = None,
+    has_reference_images: bool = False,
 ) -> str:
     ratio_desc = RATIO_DESCRIPTIONS.get(aspect_ratio, f"tỉ lệ khung hình {aspect_ratio}")
     style_part = f" Phong cách chủ đạo: {style_preset}." if style_preset else ""
@@ -200,6 +248,17 @@ def build_hidden_video_prompt(
             f"Các nhân vật khác trong cảnh (nếu có) giữ miệng ngậm tự nhiên và im lặng lắng nghe (Other characters keep mouths naturally closed without speaking)."
         )
 
+    ref_images_part = ""
+    if has_reference_images:
+        ref_images_part = (
+            f"\n[YÊU CẦU ĐỒNG NHẤT NHÂN VẬT TỐI CAO TỪ ẢNH THAM CHIẾU - CRITICAL CHARACTER CONSISTENCY]:\n"
+            f"- Cảnh quay này có đính kèm các hình ảnh tham chiếu nhân vật (Character Reference Images). "
+            f"AI PHẢI GIỮ NGUYÊN 100% CÁC ĐẶC TRƯNG TẠO HÌNH CỦA NHÂN VẬT: khuôn mặt, đường nét ngũ quan, màu mắt, kiểu tóc, "
+            f"chi tiết trang phục, màu sắc áo quần và phụ kiện từ các ảnh tham chiếu được gửi lên để bảo đảm sự đồng nhất tuyệt đối qua các phân cảnh.\n"
+            f"- (MANDATORY INSTRUCTION: Maintain strict 100% visual identity consistency with the provided reference images. "
+            f"The character in the video MUST have the exact same face, eyes, hair color and hairstyle, body proportions, clothing style, textures, and colors as shown in the attached character reference photos. Do not alter or randomize the character's appearance)."
+        )
+
     if is_continuation:
         return (
             f"Hãy tạo một video chuyên nghiệp nối tiếp liền mạch với cảnh video trước đó (Cảnh nối tiếp #{scene_index}). "
@@ -207,7 +266,7 @@ def build_hidden_video_prompt(
             f"Yêu cầu bắt buộc: Giữ nguyên hoàn toàn sự đồng nhất về nhân vật, trang phục, khuôn mặt, bối cảnh môi trường, "
             f"ánh sáng, bảng màu và phong cách góc máy từ cảnh trước để tạo thành một thước phim liên tục mượt mà. "
             f"Chất lượng điện ảnh 4K Ultra HD, chuyển động vật lý tự nhiên, chi tiết sắc nét, âm thanh sống động đồng bộ hoàn hảo, "
-            f"{ratio_desc}.{style_part}{dialogue_part}\n"
+            f"{ratio_desc}.{style_part}{dialogue_part}{ref_images_part}\n"
             f"Diễn biến cảnh tiếp theo: {clean_user_prompt}"
         )
     else:
@@ -215,7 +274,7 @@ def build_hidden_video_prompt(
             f"Hãy tạo một video chuyên nghiệp, {duration_desc} "
             f"Chất lượng điện ảnh 4K Ultra HD, bố cục nghệ thuật xuất sắc, "
             f"chuyển động camera và vật lý mượt mà chân thực, ánh sáng điện ảnh có chiều sâu, chi tiết cực kỳ sắc nét, "
-            f"kèm âm thanh và hiệu ứng tiếng động sống động đồng bộ hoàn hảo, {ratio_desc}.{style_part}{dialogue_part}\n"
+            f"kèm âm thanh và hiệu ứng tiếng động sống động đồng bộ hoàn hảo, {ratio_desc}.{style_part}{dialogue_part}{ref_images_part}\n"
             f"Nội dung cảnh quay: {clean_user_prompt}"
         )
 
@@ -645,9 +704,14 @@ async def generate_video(data: VideoGenerateModel):
 
     client = await get_or_create_client()
     try:
-        images = [Path(p) for p in data.image_paths if Path(p).exists()]
+        # Resolve all provided image paths reliably (supports /outputs/, /uploads/, /static/, and absolute paths)
+        resolved_images: list[Path] = []
+        for p in data.image_paths:
+            resolved = resolve_media_path(p)
+            if resolved and resolved not in resolved_images:
+                resolved_images.append(resolved)
 
-        # Inject invisible professional & continuation prompt
+        # Inject invisible professional & continuation prompt with strict character consistency
         enhanced_prompt = build_hidden_video_prompt(
             user_prompt=data.prompt,
             aspect_ratio=data.aspect_ratio,
@@ -656,6 +720,7 @@ async def generate_video(data: VideoGenerateModel):
             scene_index=data.scene_index,
             style_preset=data.style_preset,
             dialogue=data.dialogue,
+            has_reference_images=bool(resolved_images),
         )
 
         # Use existing session_id if continuing a video sequence
@@ -663,7 +728,7 @@ async def generate_video(data: VideoGenerateModel):
 
         result = await client.generate_video(
             prompt=enhanced_prompt,
-            images=images,
+            images=resolved_images,
             output_dir=OUTPUTS_DIR,
             session_id=target_session_id,
             timeout=data.timeout,
@@ -1059,14 +1124,22 @@ def _fallback_movie_breakdown(script: str, style_preset: str = "Điện ảnh 4K
                     "name": "Cô Bé Bán Diêm",
                     "description": "Bé gái khoảng 9 tuổi, dáng người nhỏ gầy, tóc vàng hoe dài rối phủ tuyết, khuôn mặt xanh xao vì lạnh với đôi má ửng hồng, đôi mắt xanh to buồn bã nhưng trong sáng. Mặc áo khoác cũ rách màu nâu sẫm quá khổ, váy len xám, khăn choàng mỏng, chân trần tím tái vì lạnh, tay ôm một chiếc giỏ tre đựng những bao diêm, một chiếc dép lê cũ còn sót lại.",
                     "color": "#ef4444",
-                    "images": []
+                    "images": [
+                        {"id": "img_cobe_1", "name": "Ảnh 1: Cận Cảnh Mặt", "url": "/static/characters/cobe_1_closeup.png", "local_path": "static/characters/cobe_1_closeup.png"},
+                        {"id": "img_cobe_2", "name": "Ảnh 2: Bán Thân 3/4", "url": "/static/characters/cobe_2_halfbody.png", "local_path": "static/characters/cobe_2_halfbody.png"},
+                        {"id": "img_cobe_3", "name": "Ảnh 3: Toàn Thân Đứng", "url": "/static/characters/cobe_3_fullbody.png", "local_path": "static/characters/cobe_3_fullbody.png"}
+                    ]
                 },
                 {
                     "id": "char_2",
                     "name": "Bà Ngoại",
                     "description": "Phụ nữ khoảng 70 tuổi, dáng người cao gầy, tóc bạc trắng dài buông xõa, khuôn mặt hiền hậu phúc hậu với nụ cười ấm áp, đôi mắt nâu dịu dàng. Mặc áo choàng dài màu trắng ngà phát sáng nhẹ, khăn choàng ren trắng, trông như một thiên thần, xuất hiện trong ánh sáng vàng ấm của que diêm.",
                     "color": "#f59e0b",
-                    "images": []
+                    "images": [
+                        {"id": "img_bangoai_1", "name": "Ảnh 1: Cận Cảnh Mặt", "url": "/static/characters/bangoai_1_closeup.png", "local_path": "static/characters/bangoai_1_closeup.png"},
+                        {"id": "img_bangoai_2", "name": "Ảnh 2: Bán Thân 3/4", "url": "/static/characters/bangoai_2_halfbody.png", "local_path": "static/characters/bangoai_2_halfbody.png"},
+                        {"id": "img_bangoai_3", "name": "Ảnh 3: Toàn Thân Đứng", "url": "/static/characters/bangoai_3_fullbody.png", "local_path": "static/characters/bangoai_3_fullbody.png"}
+                    ]
                 },
                 {
                     "id": "char_3",
@@ -1139,14 +1212,22 @@ def _fallback_movie_breakdown(script: str, style_preset: str = "Điện ảnh 4K
                     "name": "Cậu Bé",
                     "description": "Bé trai khoảng 10 tuổi, dáng người nhỏ gầy, tóc đen ngắn rối, gương mặt thông minh nhưng có nét lười biếng, thiếu kiên nhẫn, đôi mắt đen to. Mặc áo vải thô màu nâu nhạt, quần vải tối màu, đi dép rơm, tay ôm một cuốn sách cũ.",
                     "color": "#ef4444",
-                    "images": []
+                    "images": [
+                        {"id": "img_caube_1", "name": "Ảnh 1: Cận Cảnh Mặt", "url": "/static/characters/caube_1_closeup.png", "local_path": "static/characters/caube_1_closeup.png"},
+                        {"id": "img_caube_2", "name": "Ảnh 2: Bán Thân 3/4", "url": "/static/characters/caube_2_halfbody.png", "local_path": "static/characters/caube_2_halfbody.png"},
+                        {"id": "img_caube_3", "name": "Ảnh 3: Toàn Thân Đứng", "url": "/static/characters/caube_3_fullbody.png", "local_path": "static/characters/caube_3_fullbody.png"}
+                    ]
                 },
                 {
                     "id": "char_2",
                     "name": "Bà Cụ",
                     "description": "Phụ nữ khoảng 75 tuổi, dáng người nhỏ gầy, lưng hơi còng, tóc bạc phơ dài búi gọn sau gáy, khuôn mặt phúc hậu nhiều nếp nhăn, đôi mắt hiền từ đầy sự từng trải. Mặc áo dài nâu sẫm, khăn choàng xám, váy dài màu xanh rêu, đi dép vải, tay cầm một thỏi sắt lớn.",
                     "color": "#f59e0b",
-                    "images": []
+                    "images": [
+                        {"id": "img_bacu_1", "name": "Ảnh 1: Cận Cảnh Mặt", "url": "/static/characters/bacu_1_closeup.png", "local_path": "static/characters/bacu_1_closeup.png"},
+                        {"id": "img_bacu_2", "name": "Ảnh 2: Bán Thân 3/4", "url": "/static/characters/bacu_2_halfbody.png", "local_path": "static/characters/bacu_2_halfbody.png"},
+                        {"id": "img_bacu_3", "name": "Ảnh 3: Toàn Thân Đứng", "url": "/static/characters/bacu_3_fullbody.png", "local_path": "static/characters/bacu_3_fullbody.png"}
+                    ]
                 }
             ],
             "scenes": [
@@ -1456,6 +1537,108 @@ YÊU CẦU ĐẶC BIỆT:
         "data": fallback_data,
         "source": "smart_director"
     }
+
+
+@app.post("/api/movie/generate_character_portrait")
+async def generate_character_portrait_endpoint(data: CharacterPortraitRequest):
+    if not data.character_name.strip():
+        raise HTTPException(status_code=400, detail="Tên nhân vật không được để trống.")
+
+    client = await get_or_create_client()
+    try:
+        angle_info = {
+            1: ("Cận cảnh mặt", "Chân dung cận cảnh khuôn mặt (close-up face portrait), nhìn trực diện máy quay, nét mặt rõ ràng, đôi mắt chân thực giàu cảm xúc, chi tiết tóc, làn da và phụ kiện sắc nét."),
+            2: ("Bán thân 3/4", "Chân dung trung cảnh bán thân góc nghiêng 3/4 (medium half-body portrait), giữ nguyên hoàn toàn khuôn mặt và kiểu tóc từ góc cận cảnh. Rõ nét trang phục, màu sắc áo quần và tư thế tự nhiên."),
+            3: ("Toàn thân đứng", "Ảnh toàn thân đứng tự nhiên (full-body shot), giữ nguyên 100% trang phục, khuôn mặt, mái tóc, giày dép và dáng người từ góc bán thân trong bối cảnh câu chuyện.")
+        }
+        angle_name, angle_desc = angle_info.get(data.angle_index, ("Chân dung", "Chân dung nhân vật sắc nét"))
+
+        prompt_text = (
+            f"Chân dung nghệ thuật chuẩn {angle_name} của nhân vật {data.character_name}. "
+            f"Mô tả ngoại hình & trang phục: {data.character_description}. {angle_desc} "
+            f"Phong cách {data.style_preset}, chất lượng điện ảnh 8K Ultra HD, ánh sáng nghệ thuật có chiều sâu, cực kỳ sắc nét, photorealistic."
+        )
+
+        prompt_full = build_hidden_image_prompt(
+            user_prompt=prompt_text,
+            aspect_ratio="1:1",
+            style_preset=data.style_preset,
+        )
+
+        baseline_hist = await client.history(limit=50)
+        baseline_media = {m["identity"] for m in extract_all_media_refs(baseline_hist)}
+
+        events = await client.chat_stream(
+            prompt=prompt_full,
+            images=[],
+            stream_timeout=35.0,
+        )
+
+        deadline = time.monotonic() + 90.0
+        found_images = []
+        while time.monotonic() < deadline:
+            hist = await client.history(limit=50)
+            media_list = extract_all_media_refs(hist)
+            new_images = [
+                m for m in media_list
+                if m["type"] == "image" and m["identity"] not in baseline_media
+            ]
+            if new_images:
+                found_images = new_images
+                break
+            await asyncio.sleep(2.5)
+
+        if not found_images:
+            raise HTTPException(status_code=504, detail="H-AI chưa trả về ảnh trong thời gian quy định.")
+
+        ref = found_images[0]
+        ext = ".png" if "png" in (ref.get("mime_type") or "") else ".jpg"
+        dest_name = f"char_{slugify_simple(data.character_name)}_{data.angle_index}_{int(time.time())}{ext}"
+        dest_path = OUTPUTS_DIR / dest_name
+
+        data_bytes = None
+        if ref.get("url") and "/idea-cards/media/" in ref["url"]:
+            try:
+                data_bytes = await client._fs().idea_media_from_url(ref["url"])
+            except Exception:
+                pass
+        elif ref.get("media_handle"):
+            try:
+                data_bytes = await client._fs().idea_media(ref["media_handle"])
+            except Exception:
+                pass
+        elif ref.get("url") and ref["url"].startswith(("http://", "https://")):
+            try:
+                r = await client.auth.browser.get(ref["url"])
+                if r.status_code < 400:
+                    data_bytes = r.content
+            except Exception:
+                pass
+        elif ref.get("path"):
+            try:
+                dest_path = await client._fs().download(ref["path"], dest_path)
+            except Exception:
+                pass
+
+        if data_bytes:
+            dest_path.write_bytes(data_bytes)
+
+        invalidate_subscription_cache()
+
+        return {
+            "status": "success",
+            "character_id": data.character_id,
+            "angle_index": data.angle_index,
+            "angle_name": angle_name,
+            "image": {
+                "id": f"img_{data.character_id}_{data.angle_index}_{int(time.time())}",
+                "name": f"Ảnh {data.angle_index}: {angle_name}",
+                "url": f"/outputs/{dest_name}",
+                "local_path": str(dest_path),
+            }
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Lỗi tạo ảnh nhân vật: {exc}")
 
 
 @app.get("/api/gallery")
