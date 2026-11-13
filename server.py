@@ -321,9 +321,19 @@ async def fetch_live_subscription(auth: Optional[MuseAuth] = None) -> Optional[d
         return _subscription_cache["data"]
 
 
+_auth_status_cache = {
+    "data": None,
+    "timestamp": 0.0,
+}
+
+
 def invalidate_subscription_cache():
-    global _subscription_cache
+    global _subscription_cache, _auth_status_cache
     _subscription_cache = {
+        "data": None,
+        "timestamp": 0.0,
+    }
+    _auth_status_cache = {
         "data": None,
         "timestamp": 0.0,
     }
@@ -333,6 +343,11 @@ def invalidate_subscription_cache():
 
 @app.get("/api/auth/status")
 async def auth_status(force: bool = False):
+    global _auth_status_cache
+    if not force and _auth_status_cache["data"] is not None:
+        if (time.time() - _auth_status_cache["timestamp"]) < 60.0:
+            return _auth_status_cache["data"]
+
     if force:
         invalidate_subscription_cache()
     logged_in = is_authenticated()
@@ -434,7 +449,7 @@ async def auth_status(force: bool = False):
             "is_live": False,
         }
 
-    return {
+    res_dict = {
         "authenticated": logged_in,
         "is_alive": is_alive,
         "email": email or ("Tài khoản H-AI đã kết nối" if logged_in else None),
@@ -449,6 +464,9 @@ async def auth_status(force: bool = False):
         },
         "usage": usage_data,
     }
+    _auth_status_cache["data"] = res_dict
+    _auth_status_cache["timestamp"] = time.time()
+    return res_dict
 
 
 @app.get("/api/usage")
@@ -1134,7 +1152,14 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 async def root():
     index_file = STATIC_DIR / "index.html"
     if index_file.exists():
-        return FileResponse(index_file)
+        return FileResponse(
+            index_file,
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
     return HTMLResponse("<h1>H-AI Studio Backend Ready</h1>")
 
 

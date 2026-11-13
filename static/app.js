@@ -225,107 +225,105 @@ function startSequentialFromDashboard() {
   setVideoMode(true);
 }
 
-// Auth Status
-async function checkAuthStatus(force = false) {
-  try {
-    const url = force ? '/api/auth/status?force=true' : '/api/auth/status';
-    const res = await fetch(url);
-    const data = await res.json();
-    const dot = document.getElementById('status-dot');
-    const text = document.getElementById('status-text');
-    const btnText = document.getElementById('auth-btn-text');
+// Auth Status & UI updater
+function applyAuthData(data) {
+  if (!data) return;
+  const dot = document.getElementById('status-dot');
+  const text = document.getElementById('status-text');
+  const btnText = document.getElementById('auth-btn-text');
 
-    state.authenticated = data.authenticated && data.is_alive;
-    state.email = data.email;
-    state.quota = data.quota || {};
+  state.authenticated = !!(data.authenticated && data.is_alive);
+  state.email = data.email || null;
+  state.quota = data.quota || {};
 
-    // Update tokens on Header & Sidebar & Dashboard
-    const tokens = (data.quota && data.quota.context_window_tokens) ? data.quota.context_window_tokens.toLocaleString() : '350,000';
-    const headerTokens = document.getElementById('header-quota-tokens');
-    if (headerTokens) headerTokens.innerText = tokens;
+  // Update tokens on Header & Sidebar & Dashboard
+  const tokens = (data.quota && data.quota.context_window_tokens) ? data.quota.context_window_tokens.toLocaleString() : '350,000';
+  const headerTokens = document.getElementById('header-quota-tokens');
+  if (headerTokens) headerTokens.innerText = tokens;
 
-    const statTokens = document.getElementById('stat-tokens');
-    if (statTokens) statTokens.innerText = tokens;
+  const statTokens = document.getElementById('stat-tokens');
+  if (statTokens) statTokens.innerText = tokens;
 
-    const viewerIdEl = document.getElementById('sidebar-viewer-id');
-    if (viewerIdEl && data.viewer_id) {
-      viewerIdEl.innerText = data.viewer_id;
-      viewerIdEl.title = `Viewer ID: ${data.viewer_id}`;
-    }
+  const viewerIdEl = document.getElementById('sidebar-viewer-id');
+  if (viewerIdEl && data.viewer_id) {
+    viewerIdEl.innerText = data.viewer_id;
+    viewerIdEl.title = `Viewer ID: ${data.viewer_id}`;
+  }
 
-    // Update Usage Component (Exact live data: Gói miễn phí & Token bổ sung)
-    if (data.usage) {
-      const free = data.usage.free_plan || {};
-      const add = data.usage.additional_tokens || {};
+  // Update Usage Component (Exact live data: Gói miễn phí & Token bổ sung)
+  if (data.usage) {
+    const free = data.usage.free_plan || {};
+    const add = data.usage.additional_tokens || {};
 
-      // Dashboard Usage Card
-      const uFreeName = document.getElementById('usage-free-name');
-      if (uFreeName && free.name) uFreeName.innerText = free.name;
+    // Dashboard Usage Card
+    const uFreeName = document.getElementById('usage-free-name');
+    if (uFreeName && free.name) uFreeName.innerText = free.name;
 
-      const uFreePercent = document.getElementById('usage-free-percent');
-      if (uFreePercent) uFreePercent.innerText = free.label || `Đã dùng ${free.used_percent || 0}%`;
+    const uFreePercent = document.getElementById('usage-free-percent');
+    if (uFreePercent) uFreePercent.innerText = free.label || `Đã dùng ${free.used_percent || 0}%`;
 
-      const uFreeReset = document.getElementById('usage-free-reset');
-      if (uFreeReset) uFreeReset.innerText = free.subtitle || 'Giới hạn hàng tuần sẽ đặt lại sớm';
+    const uFreeReset = document.getElementById('usage-free-reset');
+    if (uFreeReset) uFreeReset.innerText = free.subtitle || 'Giới hạn hàng tuần sẽ đặt lại sớm';
 
-      const uFreeBar = document.getElementById('usage-free-bar');
-      if (uFreeBar) uFreeBar.style.width = `${free.used_percent || 0}%`;
+    const uFreeBar = document.getElementById('usage-free-bar');
+    if (uFreeBar) uFreeBar.style.width = `${free.used_percent || 0}%`;
 
-      const formatCapitalCon = (str) => {
-        if (!str) return str;
-        return str.replace(/\(còn/g, '(Còn').replace(/\bcòn\b/g, 'Còn');
-      };
+    const formatCapitalCon = (str) => {
+      if (!str) return str;
+      return str.replace(/\(còn/g, '(Còn').replace(/\bcòn\b/g, 'Còn');
+    };
 
-      const uAddName = document.getElementById('usage-add-name');
-      if (uAddName && add.name) uAddName.innerText = add.name;
+    const uAddName = document.getElementById('usage-add-name');
+    if (uAddName && add.name) uAddName.innerText = add.name;
 
-      const uAddTokens = document.getElementById('usage-add-tokens');
-      if (uAddTokens) uAddTokens.innerText = formatCapitalCon(add.label) || 'Đã dùng 0% (Còn 1 tỷ token)';
+    const uAddTokens = document.getElementById('usage-add-tokens');
+    if (uAddTokens) uAddTokens.innerText = formatCapitalCon(add.label) || 'Đã dùng 0% (Còn 1 tỷ token)';
 
-      const uAddSub = document.getElementById('usage-add-subtitle');
-      if (uAddSub) uAddSub.innerText = add.subtitle || 'Không bao giờ hết hạn';
+    const uAddSub = document.getElementById('usage-add-subtitle');
+    if (uAddSub) uAddSub.innerText = add.subtitle || 'Không bao giờ hết hạn';
 
-      const uAddBar = document.getElementById('usage-add-bar');
-      if (uAddBar) uAddBar.style.width = `${add.used_percent || 0}%`;
+    const uAddBar = document.getElementById('usage-add-bar');
+    if (uAddBar) uAddBar.style.width = `${add.used_percent || 0}%`;
 
-      const uCtaLabel = document.getElementById('usage-cta-label');
-      if (uCtaLabel && data.usage.cta_label) uCtaLabel.innerText = data.usage.cta_label;
+    const uCtaLabel = document.getElementById('usage-cta-label');
+    if (uCtaLabel && data.usage.cta_label) uCtaLabel.innerText = data.usage.cta_label;
 
-      // Sidebar Mini Usage
-      const sFreeName = document.getElementById('sidebar-free-name');
-      if (sFreeName && free.name) sFreeName.innerText = free.name;
+    // Sidebar Mini Usage
+    const sFreeName = document.getElementById('sidebar-free-name');
+    if (sFreeName && free.name) sFreeName.innerText = free.name;
 
-      const sFreePercent = document.getElementById('sidebar-free-percent');
-      if (sFreePercent) sFreePercent.innerText = free.label || `Đã dùng ${free.used_percent || 0}%`;
+    const sFreePercent = document.getElementById('sidebar-free-percent');
+    if (sFreePercent) sFreePercent.innerText = free.label || `Đã dùng ${free.used_percent || 0}%`;
 
-      const sFreeReset = document.getElementById('sidebar-free-reset');
-      if (sFreeReset) sFreeReset.innerText = free.subtitle || 'Giới hạn hàng tuần';
+    const sFreeReset = document.getElementById('sidebar-free-reset');
+    if (sFreeReset) sFreeReset.innerText = free.subtitle || 'Giới hạn hàng tuần';
 
-      const sFreeBar = document.getElementById('sidebar-free-bar');
-      if (sFreeBar) sFreeBar.style.width = `${free.used_percent || 0}%`;
+    const sFreeBar = document.getElementById('sidebar-free-bar');
+    if (sFreeBar) sFreeBar.style.width = `${free.used_percent || 0}%`;
 
-      const sAddName = document.getElementById('sidebar-add-name');
-      if (sAddName && add.name) sAddName.innerText = add.name;
+    const sAddName = document.getElementById('sidebar-add-name');
+    if (sAddName && add.name) sAddName.innerText = add.name;
 
-      const sAddPercent = document.getElementById('sidebar-add-percent');
-      if (sAddPercent) sAddPercent.innerText = `Đã dùng ${add.used_percent || 0}%`;
+    const sAddPercent = document.getElementById('sidebar-add-percent');
+    if (sAddPercent) sAddPercent.innerText = `Đã dùng ${add.used_percent || 0}%`;
 
-      let formattedLeft = '(Còn 1 tỷ token)';
-      if (add.tokens_left) {
-        let clean = formatCapitalCon(add.tokens_left);
-        if (clean.includes('(')) {
-          formattedLeft = `(${clean.split('(')[1]}`;
-        } else {
-          formattedLeft = clean.startsWith('Còn') ? `(${clean})` : clean;
-        }
+    let formattedLeft = '(Còn 1 tỷ token)';
+    if (add.tokens_left) {
+      let clean = formatCapitalCon(add.tokens_left);
+      if (clean.includes('(')) {
+        formattedLeft = `(${clean.split('(')[1]}`;
+      } else {
+        formattedLeft = clean.startsWith('Còn') ? `(${clean})` : clean;
       }
-      const sTokensLeft = document.getElementById('sidebar-tokens-left');
-      if (sTokensLeft) sTokensLeft.innerText = formattedLeft;
-
-      const sAddBar = document.getElementById('sidebar-add-bar');
-      if (sAddBar) sAddBar.style.width = `${add.used_percent || 0}%`;
     }
+    const sTokensLeft = document.getElementById('sidebar-tokens-left');
+    if (sTokensLeft) sTokensLeft.innerText = formattedLeft;
 
+    const sAddBar = document.getElementById('sidebar-add-bar');
+    if (sAddBar) sAddBar.style.width = `${add.used_percent || 0}%`;
+  }
+
+  if (dot && text && btnText) {
     if (state.authenticated) {
       dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400';
       text.innerText = data.email || 'Đã kết nối H-AI Cloud';
@@ -336,6 +334,32 @@ async function checkAuthStatus(force = false) {
       text.innerText = 'Chưa kết nối tài khoản';
       text.className = 'text-xs font-semibold text-amber-300 truncate';
       btnText.innerText = 'Đăng nhập OTP';
+    }
+  }
+}
+
+async function checkAuthStatus(force = false) {
+  // 1. Instant cache hydrate to eliminate any perceived loading delay
+  try {
+    const cachedRaw = localStorage.getItem('h_ai_auth_cache');
+    if (cachedRaw) {
+      const cachedData = JSON.parse(cachedRaw);
+      applyAuthData(cachedData);
+    }
+  } catch (e) {
+    console.warn('Lỗi đọc auth cache:', e);
+  }
+
+  // 2. Refresh live data from server asynchronously
+  try {
+    const url = force ? '/api/auth/status?force=true' : '/api/auth/status';
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data) {
+      try {
+        localStorage.setItem('h_ai_auth_cache', JSON.stringify(data));
+      } catch (e) {}
+      applyAuthData(data);
     }
   } catch (err) {
     console.error('Lỗi kiểm tra kết nối:', err);
