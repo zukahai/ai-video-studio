@@ -2827,7 +2827,7 @@ function renderMovieCharacters() {
 
       <div>
         <label class="block text-[10px] font-semibold text-slate-400 mb-1">Mô tả ngoại hình & phục trang (để tạo ảnh chuẩn):</label>
-        <textarea rows="2" oninput="updateCharacterDesc('${char.id}', this.value)" placeholder="Chi tiết ngoại hình, độ tuổi, khuôn mặt, áo quần..." class="w-full bg-surface-950/80 border border-surface-600 focus:border-cyan-400 rounded-lg p-2 text-xs text-slate-200 focus:outline-none resize-none">${escapeHtml(char.description || '')}</textarea>
+        <textarea rows="4" oninput="updateCharacterDesc('${char.id}', this.value)" placeholder="Chi tiết ngoại hình, độ tuổi, khuôn mặt, áo quần..." class="w-full bg-surface-950/80 border border-surface-600 focus:border-cyan-400 rounded-lg p-2 text-xs text-slate-200 focus:outline-none resize-y leading-relaxed">${escapeHtml(char.description || '')}</textarea>
       </div>
 
       <!-- Reference Images & Paste Zone -->
@@ -3301,7 +3301,7 @@ function renderMovieScenes() {
           <span>Prompt quay phim AI (Cinematic Prompt):</span>
           <span class="text-[10px] text-slate-500">Chỉnh sửa mô tả góc máy & ánh sáng</span>
         </label>
-        <textarea rows="2" oninput="updateSceneField(${idx}, 'prompt', this.value)" class="mention-target w-full bg-surface-950 border border-surface-600 focus:border-cyan-400 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none resize-none leading-relaxed">${escapeHtml(scene.prompt || '')}</textarea>
+        <textarea rows="5" oninput="updateSceneField(${idx}, 'prompt', this.value)" class="mention-target w-full bg-surface-950 border border-surface-600 focus:border-cyan-400 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none resize-y leading-relaxed">${escapeHtml(scene.prompt || '')}</textarea>
       </div>
 
       <!-- Single Scene Action Row -->
@@ -3328,8 +3328,8 @@ function renderMovieScenes() {
 function focusSceneEditable(containerEl, field, sceneIdx) {
   const currentVal = movieState.scenes[sceneIdx] ? (movieState.scenes[sceneIdx][field] || '') : '';
   const textarea = document.createElement('textarea');
-  textarea.className = 'mention-target w-full bg-surface-950 border border-cyan-400 rounded-xl p-2.5 text-xs text-slate-100 focus:outline-none resize-none leading-relaxed';
-  textarea.rows = 2;
+  textarea.className = 'mention-target w-full bg-surface-950 border border-cyan-400 rounded-xl p-2.5 text-xs text-slate-100 focus:outline-none resize-y leading-relaxed';
+  textarea.rows = 4;
   textarea.value = currentVal;
 
   textarea.onblur = () => {

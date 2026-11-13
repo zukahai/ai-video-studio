@@ -215,6 +215,41 @@ def is_narration_dialogue(text: str) -> bool:
     return False
 
 
+_NARRATION_PREFIX_RE = re.compile(
+    r'^\s*(?:người\s+dẫn\s+chuyện|dẫn\s+chuyện|người\s+kể\s+chuyện|thuyết\s+minh|lời\s+dẫn|lời\s+kể|lời\s+bình|bình\s+luận\s+viên|kể\s+lại|dẫn\s+lời|narrator|voice[- ]?over|off[- ]?screen)\s*[:\-–—]\s*',
+    flags=re.IGNORECASE,
+)
+
+
+def extract_speaker_and_spoken_text(text: str) -> tuple[Optional[str], str]:
+    """Split 'Speaker: \"Spoken words\"' into (speaker, clean_spoken_words) so video TTS never reads speaker labels aloud."""
+    raw = (text or "").strip()
+    if not raw:
+        return None, ""
+    m_narr = _NARRATION_PREFIX_RE.match(raw)
+    if m_narr:
+        spoken = raw[m_narr.end():].strip().strip('"').strip("'").strip()
+        return None, spoken
+    m_spk = re.match(r'^([^:\n]{1,40})\s*:\s*(.+)$', raw, flags=re.DOTALL)
+    if m_spk:
+        speaker = m_spk.group(1).strip()
+        spoken = m_spk.group(2).strip().strip('"').strip("'").strip()
+        return speaker, spoken
+    return None, raw.strip('"').strip("'").strip()
+
+
+def clean_narration_prefixes_in_prompt(prompt: str) -> str:
+    """Remove literal narrator prefixes inside quoted voiceover strings in a prompt."""
+    if not prompt:
+        return ""
+    return re.sub(
+        r'(["\'])\s*(?:người\s+dẫn\s+chuyện|dẫn\s+chuyện|người\s+kể\s+chuyện|thuyết\s+minh|lời\s+dẫn|lời\s+kể|narrator|voice[- ]?over)\s*[:\-–—]\s*',
+        r'\1',
+        prompt,
+        flags=re.IGNORECASE,
+    )
+
+
 def build_hidden_video_prompt(
     user_prompt: str,
     aspect_ratio: str,
@@ -230,7 +265,7 @@ def build_hidden_video_prompt(
     duration_val = duration if (duration and duration > 0) else 5
     duration_desc = f"Thời lượng video: đúng {duration_val} giây ({duration_val} seconds duration clip, pacing & action timing calibrated for exactly {duration_val}s)."
 
-    clean_user_prompt = user_prompt.strip()
+    clean_user_prompt = clean_narration_prefixes_in_prompt(user_prompt.strip())
     diag_clean = (dialogue or "").strip()
     is_narr = is_narration_dialogue(diag_clean) or is_narration_dialogue(clean_user_prompt)
 
@@ -241,20 +276,25 @@ def build_hidden_video_prompt(
         clean_user_prompt = re.sub(r'(?i)with (clear |natural )?synchronized lip movements?[^.]*\.?', '', clean_user_prompt).strip()
         clean_user_prompt = re.sub(r'(?i)lip-?sync[^.]*\.?', '', clean_user_prompt).strip()
 
-        narr_text = diag_clean if diag_clean else "Thuyết minh dẫn chuyện"
+        _, narr_spoken = extract_speaker_and_spoken_text(diag_clean)
+        narr_text = narr_spoken if narr_spoken else "Thuyết minh dẫn chuyện"
         dialogue_part = (
             f"\n[QUY TẮC BẮT BUỘC: GIỌNG DẪN CHUYỆN / NARRATOR VOICEOVER - KHÔNG MẤP MÁY MÔI]:\n"
-            f"- Âm thanh giọng đọc thuyết minh dẫn chuyện ngoài khung hình (Off-screen Narrator Voiceover Audio): \"{narr_text}\".\n"
+            f"- Âm thanh giọng đọc thuyết minh dẫn chuyện ngoài khung hình (Off-screen Narrator Voiceover Audio — CHỈ ĐỌC ĐÚNG NỘI DUNG TRONG NGOẶC KÉP, TUYỆT ĐỐI KHÔNG ĐỌC CHỮ 'Người dẫn chuyện' hay 'Dẫn chuyện'): \"{narr_text}\".\n"
             f"- YÊU CẦU ĐẶC BIỆT BẮT BUỘC VỀ DIỄN XUẤT: Đây là GIỌNG ĐỌC DẪN CHUYỆN NGOÀI HÌNH ẢNH (Off-screen voiceover narration). "
             f"TẤT CẢ NHÂN VẬT TRÊN MÀN ẢNH TUYỆT ĐỐI KHÔNG NÓI, KHÔNG MẤP MÁY MÔI, KHÔNG CỬ ĐỘNG KHẨU HÌNH, MIỆNG PHẢI NGẬM TỰ NHIÊN "
-            f"(CRITICAL ACTING INSTRUCTION: The narration is off-screen. On-screen characters DO NOT SPEAK, DO NOT MOVE THEIR LIPS, MOUTHS MUST REMAIN NATURALLY CLOSED WITH ZERO LIP-SYNC. Characters only perform silent natural acting, physical movements, thoughtful facial reactions and peaceful expressions while the off-screen narrator speaks)."
+            f"(CRITICAL ACTING INSTRUCTION: The narration is off-screen. Speak ONLY the exact quoted narration text \"{narr_text}\" without saying any label like 'Narrator' or 'Người dẫn chuyện'. On-screen characters DO NOT SPEAK, DO NOT MOVE THEIR LIPS, MOUTHS MUST REMAIN NATURALLY CLOSED WITH ZERO LIP-SYNC. Characters only perform silent natural acting, physical movements, thoughtful facial reactions and peaceful expressions while the off-screen narrator speaks)."
         )
     elif diag_clean:
+        speaker_name, spoken_line = extract_speaker_and_spoken_text(diag_clean)
+        spoken_only = spoken_line or diag_clean
+        speaker_label = f"Nhân vật {speaker_name}" if speaker_name else "Nhân vật trong cảnh"
+        speaker_en = speaker_name if speaker_name else "the speaking character"
         dialogue_part = (
             f"\n[LỜI THOẠI NHÂN VẬT & ĐỒNG BỘ KHẨU HÌNH (LIP-SYNC)]:\n"
-            f"- Lời thoại nhân vật trong cảnh (Character Spoken Dialogue): \"{diag_clean}\".\n"
-            f"- Yêu cầu diễn xuất & âm thanh: Chỉ nhân vật nói câu thoại này mới cử động khẩu hình môi và phát âm giọng nói đồng bộ "
-            f"(Spoken character dialogue with natural synchronized lip-sync and clear audible voice: \"{diag_clean}\"). "
+            f"- {speaker_label} nói câu thoại (CHỈ ĐỌC ĐÚNG LỜI THOẠI TRONG NGOẶC KÉP, KHÔNG ĐỌC TÊN NHÂN VẬT): \"{spoken_only}\".\n"
+            f"- Yêu cầu diễn xuất & âm thanh: Chỉ {speaker_label} mới cử động khẩu hình môi và phát âm giọng nói đồng bộ "
+            f"(Spoken character dialogue by {speaker_en} with natural synchronized lip-sync and clear audible voice, speaking ONLY these exact words without saying the character's name prefix: \"{spoken_only}\"). "
             f"Các nhân vật khác trong cảnh (nếu có) giữ miệng ngậm tự nhiên và im lặng lắng nghe (Other characters keep mouths naturally closed without speaking)."
         )
 
@@ -1159,7 +1199,9 @@ def _format_movie_result(parsed: dict, style_preset: str = "Điện ảnh HD Hol
             dur = 8
 
         diag = (sc.get("dialogue") or "").strip()
-        cinematic_prompt = (sc.get("prompt") or f"Cinematic 4K Hollywood, {style_preset}, Scene {idx+1}: {sc.get('situation', '')}. 8k, photorealistic lighting, cinematic camera motion").strip()
+        cinematic_prompt = clean_narration_prefixes_in_prompt(
+            (sc.get("prompt") or f"Cinematic HD Hollywood, {style_preset}, Scene {idx+1}: {sc.get('situation', '')}. photorealistic lighting, cinematic camera motion").strip()
+        )
 
         is_narr = is_narration_dialogue(diag) or is_narration_dialogue(cinematic_prompt)
 
@@ -1170,14 +1212,16 @@ def _format_movie_result(parsed: dict, style_preset: str = "Điện ảnh HD Hol
             cinematic_prompt = re.sub(r'(?i)lip-?sync[^.]*\.?', '', cinematic_prompt).strip()
 
             if "off-screen" not in cinematic_prompt.lower() and "narrator" not in cinematic_prompt.lower():
-                narr_text = diag if diag else "Thuyết minh dẫn chuyện"
+                _, narr_spoken = extract_speaker_and_spoken_text(diag)
+                narr_text = narr_spoken if narr_spoken else "Thuyết minh dẫn chuyện"
                 cinematic_prompt += (
-                    f' Off-screen voiceover narration: "{narr_text}". '
+                    f' Off-screen voiceover narration (speak ONLY these exact words, do NOT say "Người dẫn chuyện"): "{narr_text}". '
                     f'Critical acting constraint: The narration is off-screen. On-screen characters DO NOT SPEAK, DO NOT MOVE LIPS, mouths remain naturally closed with zero lip-sync, characters perform silent expressive acting only.'
                 )
         else:
             if diag and "spoken dialogue" not in cinematic_prompt.lower() and "dialogue:" not in cinematic_prompt.lower():
-                cinematic_prompt += f' Spoken character dialogue: "{diag}" with natural synchronized lip movement and clear audible voice.'
+                _, spoken_line = extract_speaker_and_spoken_text(diag)
+                cinematic_prompt += f' Spoken character dialogue: "{spoken_line or diag}" with natural synchronized lip movement and clear audible voice.'
 
         formatted_scenes.append({
             "scene_index": idx + 1,
