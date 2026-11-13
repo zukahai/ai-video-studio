@@ -360,6 +360,53 @@ def extract_all_media_refs(value: Any) -> list[dict]:
     return found
 
 
+async def _poll_for_image_refs(
+    client: MuseClient,
+    baseline_hist: dict,
+    events: list,
+    timeout: float = 90.0,
+) -> list[dict]:
+    """Poll history and stream events for newly returned image refs (including reused file refs in new messages)."""
+    stream_images = [m for m in extract_all_media_refs(events) if m["type"] == "image"]
+    if stream_images:
+        return stream_images
+
+    baseline_media = {m["identity"] for m in extract_all_media_refs(baseline_hist)}
+    baseline_events = (baseline_hist.get("result") or {}).get("chat_events") or []
+    baseline_msg_ids = {
+        ev.get("message_id")
+        for ev in baseline_events
+        if isinstance(ev, dict) and ev.get("message_id")
+    }
+
+    extracted_ids = extract_session_ids(events)
+    target_session_id = extracted_ids[-1] if extracted_ids else None
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        hist = await client.history(session_id=target_session_id, limit=50)
+        chat_events = (hist.get("result") or {}).get("chat_events") or []
+        new_events = [
+            ev for ev in chat_events
+            if isinstance(ev, dict) and ev.get("message_id") not in baseline_msg_ids
+        ]
+        if new_events:
+            event_images = [m for m in extract_all_media_refs(new_events) if m["type"] == "image"]
+            if event_images:
+                return event_images
+
+        media_list = extract_all_media_refs(hist)
+        new_images = [
+            m for m in media_list
+            if m["type"] == "image" and m["identity"] not in baseline_media
+        ]
+        if new_images:
+            return new_images
+
+        await asyncio.sleep(2.5)
+    return []
+
+
 async def download_media_ref(client: MuseClient, ref: dict, dest_path: Path) -> bool:
     """Download a media reference reliably to dest_path, returning True if successful."""
     # 1. Primary & most reliable: download sandbox path directly via RPC
@@ -959,7 +1006,6 @@ async def generate_image(data: ImageGenerateModel):
         )
 
         baseline_hist = await client.history(limit=50)
-        baseline_media = {m["identity"] for m in extract_all_media_refs(baseline_hist)}
 
         events = await client.chat_stream(
             prompt=prompt_full,
@@ -967,19 +1013,7 @@ async def generate_image(data: ImageGenerateModel):
             stream_timeout=35.0,
         )
 
-        deadline = time.monotonic() + 90.0
-        found_images = []
-        while time.monotonic() < deadline:
-            hist = await client.history(limit=50)
-            media_list = extract_all_media_refs(hist)
-            new_images = [
-                m for m in media_list
-                if m["type"] == "image" and m["identity"] not in baseline_media
-            ]
-            if new_images:
-                found_images = new_images
-                break
-            await asyncio.sleep(2.5)
+        found_images = await _poll_for_image_refs(client, baseline_hist, events, timeout=90.0)
 
         downloaded_urls = []
         for index, ref in enumerate(found_images):
@@ -1621,7 +1655,6 @@ async def generate_character_portrait_endpoint(data: CharacterPortraitRequest):
         )
 
         baseline_hist = await client.history(limit=50)
-        baseline_media = {m["identity"] for m in extract_all_media_refs(baseline_hist)}
 
         events = await client.chat_stream(
             prompt=prompt_full,
@@ -1629,19 +1662,7 @@ async def generate_character_portrait_endpoint(data: CharacterPortraitRequest):
             stream_timeout=35.0,
         )
 
-        deadline = time.monotonic() + 90.0
-        found_images = []
-        while time.monotonic() < deadline:
-            hist = await client.history(limit=50)
-            media_list = extract_all_media_refs(hist)
-            new_images = [
-                m for m in media_list
-                if m["type"] == "image" and m["identity"] not in baseline_media
-            ]
-            if new_images:
-                found_images = new_images
-                break
-            await asyncio.sleep(2.5)
+        found_images = await _poll_for_image_refs(client, baseline_hist, events, timeout=90.0)
 
         if not found_images:
             raise HTTPException(status_code=504, detail="H-AI chưa trả về ảnh trong thời gian quy định.")
@@ -1668,6 +1689,8 @@ async def generate_character_portrait_endpoint(data: CharacterPortraitRequest):
                 "local_path": str(dest_path),
             }
         }
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Lỗi tạo ảnh nhân vật: {exc}")
 
