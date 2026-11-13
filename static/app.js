@@ -474,9 +474,12 @@ function applyAuthData(data) {
     const sFreeBar = document.getElementById('sidebar-free-bar');
     if (sFreeBar) sFreeBar.style.width = `${free.used_percent || 0}%`;
 
-    // Sidebar Token VIP (Ảnh 2: Không hiện %, hiện Token VIP: 982 triệu với chữ 982 triệu màu đỏ)
+    // Sidebar Token VIP (Compact & Details)
     const sTokensVip = document.getElementById('sidebar-tokens-vip');
     if (sTokensVip) sTokensVip.innerText = vipTokens;
+
+    const sTokensVipCompact = document.getElementById('sidebar-tokens-vip-compact');
+    if (sTokensVipCompact) sTokensVipCompact.innerText = vipTokens;
 
     const sAddSub = document.getElementById('sidebar-add-sub');
     if (sAddSub) sAddSub.innerText = add.subtitle || 'Không bao giờ hết hạn';
@@ -525,7 +528,23 @@ async function checkAuthStatus(force = false) {
   }
 }
 
-function openAuthModal() {
+function toggleSidebarQuotaDetails(e) {
+  if (e && e.stopPropagation) e.stopPropagation();
+  const details = document.getElementById('sidebar-quota-details');
+  const chevron = document.getElementById('sidebar-quota-chevron');
+  if (!details) return;
+  const isHidden = details.classList.contains('hidden');
+  if (isHidden) {
+    details.classList.remove('hidden');
+    if (chevron) chevron.classList.add('rotate-180');
+  } else {
+    details.classList.add('hidden');
+    if (chevron) chevron.classList.remove('rotate-180');
+  }
+}
+
+function openAuthModal(e) {
+  if (e && e.stopPropagation) e.stopPropagation();
   document.getElementById('auth-modal').classList.remove('hidden');
   document.getElementById('otp-step-1').classList.remove('hidden');
   document.getElementById('otp-step-2').classList.add('hidden');
@@ -2101,7 +2120,7 @@ function renderMovieProjectsRibbon() {
 
   if (movieProjectsState.list.length === 0) {
     container.innerHTML = `
-      <div class="text-[11px] text-slate-500 py-1 px-2 italic">
+      <div class="text-xs text-slate-500 py-3 px-3 italic">
         Chưa có phim nào được lưu. Bấm "+ Phim Mới" hoặc nhập kịch bản để bắt đầu.
       </div>
     `;
@@ -2112,30 +2131,51 @@ function renderMovieProjectsRibbon() {
   movieProjectsState.list.forEach(p => {
     const isActive = (p.id === movieState.id || p.id === movieProjectsState.currentId);
     const activeClass = isActive
-      ? 'border-cyan-400 bg-cyan-950/70 text-white shadow-md shadow-cyan-950/40 ring-1 ring-cyan-400/50'
-      : 'border-white/[0.08] bg-surface-950/80 text-slate-300 hover:text-white hover:bg-surface-800 hover:border-white/20';
+      ? 'border-cyan-400 bg-gradient-to-r from-cyan-950/80 via-surface-900 to-surface-900 text-white shadow-xl shadow-cyan-950/50 ring-2 ring-cyan-400/40 scale-[1.01]'
+      : 'border-white/[0.08] bg-surface-950/80 text-slate-300 hover:text-white hover:bg-surface-850 hover:border-cyan-500/30 hover:shadow-lg hover:scale-[1.01]';
 
     const rendered = p.rendered_count || 0;
     const totalScenes = p.scene_count || 0;
+    const isCompleted = rendered === totalScenes && totalScenes > 0;
     const sceneBadge = totalScenes > 0
-      ? `<span class="text-[9px] px-1.5 py-0.5 rounded ${rendered === totalScenes && totalScenes > 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold' : 'bg-surface-800 text-cyan-300 font-semibold'}">${rendered}/${totalScenes} cảnh</span>`
-      : `<span class="text-[9px] px-1.5 py-0.5 rounded bg-surface-800 text-slate-400">0 cảnh</span>`;
+      ? `<span class="text-[10px] px-2 py-0.5 rounded-lg ${isCompleted ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold' : 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-semibold'} flex items-center space-x-1 shrink-0">
+          <i data-lucide="${isCompleted ? 'check-circle-2' : 'clapperboard'}" class="w-3 h-3"></i>
+          <span>${rendered}/${totalScenes} cảnh</span>
+        </span>`
+      : `<span class="text-[10px] px-2 py-0.5 rounded-lg bg-surface-800 text-slate-400 border border-white/5 shrink-0">0 cảnh</span>`;
 
     const thumbHtml = p.thumbnail_url
       ? (p.thumbnail_url.endsWith('.mp4')
-          ? `<div class="w-8 h-8 rounded-lg bg-surface-900 border border-white/10 flex items-center justify-center shrink-0 text-cyan-400"><i data-lucide="video" class="w-4 h-4"></i></div>`
-          : `<img src="${p.thumbnail_url}" alt="${p.title}" class="w-8 h-8 rounded-lg object-cover border border-white/10 shrink-0">`
+          ? `<video src="${p.thumbnail_url}" class="w-full h-full object-cover" muted loop playsinline></video>`
+          : `<img src="${p.thumbnail_url}" alt="${escapeHtml(p.title || '')}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">`
         )
-      : `<div class="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0 text-cyan-400 font-bold text-xs"><i data-lucide="film" class="w-4 h-4"></i></div>`;
+      : `<div class="w-full h-full bg-gradient-to-br from-cyan-950/50 to-surface-900 flex items-center justify-center text-cyan-400/80 group-hover:text-cyan-300 transition">
+          <i data-lucide="film" class="w-7 h-7"></i>
+        </div>`;
 
     html += `
-      <div onclick="switchMovieProject('${p.id}')" class="flex items-center space-x-2.5 px-3 py-2 rounded-xl border transition cursor-pointer shrink-0 max-w-[270px] ${activeClass}">
-        ${thumbHtml}
-        <div class="min-w-0 pr-1">
-          <div class="text-xs font-bold truncate">${p.title || 'Phim Mới'}</div>
-          <div class="flex items-center space-x-1.5 mt-0.5">
+      <div onclick="switchMovieProject('${p.id}')" class="flex items-center space-x-3.5 p-3 rounded-2xl border-2 transition-all duration-200 cursor-pointer shrink-0 min-w-[310px] max-w-[370px] group ${activeClass}">
+        <!-- Big Thumbnail (w-16 h-16) -->
+        <div class="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-white/10 bg-surface-900 shadow-md">
+          ${thumbHtml}
+          ${isActive ? `<div class="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full bg-cyan-400 ring-2 ring-black shadow-sm" title="Phim đang mở"></div>` : ''}
+        </div>
+
+        <!-- Movie Details -->
+        <div class="min-w-0 flex-1 pr-1">
+          <div class="flex items-center justify-between space-x-1">
+            <h4 class="text-sm font-extrabold truncate text-white ${isActive ? 'text-cyan-300' : 'group-hover:text-white transition'}">${escapeHtml(p.title || 'Phim Mới')}</h4>
+            ${isActive ? `<span class="text-[9px] px-1.5 py-0.5 rounded-md bg-cyan-500/25 text-cyan-300 border border-cyan-400/40 font-bold uppercase tracking-wider shrink-0">Đang mở</span>` : ''}
+          </div>
+          
+          <p class="text-[11px] text-slate-400 truncate mt-0.5 leading-tight">${escapeHtml(p.logline || 'Chưa có tóm tắt cốt truyện')}</p>
+          
+          <div class="flex items-center space-x-2 mt-2">
             ${sceneBadge}
-            <span class="text-[9px] text-slate-400">${p.character_count || 0} n.vật</span>
+            <span class="text-[10px] text-slate-300 font-semibold px-2 py-0.5 rounded-lg bg-surface-800/80 border border-white/[0.06] flex items-center space-x-1 shrink-0">
+              <i data-lucide="users" class="w-3 h-3 text-cyan-400"></i>
+              <span>${p.character_count || 0} n.vật</span>
+            </span>
           </div>
         </div>
       </div>
