@@ -214,7 +214,8 @@ function customConfirm(message, title = 'Xác nhận thao tác', confirmText = '
 }
 
 // Lightbox Image Preview
-function openImagePreviewModal(url, caption = '') {
+function openImagePreviewModal(url, caption = '', e) {
+  if (e && e.stopPropagation) e.stopPropagation();
   const modal = document.getElementById('image-preview-modal');
   const imgEl = document.getElementById('preview-modal-img');
   const captionEl = document.getElementById('preview-modal-caption');
@@ -1007,9 +1008,14 @@ function renderImageThumbnails(type) {
   container.innerHTML = list.map((item, index) => `
     <div class="relative group rounded-xl overflow-hidden border border-white/20 bg-surface-900 shadow-md">
       <img src="${item.url}" alt="Ảnh tham chiếu #${index + 1}" class="w-20 h-20 object-cover rounded-xl transition duration-200 group-hover:scale-105">
-      <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-        <button type="button" onclick="removeSingleImage('${type}', '${item.id}', event)" class="bg-rose-600 hover:bg-rose-500 text-white rounded-full p-1.5 shadow-lg transition" title="Xóa ảnh này">
-          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+      <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+        <!-- Nút xoá góc trên bên phải -->
+        <button type="button" onclick="removeSingleImage('${type}', '${item.id}', event)" class="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 hover:bg-rose-600 text-rose-300 hover:text-white flex items-center justify-center shadow transition cursor-pointer z-10 hover:scale-110 active:scale-95" title="Xóa ảnh này">
+          <i data-lucide="trash-2" class="w-3 h-3"></i>
+        </button>
+        <!-- Nút xem ở giữa -->
+        <button type="button" onclick="openImagePreviewModal('${item.url}', 'Ảnh tham chiếu #${index + 1}', event)" class="w-7 h-7 rounded-full bg-white/20 hover:bg-cyan-500 text-white flex items-center justify-center shadow backdrop-blur-xs transition cursor-pointer hover:scale-110 active:scale-95" title="Xem ảnh lớn">
+          <i data-lucide="eye" class="w-3.5 h-3.5"></i>
         </button>
       </div>
       <span class="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/70 text-[9px] font-mono text-white/90">#${index + 1}</span>
@@ -2722,15 +2728,17 @@ function renderMovieCharacters() {
         <div class="flex flex-wrap gap-2 pt-1 pb-1">
           ${char.images.map((img, imgIdx) => `
             <div class="relative group rounded-xl overflow-hidden border bg-surface-950 p-1 flex flex-col items-center shadow-sm" style="border-color: ${char.color}55">
-              <div class="relative w-16 h-16 rounded-lg overflow-hidden bg-black/40">
+              <div class="relative w-16 h-16 rounded-lg overflow-hidden bg-black/40 cursor-pointer" onclick="openImagePreviewModal('${img.url}', '${escapeHtml(char.name)} - ${escapeHtml(img.name || '')}')">
                 <img src="${img.url}" class="w-full h-full object-cover" onerror="handleCharacterImageError(this, '${char.id}', ${imgIdx})">
-                <!-- Hover Overlay with Xem (Preview) & Xoá (Delete) buttons -->
-                <div class="absolute inset-0 bg-black/75 flex items-center justify-center space-x-1.5 opacity-0 group-hover:opacity-100 transition-opacity p-1">
-                  <button type="button" onclick="openImagePreviewModal('${img.url}', '${escapeHtml(char.name)} - ${escapeHtml(img.name || '')}')" title="Xem ảnh lớn" class="w-6 h-6 rounded-md bg-white/20 hover:bg-cyan-500 text-white flex items-center justify-center transition cursor-pointer">
-                    <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                <!-- Hover Overlay with Xem (Preview) centered & Xoá (Delete) top-right -->
+                <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                  <!-- Nút xoá góc trên bên phải -->
+                  <button type="button" onclick="deleteCharacterImage('${char.id}', ${imgIdx}, event)" title="Xóa ảnh này" class="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 hover:bg-rose-600 text-rose-300 hover:text-white flex items-center justify-center shadow transition cursor-pointer z-10 hover:scale-110 active:scale-95">
+                    <i data-lucide="trash-2" class="w-3 h-3"></i>
                   </button>
-                  <button type="button" onclick="deleteCharacterImage('${char.id}', ${imgIdx}, event)" title="Xóa ảnh này" class="w-6 h-6 rounded-md bg-rose-500/20 hover:bg-rose-600 text-rose-300 hover:text-white flex items-center justify-center transition cursor-pointer">
-                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  <!-- Nút xem ở giữa -->
+                  <button type="button" onclick="openImagePreviewModal('${img.url}', '${escapeHtml(char.name)} - ${escapeHtml(img.name || '')}', event)" title="Xem ảnh lớn" class="w-7 h-7 rounded-full bg-white/20 hover:bg-cyan-500 text-white flex items-center justify-center shadow backdrop-blur-xs transition cursor-pointer hover:scale-110 active:scale-95">
+                    <i data-lucide="eye" class="w-3.5 h-3.5"></i>
                   </button>
                 </div>
               </div>
@@ -3222,7 +3230,7 @@ function renderMovieScenes() {
           </span>
           <div class="flex items-center space-x-1.5 overflow-x-auto py-0.5">
             ${refImages.length > 0 ? refImages.map(img => `
-              <div class="relative w-7 h-7 rounded-md border shrink-0 overflow-hidden" style="border-color: ${img.color || '#06b6d4'}" title="${escapeHtml(img.name)} (${escapeHtml(img.charName)})">
+              <div class="relative w-7 h-7 rounded-md border shrink-0 overflow-hidden cursor-pointer hover:ring-1 hover:ring-cyan-400 transition" onclick="openImagePreviewModal('${img.url}', '${escapeHtml(img.charName)} - ${escapeHtml(img.name)}')" style="border-color: ${img.color || '#06b6d4'}" title="${escapeHtml(img.name)} (${escapeHtml(img.charName)}) - Bấm để xem ảnh lớn">
                 <img src="${img.url}" class="w-full h-full object-cover">
               </div>
             `).join('') : '<span class="text-slate-500 italic text-[10px]">Chưa có ảnh (sẽ dùng mô tả văn bản)</span>'}
