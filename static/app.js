@@ -49,6 +49,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 2. Restore active tab, mode, ratio, duration, style from URL query params
   restoreFromUrlParams();
+  toggleAutoProduceAfterPortraits(isAutoProduceEnabled());
+  toggleAutoDrawCharacters(isAutoDrawCharactersEnabled());
 
   // 3. If storyboard was restored, render it and prepare next scene view
   if (hasCachedStoryboard && state.storyboard.length > 0) {
@@ -249,6 +251,18 @@ function toggleAutoProduceAfterPortraits(enabled) {
   const t2 = document.getElementById('movie-auto-produce-toggle-bottom');
   if (t1) t1.checked = enabled;
   if (t2) t2.checked = enabled;
+}
+
+// Auto draw AI characters when script is ready (default true)
+function isAutoDrawCharactersEnabled() {
+  const val = localStorage.getItem('h_ai_movie_auto_draw_chars');
+  return val !== 'false';
+}
+
+function toggleAutoDrawCharacters(enabled) {
+  localStorage.setItem('h_ai_movie_auto_draw_chars', enabled ? 'true' : 'false');
+  const t = document.getElementById('movie-auto-draw-chars-toggle');
+  if (t) t.checked = enabled;
 }
 
 // Close preview modal on Esc
@@ -2603,13 +2617,17 @@ async function analyzeAndBreakdownScript() {
     renderMovieScenes();
     renderCharacterLegend();
 
+    const autoDrawEnabled = isAutoDrawCharactersEnabled();
     // Auto-generate 3 standard character portraits for any character missing images
     const charsNeedingImages = movieState.characters.filter(c => !c.images || c.images.length === 0);
-    if (charsNeedingImages.length > 0) {
+    if (autoDrawEnabled && charsNeedingImages.length > 0) {
       autoGenerateMissingCharacterPortraits(charsNeedingImages);
     }
 
-    await customAlert('🎬 Phân tích kịch bản thành công!\nĐã trích xuất ' + characters.length + ' nhân vật (mỗi nhân vật 3 ảnh tham chiếu) và ' + scenes.length + ' phân cảnh chi tiết.\nKhi quay từng cảnh, hệ thống sẽ tự động đính kèm ảnh của nhân vật tương ứng để giữ nguyên đặc trưng tạo hình!', 'Phân Tích Thành Công', 'success');
+    const drawNote = autoDrawEnabled
+      ? 'Hệ thống đang tự động vẽ 3 ảnh chuẩn cho các nhân vật.'
+      : 'Bạn đang tắt tự động vẽ nhân vật AI — bạn có thể bấm "AI Tạo 3 Ảnh" hoặc tải ảnh lên cho từng nhân vật.';
+    await customAlert('🎬 Phân tích kịch bản thành công!\nĐã trích xuất ' + characters.length + ' nhân vật và ' + scenes.length + ' phân cảnh chi tiết.\n' + drawNote + '\nKhi quay từng cảnh, hệ thống sẽ tự động đính kèm ảnh của nhân vật tương ứng để giữ nguyên đặc trưng tạo hình!', 'Phân Tích Thành Công', 'success');
   } catch (err) {
     await customAlert('Lỗi phân tích kịch bản: ' + err.message, 'Lỗi phân tích', 'error');
   } finally {
