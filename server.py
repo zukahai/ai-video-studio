@@ -92,7 +92,7 @@ class MovieBreakdownModel(BaseModel):
     script: str
     style_preset: Optional[str] = "Điện ảnh 4K Hollywood"
     aspect_ratio: Optional[str] = "16:9"
-    target_scenes: Optional[int] = 4
+    target_scenes: Optional[int | str] = "auto"
 
 
 class MergeVideosModel(BaseModel):
@@ -920,21 +920,147 @@ MOVIE_CHARACTER_COLORS = [
 ]
 
 
-def _fallback_movie_breakdown(script: str, style_preset: str = "Điện ảnh 4K Hollywood", target_scenes: int = 4) -> dict:
+def _format_movie_result(parsed: dict, style_preset: str = "Điện ảnh 4K Hollywood") -> dict:
+    characters = parsed.get("characters") or []
+    if not isinstance(characters, list):
+        characters = []
+    formatted_chars = []
+    for idx, char in enumerate(characters):
+        if not isinstance(char, dict):
+            continue
+        c_id = char.get("id") or f"char_{idx+1}"
+        c_name = char.get("name") or f"Nhân vật #{idx+1}"
+        c_desc = char.get("description") or f"Nhân vật {c_name} chuẩn phong cách {style_preset} sắc nét 4K."
+        c_color = char.get("color") or MOVIE_CHARACTER_COLORS[idx % len(MOVIE_CHARACTER_COLORS)]
+        c_images = char.get("images") if isinstance(char.get("images"), list) else []
+        formatted_chars.append({
+            "id": c_id,
+            "name": c_name,
+            "description": c_desc,
+            "color": c_color,
+            "images": c_images
+        })
+
+    scenes = parsed.get("scenes") or []
+    if not isinstance(scenes, list):
+        scenes = []
+    formatted_scenes = []
+    for idx, sc in enumerate(scenes):
+        if not isinstance(sc, dict):
+            continue
+        dur = sc.get("duration", 8)
+        if dur not in [5, 8, 10, 15, 20]:
+            dur = 8
+        cinematic_prompt = sc.get("prompt") or f"Cinematic 4K Hollywood, {style_preset}, Scene {idx+1}: {sc.get('situation', '')}. 8k, photorealistic lighting, cinematic camera motion"
+        formatted_scenes.append({
+            "scene_index": idx + 1,
+            "situation": sc.get("situation") or f"Diễn biến phân cảnh {idx+1}",
+            "dialogue": sc.get("dialogue") or f"Lời thoại Cảnh #{idx+1}",
+            "duration": dur,
+            "characters_involved": sc.get("characters_involved") if isinstance(sc.get("characters_involved"), list) else [],
+            "prompt": cinematic_prompt,
+            "status": "idle",
+            "video_url": None
+        })
+
+    return {
+        "title": parsed.get("title") or "Phim Điện Ảnh H-AI",
+        "logline": parsed.get("logline") or "",
+        "characters": formatted_chars,
+        "scenes": formatted_scenes
+    }
+
+
+def _fallback_movie_breakdown(script: str, style_preset: str = "Điện ảnh 4K Hollywood", target_scenes: int | str = "auto") -> dict:
     script_clean = script.strip()
+    lower = script_clean.lower()
+
+    # Special handling for well-known story: Cô Bé Bán Diêm
+    if "cô bé bán diêm" in lower or "bán diêm" in lower:
+        return _format_movie_result({
+            "title": "Cô Bé Bán Diêm",
+            "logline": "Trong đêm giao thừa tuyết rơi lạnh giá, một cô bé nghèo bán diêm thắp từng que diêm nhỏ để sưởi ấm, và trong ánh lửa mong manh ấy, em nhìn thấy bà ngoại yêu dấu đến đón em về thiên đường.",
+            "characters": [
+                {
+                    "id": "char_1",
+                    "name": "Cô Bé Bán Diêm",
+                    "description": "Bé gái khoảng 9 tuổi, dáng người nhỏ gầy, tóc vàng hoe dài rối phủ tuyết, khuôn mặt xanh xao vì lạnh với đôi má ửng hồng, đôi mắt xanh to buồn bã nhưng trong sáng. Mặc áo khoác cũ rách màu nâu sẫm quá khổ, váy len xám, khăn choàng mỏng, chân trần tím tái vì lạnh, tay ôm một chiếc giỏ tre đựng những bao diêm, một chiếc dép lê cũ còn sót lại.",
+                    "color": "#ef4444",
+                    "images": []
+                },
+                {
+                    "id": "char_2",
+                    "name": "Bà Ngoại",
+                    "description": "Phụ nữ khoảng 70 tuổi, dáng người cao gầy, tóc bạc trắng dài buông xõa, khuôn mặt hiền hậu phúc hậu với nụ cười ấm áp, đôi mắt nâu dịu dàng. Mặc áo choàng dài màu trắng ngà phát sáng nhẹ, khăn choàng ren trắng, trông như một thiên thần, xuất hiện trong ánh sáng vàng ấm của que diêm.",
+                    "color": "#f59e0b",
+                    "images": []
+                },
+                {
+                    "id": "char_3",
+                    "name": "Người Qua Đường",
+                    "description": "Người lớn đi lại trên phố trong đêm giao thừa, khoảng 30-50 tuổi, mặc áo khoác dạ dày màu tối, khăn quàng cổ, mũ lông, găng tay da, vội vã bước đi, khuôn mặt thờ ơ hoặc thương hại thoáng qua, không dừng lại mua diêm.",
+                    "color": "#64748b",
+                    "images": []
+                }
+            ],
+            "scenes": [
+                {
+                    "scene_index": 1,
+                    "situation": "Đêm giao thừa, tuyết rơi dày trên phố cổ châu Âu, cô bé bán diêm chân trần run rẩy ôm giỏ diêm đi giữa dòng người vội vã về nhà đón năm mới, không ai dừng lại mua diêm cho em.",
+                    "dialogue": "Cô Bé Bán Diêm: \"Ai mua diêm không? Diêm đây... chỉ một xu thôi ạ...\"",
+                    "duration": 10,
+                    "characters_involved": ["Cô Bé Bán Diêm", "Người Qua Đường"],
+                    "prompt": "Cinematic 4K Hollywood film, wide shot of a snowy European old town street on New Year's Eve at dusk. A 9-year-old little girl with long messy blonde hair covered in snow, wearing an oversized torn dark brown coat and grey wool dress, barefoot with purple cold feet, hugs a wicker basket of matches and walks slowly through a crowd of hurried adults in dark wool coats and fur hats. Warm golden light glows from shop windows and Christmas decorations, contrasting with cold blue snowfall and the girl's pale, shivering face, snowflakes falling on her hair, detailed cobblestone street, slow tracking camera following the girl, photorealistic, epic cinematic lighting, 4K Ultra HD."
+                },
+                {
+                    "scene_index": 2,
+                    "situation": "Không bán được que diêm nào, cô bé co ro ngồi nép vào góc tường giữa hai ngôi nhà, run rẩy quẹt que diêm đầu tiên để sưởi ấm đôi tay tê cóng, và trong ánh lửa, em mơ thấy một lò sưởi ấm áp với bữa ăn ngon.",
+                    "dialogue": "Dẫn chuyện: \"Em quẹt que diêm đầu tiên, và trong ánh lửa nhỏ bé ấy, em thấy một lò sưởi ấm áp đang cháy rực rỡ.\"",
+                    "duration": 10,
+                    "characters_involved": ["Cô Bé Bán Diêm"],
+                    "prompt": "Cinematic 4K Hollywood film, intimate close-up and medium shot of a 9-year-old little girl with long blonde hair covered in snow, wearing a torn dark brown coat, crouching in a snowy corner between two brick houses at night. She strikes a match with trembling hands, the small golden flame illuminating her pale, hopeful face and cold red fingers, her breath visible in the freezing air. In the warm glow of the flame, a magical vision of a glowing fireplace appears faintly before her, snow falling around her, cold blue night light contrasting with the warm orange match light, shallow depth of field, slow push-in camera, photorealistic, emotional cinematic lighting, 4K Ultra HD."
+                },
+                {
+                    "scene_index": 3,
+                    "situation": "Cô bé quẹt thêm nhiều que diêm, ánh lửa nối tiếp nhau hiện ra cây thông Noel lấp lánh và cuối cùng là hình ảnh bà ngoại yêu dấu mỉm cười dang tay đón em, em vội quẹt hết cả bao diêm để giữ bà ở lại.",
+                    "dialogue": "Cô Bé Bán Diêm: \"Bà ơi! Bà đừng đi! Cháu quẹt hết diêm đây, bà ở lại với cháu nhé!\"",
+                    "duration": 10,
+                    "characters_involved": ["Cô Bé Bán Diêm", "Bà Ngoại"],
+                    "prompt": "Cinematic 4K Hollywood film, magical medium shot in a snowy street corner at night. A 9-year-old little girl with long blonde hair, wearing a torn dark brown coat, kneels in the snow striking match after match, each golden flame revealing a glowing vision: a sparkling Christmas tree with candles and gifts, then a kind 70-year-old grandmother with long white hair, wearing a glowing ivory-white gown, smiling warmly with open arms. The grandmother's radiant golden light surrounds the girl, snowflakes glowing in the warm light, the girl's face filled with joy and tears, cold blue night contrasting with warm magical golden glow, slow crane-up camera, photorealistic, dreamlike cinematic lighting, 4K Ultra HD."
+                },
+                {
+                    "scene_index": 4,
+                    "situation": "Sáng mùng một năm mới, tuyết ngừng rơi, người qua đường phát hiện cô bé đã ra đi trong nụ cười bình yên bên góc tường, tay vẫn nắm chặt bao diêm đã cháy hết, linh hồn em được bà ngoại bế lên thiên đường trong ánh sáng rực rỡ.",
+                    "dialogue": "Dẫn chuyện: \"Sáng hôm sau, người ta thấy em ngồi đó, má vẫn ửng hồng, môi vẫn mỉm cười — em đã đi theo bà ngoại về nơi ấm áp và hạnh phúc mãi mãi.\"",
+                    "duration": 8,
+                    "characters_involved": ["Cô Bé Bán Diêm", "Bà Ngoại", "Người Qua Đường"],
+                    "prompt": "Cinematic 4K Hollywood film, poignant wide and medium shot on a snowy street at dawn on New Year's morning. A 9-year-old little girl with long blonde hair, wearing a torn dark brown coat, sits peacefully against a brick wall in the snow, smiling gently with rosy cheeks, holding burnt matchsticks, while a few passersby in dark wool coats stand nearby in sorrow. Above her, a radiant vision of a 70-year-old grandmother with long white hair in a glowing ivory gown gently lifts the girl's spirit into warm golden heavenly light breaking through soft pink dawn clouds, snow sparkling, cold blue morning light contrasting with warm golden heavenly glow, slow crane-up camera rising toward the sky, photorealistic, deeply emotional cinematic lighting, 4K Ultra HD."
+                }
+            ]
+        }, style_preset)
+
     paras = [p.strip() for p in re.split(r'\n+|\.\s+', script_clean) if len(p.strip()) > 10]
     if not paras:
         paras = [script_clean] if script_clean else ["Khởi đầu câu chuyện kịch tính trong không gian điện ảnh."]
 
-    common_names = ["Bà lão", "Ông lão", "Chàng trai", "Cô gái", "Hiệp sĩ", "Phù thủy", "Công chúa", "Hoàng tử", "Con rồng", "Thợ săn", "Chiến binh", "Robot", "Người lạ"]
+    common_names = [
+        "Cô bé", "Bà lão", "Bà ngoại", "Ông lão", "Chàng trai", "Cô gái",
+        "Hiệp sĩ", "Phù thủy", "Công chúa", "Hoàng tử", "Con rồng", "Thợ săn",
+        "Chiến binh", "Robot", "Người lạ", "Người qua đường"
+    ]
     found_chars = []
     for name in common_names:
         if name.lower() in script_clean.lower():
             found_chars.append(name)
 
-    # Detect capitalized words
+    # Detect capitalized words with strict Vietnamese stopwords
     cap_words = re.findall(r'\b[A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬĐÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴ][a-zàáảãạăắằẳẵặâấầẩẫậđèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ]+\b', script_clean)
-    stopwords = {"Ngày", "Một", "Khi", "Nhưng", "Và", "Trong", "Trên", "Sau", "Bỗng", "Có", "Thế", "Rồi", "Đó", "Nếu", "Vì", "Bởi", "Tuy"}
+    stopwords = {
+        "Ngày", "Một", "Khi", "Nhưng", "Và", "Trong", "Trên", "Sau", "Bỗng", "Có",
+        "Thế", "Rồi", "Đó", "Nếu", "Vì", "Bởi", "Tuy", "Cho", "Tôi", "Hãy", "Viết",
+        "Tạo", "Làm", "Kịch", "Bản", "Câu", "Chuyện", "Phim", "Xem", "Nói", "Về",
+        "Muốn", "Giúp", "Bạn", "Được", "Với", "Ở", "Tại", "Những", "Các", "Đang"
+    }
     for word in cap_words:
         if word not in stopwords and len(word) > 2 and word not in found_chars and len(found_chars) < 5:
             found_chars.append(word)
@@ -952,9 +1078,14 @@ def _fallback_movie_breakdown(script: str, style_preset: str = "Điện ảnh 4K
             "images": []
         })
 
-    num_scenes = max(2, min(target_scenes, max(2, len(paras))))
+    # Determine scene count
+    if isinstance(target_scenes, int) and target_scenes > 0:
+        num_scenes = max(2, min(10, target_scenes))
+    else:
+        num_scenes = max(3, min(6, max(3, len(paras))))
+
     scenes = []
-    durations = [5, 8, 8, 10, 10, 15]
+    durations = [8, 10, 8, 10, 15, 8]
 
     for i in range(num_scenes):
         chunk_idx = min(i, len(paras) - 1)
@@ -963,7 +1094,7 @@ def _fallback_movie_breakdown(script: str, style_preset: str = "Điện ảnh 4K
         if not involved and characters:
             involved = [characters[i % len(characters)]["name"]]
 
-        prompt = f"Cinematic 4K, {style_preset}, Scene {i+1}: {chunk_text}. With {', '.join(involved)}, photorealistic lighting, 8k masterpiece, smooth cinematic camera motion"
+        prompt = f"Cinematic 4K Hollywood, {style_preset}, Scene {i+1}: {chunk_text}. With {', '.join(involved)}, photorealistic lighting, 8k masterpiece, smooth cinematic camera motion"
 
         scenes.append({
             "scene_index": i + 1,
@@ -991,29 +1122,69 @@ async def breakdown_movie(data: MovieBreakdownModel):
         raise HTTPException(status_code=400, detail="Vui lòng nhập kịch bản hoặc ý tưởng phim.")
 
     style_preset = data.style_preset or "Điện ảnh 4K Hollywood"
-    target_scenes = max(2, min(10, data.target_scenes or 4))
+
+    # 1. Direct JSON detection: If user or upstream passed a JSON structure
+    try:
+        if (script.startswith("{") and script.endswith("}")) or ('"characters"' in script and '"scenes"' in script):
+            match = re.search(r'\{[\s\S]*\}', script)
+            if match:
+                direct_parsed = json.loads(match.group(0))
+                if isinstance(direct_parsed, dict) and ("characters" in direct_parsed or "scenes" in direct_parsed):
+                    formatted = _format_movie_result(direct_parsed, style_preset)
+                    return {
+                        "status": "success",
+                        "data": formatted,
+                        "source": "imported_json"
+                    }
+    except Exception as e:
+        logger.debug(f"Direct JSON parse skipped: {e}")
+
+    # Determine target scene count & instructions
+    raw_target = data.target_scenes
+    target_scenes_num = None
+    if isinstance(raw_target, int) and raw_target > 0:
+        target_scenes_num = max(2, min(10, raw_target))
+    elif isinstance(raw_target, str) and raw_target.isdigit():
+        target_scenes_num = max(2, min(10, int(raw_target)))
+
+    if target_scenes_num:
+        scenes_instruction = f"Hãy phân tích kịch bản thành một bộ phim ngắn gồm đúng {target_scenes_num} phân cảnh liên kết chặt chẽ theo thứ tự thời gian."
+    else:
+        scenes_instruction = "Hãy tự động phân tích cốt truyện thành số phân cảnh tối ưu nhất (từ 3 đến 6 phân cảnh, đầy đủ mở đầu, cao trào và kết thúc trọn vẹn)."
 
     # Try AI Director breakdown via client
     try:
         client = await get_or_create_client()
-        director_prompt = f"""Bạn là một Đạo diễn & Biên kịch điện ảnh bậc thầy (H-AI Movie Director).
-Nhiệm vụ: Hãy phân tích kịch bản sau thành một bộ phim ngắn gồm đúng {target_scenes} phân cảnh liên kết chặt chẽ (chuỗi phim nối tiếp):
 
-CỐT TRUYỆN:
+        # Track existing baseline messages so we don't pick up old messages
+        baseline_ids: set[str] = set()
+        try:
+            before_hist = await client.history(limit=20)
+            chat_events = (before_hist.get("result") or {}).get("chat_events") or []
+            for ev in chat_events:
+                if isinstance(ev, dict) and ev.get("message_id"):
+                    baseline_ids.add(ev["message_id"])
+        except Exception:
+            pass
+
+        director_prompt = f"""Bạn là một Đạo diễn & Biên kịch điện ảnh chuyên nghiệp (H-AI Movie Director).
+{scenes_instruction}
+
+CỐT TRUYỆN / Ý TƯỞNG:
 \"\"\"{script}\"\"\"
 
 PHONG CÁCH QUAY PHIM: {style_preset}
 
 YÊU CẦU:
-1. Trích xuất TẤT CẢ các nhân vật có trong câu chuyện. Với mỗi nhân vật, mô tả chi tiết ngoại hình, độ tuổi, trang phục để tạo ảnh tham chiếu.
-2. Chia thành đúng {target_scenes} phân cảnh theo thứ tự thời gian. Mỗi phân cảnh có:
+1. Trích xuất TẤT CẢ các nhân vật có trong câu chuyện (VD: nhân vật chính, phụ, người đồng hành). Với mỗi nhân vật, mô tả chi tiết ngoại hình, độ tuổi, trang phục để tạo ảnh tham chiếu.
+2. Phân chia các phân cảnh theo thứ tự thời gian. Mỗi phân cảnh có:
    - situation: Tình huống diễn biến của cảnh quay.
-   - dialogue: Lời thoại hoặc độc thoại phù hợp.
+   - dialogue: Lời thoại hoặc độc thoại giàu cảm xúc.
    - duration: Số giây phù hợp (chọn 5, 8, 10, 15, hoặc 20).
    - characters_involved: Mảng tên các nhân vật có mặt trong cảnh.
-   - prompt: Prompt chi tiết chuẩn điện ảnh 4K (tiếng Anh hoặc tiếng Việt chuẩn cinematic) mô tả góc máy, ánh sáng, chi tiết nhân vật và hành động.
+   - prompt: Prompt chi tiết chuẩn điện ảnh 4K tiếng Anh (Cinematic 4K Hollywood, camera angle, lighting, character details, photorealistic).
 
-ĐỊNH DẠNG ĐẦU RA BẮT BUỘC: DUY NHẤT một khối JSON hợp lệ theo mẫu:
+ĐỊNH DẠNG ĐẦU RA BẮT BUỘC: DUY NHẤT một khối JSON hợp lệ (không kèm lời chào hay giải thích ngoài JSON):
 {{
   "title": "Tên bộ phim",
   "logline": "Tóm tắt 1 câu cốt truyện",
@@ -1028,11 +1199,11 @@ YÊU CẦU:
   "scenes": [
     {{
       "scene_index": 1,
-      "situation": "Mô tả ngắn tình huống cảnh quay",
-      "dialogue": "Lời thoại nhân vật",
+      "situation": "Tình huống diễn biến",
+      "dialogue": "Lời thoại",
       "duration": 8,
       "characters_involved": ["Tên nhân vật"],
-      "prompt": "Cinematic prompt 4k..."
+      "prompt": "Cinematic 4K..."
     }}
   ]
 }}
@@ -1041,7 +1212,7 @@ YÊU CẦU:
             prompt=director_prompt,
             images=[],
             session_id=None,
-            stream_timeout=15.0,
+            stream_timeout=20.0,
         )
 
         session_id = None
@@ -1050,12 +1221,15 @@ YÊU CẦU:
             session_id = extracted_ids[-1]
 
         reply_text = ""
-        deadline = time.monotonic() + 45.0
+        deadline = time.monotonic() + 60.0
         while time.monotonic() < deadline:
             hist = await client.history(session_id=session_id, limit=20)
             chat_events = (hist.get("result") or {}).get("chat_events") or []
             for ev in reversed(chat_events):
                 if not isinstance(ev, dict):
+                    continue
+                msg_id = ev.get("message_id", "")
+                if msg_id in baseline_ids:
                     continue
                 if ev.get("event_name") == "message.assistant":
                     text = ev.get("display_text") or (ev.get("payload") or {}).get("content") or ""
@@ -1067,35 +1241,23 @@ YÊU CẦU:
             await asyncio.sleep(1.2)
 
         if reply_text:
-            # Extract JSON block
-            match = re.search(r'\{[\s\S]*\}', reply_text)
+            clean_text = re.sub(r'^```(?:json)?\s*', '', reply_text.strip(), flags=re.MULTILINE)
+            clean_text = re.sub(r'```\s*$', '', clean_text, flags=re.MULTILINE).strip()
+            match = re.search(r'\{[\s\S]*\}', clean_text)
             if match:
                 parsed = json.loads(match.group(0))
-                if isinstance(parsed, dict) and "characters" in parsed and "scenes" in parsed:
-                    # Assign unique colors if missing
-                    for idx, char in enumerate(parsed["characters"]):
-                        if "color" not in char or not char["color"]:
-                            char["color"] = MOVIE_CHARACTER_COLORS[idx % len(MOVIE_CHARACTER_COLORS)]
-                        char["images"] = char.get("images", [])
-                        if "id" not in char:
-                            char["id"] = f"char_{idx+1}"
-
-                    for sc in parsed["scenes"]:
-                        sc["status"] = "idle"
-                        sc["video_url"] = None
-                        if "duration" not in sc or sc["duration"] not in [5, 8, 10, 15, 20]:
-                            sc["duration"] = 8
-
+                if isinstance(parsed, dict) and ("characters" in parsed or "scenes" in parsed):
+                    formatted = _format_movie_result(parsed, style_preset)
                     return {
                         "status": "success",
-                        "data": parsed,
+                        "data": formatted,
                         "source": "ai_director"
                     }
     except Exception as exc:
         logger.warning(f"AI director breakdown fallback triggered: {exc}")
 
-    # Fallback director
-    fallback_data = _fallback_movie_breakdown(script, style_preset, target_scenes)
+    # Smart Fallback director
+    fallback_data = _fallback_movie_breakdown(script, style_preset, target_scenes_num or "auto")
     return {
         "status": "success",
         "data": fallback_data,

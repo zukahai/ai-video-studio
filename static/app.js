@@ -1881,28 +1881,48 @@ async function analyzeAndBreakdownScript() {
 
     const style = document.getElementById('movie-style-select')?.value || 'Điện ảnh 4K Hollywood';
     const ratio = document.getElementById('movie-ratio-select')?.value || '16:9';
-    const targetScenes = parseInt(document.getElementById('movie-scenes-target')?.value || '4', 10);
+    const scenesSelectVal = document.getElementById('movie-scenes-target')?.value || 'auto';
+    const targetScenes = scenesSelectVal === 'auto' ? 'auto' : (parseInt(scenesSelectVal, 10) || 'auto');
 
     movieState.script = script;
     movieState.stylePreset = style;
     movieState.aspectRatio = ratio;
     movieState.targetScenes = targetScenes;
 
-    const res = await fetch('/api/movie/breakdown', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        script: script,
-        style_preset: style,
-        aspect_ratio: ratio,
-        target_scenes: targetScenes,
-      }),
-    });
+    // Check if user directly input/pasted a Movie JSON structure
+    let directData = null;
+    try {
+      if ((script.startsWith('{') && script.endsWith('}')) || (script.includes('"characters"') && script.includes('"scenes"'))) {
+        const match = script.match(/\{[\s\S]*\}/);
+        if (match) {
+          const parsed = JSON.parse(match[0]);
+          if (parsed && (Array.isArray(parsed.characters) || Array.isArray(parsed.scenes))) {
+            directData = parsed;
+          }
+        }
+      }
+    } catch (e) {}
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Không thể phân tích kịch bản.');
+    let result = null;
+    if (directData) {
+      result = directData;
+    } else {
+      const res = await fetch('/api/movie/breakdown', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          script: script,
+          style_preset: style,
+          aspect_ratio: ratio,
+          target_scenes: targetScenes,
+        }),
+      });
 
-    const result = data.data || {};
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Không thể phân tích kịch bản.');
+      result = data.data || {};
+    }
+
     movieState.title = result.title || 'Phim Điện Ảnh H-AI';
     movieState.logline = result.logline || '';
 
@@ -1932,9 +1952,7 @@ async function analyzeAndBreakdownScript() {
     renderMovieScenes();
     renderCharacterLegend();
 
-    alert(`🎬 Phân tích thành công!
-Đã trích xuất ${characters.length} nhân vật và ${scenes.length} phân cảnh chi tiết.
-Bạn có thể tải ảnh tham chiếu cho nhân vật hoặc bấm [Bắt Đầu Tạo Phim Tự Động] ngay!`);
+    alert('🎬 Phân tích thành công!\nĐã trích xuất ' + characters.length + ' nhân vật và ' + scenes.length + ' phân cảnh chi tiết.\nBạn có thể tải ảnh tham chiếu cho nhân vật hoặc bấm [Sản Xuất Phim Tự Động] ngay!');
   } catch (err) {
     alert('Lỗi phân tích kịch bản: ' + err.message);
   } finally {
@@ -1942,6 +1960,27 @@ Bạn có thể tải ảnh tham chiếu cho nhân vật hoặc bấm [Bắt Đ�
     if (btnText) btnText.innerText = originalText;
     lucide.createIcons();
   }
+}
+
+function clearMovieProject() {
+  if (movieState.characters.length > 0 || movieState.scenes.length > 0) {
+    if (!confirm('Bạn có chắc muốn làm sạch toàn bộ kịch bản, nhân vật và phân cảnh hiện tại để bắt đầu mới?')) {
+      return;
+    }
+  }
+  movieState.script = '';
+  movieState.title = '';
+  movieState.logline = '';
+  movieState.characters = [];
+  movieState.scenes = [];
+  movieState.sessionId = null;
+  const scriptInput = document.getElementById('movie-script-input');
+  if (scriptInput) scriptInput.value = '';
+  saveMovieStateCache();
+  renderMovieCharacters();
+  renderMovieScenes();
+  renderCharacterLegend();
+  lucide.createIcons();
 }
 
 // ==================== CHARACTER MANAGEMENT ====================
