@@ -571,7 +571,7 @@
               <div>
                 <label class="block text-xs font-semibold text-slate-200 mb-2">Phong cách Đạo diễn</label>
                 <div class="flex flex-wrap gap-1.5">
-                  <button type="button" onclick="setVideoStyle('Điện ảnh 4K Hollywood')" id="vstyle-hollywood" class="vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-sky-400 bg-sky-500/20 text-white font-semibold transition shadow-sm shadow-sky-500/30">🎬 Điện ảnh 4K</button>
+                  <button type="button" onclick="setVideoStyle('Điện ảnh HD Hollywood')" id="vstyle-hollywood" class="vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-sky-400 bg-sky-500/20 text-white font-semibold transition shadow-sm shadow-sky-500/30">🎬 Điện ảnh HD</button>
                   <button type="button" onclick="setVideoStyle('Siêu thực tế Photorealistic')" id="vstyle-real" class="vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-surface-600 bg-surface-900 text-slate-300 hover:text-white transition">📷 Siêu thực</button>
                   <button type="button" onclick="setVideoStyle('Hoạt hình 3D Pixar / Anime')" id="vstyle-anime" class="vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-surface-600 bg-surface-900 text-slate-300 hover:text-white transition">✨ Hoạt hình 3D</button>
                   <button type="button" onclick="setVideoStyle('Cyberpunk Sci-Fi Neon')" id="vstyle-cyber" class="vstyle-btn text-xs px-3 py-1.5 rounded-lg border border-surface-600 bg-surface-900 text-slate-300 hover:text-white transition">🌆 Cyberpunk</button>
@@ -850,7 +850,7 @@
                 <div>
                   <label class="block text-[11px] font-semibold text-slate-300 mb-1 truncate" title="Phong cách Đạo diễn">Phong cách</label>
                   <select id="movie-style-select" onchange="onMovieStyleChange(this.value)" class="w-full bg-surface-900 border border-surface-600 focus:border-cyan-400 rounded-xl px-2.5 py-2 text-xs text-slate-200 focus:outline-none cursor-pointer">
-                    <option value="Điện ảnh 4K Hollywood">🎬 Điện ảnh 4K</option>
+                    <option value="Điện ảnh HD Hollywood">🎬 Điện ảnh HD</option>
                     <option value="Hoạt hình 3D Pixar / Anime">✨ Hoạt hình 3D</option>
                     <option value="Siêu thực tế Photorealistic">📷 Siêu thực tế</option>
                     <option value="Cyberpunk Sci-Fi Neon">🌆 Cyberpunk</option>
@@ -871,7 +871,7 @@
 
                 <div>
                   <label class="block text-[11px] font-semibold text-slate-300 mb-1 truncate" title="Số phân cảnh">Số phân cảnh</label>
-                  <select id="movie-scenes-target" class="w-full bg-surface-900 border border-surface-600 focus:border-cyan-400 rounded-xl px-2.5 py-2 text-xs text-slate-200 focus:outline-none cursor-pointer">
+                  <select id="movie-scenes-target" onchange="movieState.targetScenes = this.value; saveMovieStateCache();" class="w-full bg-surface-900 border border-surface-600 focus:border-cyan-400 rounded-xl px-2.5 py-2 text-xs text-slate-200 focus:outline-none cursor-pointer">
                     <option value="auto" selected>Tự động (AI)</option>
                     <option value="3">3 cảnh</option>
                     <option value="4">4 cảnh</option>
@@ -1276,7 +1276,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261113_17"></script>
+  <script src="/static/app.js?v=20261113_18"></script>
   <script>
     lucide.createIcons();
   </script>

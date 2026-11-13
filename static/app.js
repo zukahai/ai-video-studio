@@ -6,7 +6,7 @@ const state = {
   // Video Studio state
   videoRatio: '16:9',
   videoDuration: 5,
-  videoStyle: 'Điện ảnh 4K Hollywood',
+  videoStyle: 'Điện ảnh HD Hollywood',
   isContinuation: false,
   videoSessionId: null,
   sceneIndex: 1,
@@ -876,7 +876,7 @@ function setVideoStyle(styleName, syncUrl = true) {
   if (norm.includes('hoạt hình') || norm.includes('anime') || norm.includes('pixar')) {
     matchedStyle = 'Hoạt hình 3D Pixar / Anime';
   } else if (norm.includes('điện ảnh') || norm.includes('hollywood')) {
-    matchedStyle = 'Điện ảnh 4K Hollywood';
+    matchedStyle = 'Điện ảnh HD Hollywood';
   } else if (norm.includes('siêu thực') || norm.includes('real')) {
     matchedStyle = 'Siêu thực tế Photorealistic';
   } else if (norm.includes('cyber') || norm.includes('neon')) {
@@ -888,7 +888,7 @@ function setVideoStyle(styleName, syncUrl = true) {
   state.videoStyle = matchedStyle;
 
   const map = {
-    'Điện ảnh 4K Hollywood': 'vstyle-hollywood',
+    'Điện ảnh HD Hollywood': 'vstyle-hollywood',
     'Siêu thực tế Photorealistic': 'vstyle-real',
     'Hoạt hình 3D Pixar / Anime': 'vstyle-anime',
     'Cyberpunk Sci-Fi Neon': 'vstyle-cyber',
@@ -1962,9 +1962,9 @@ const movieState = {
   title: 'Kịch bản Phim Mới',
   logline: '',
   script: '',
-  stylePreset: 'Điện ảnh 4K Hollywood',
+  stylePreset: 'Điện ảnh HD Hollywood',
   aspectRatio: '16:9',
-  targetScenes: 4,
+  targetScenes: 'auto',
   characters: [], // [{ id, name, description, color, images: [{ id, local_path, url, name }] }]
   scenes: [], // [{ scene_index, situation, dialogue, duration, characters_involved: [], prompt, status: 'idle'|'generating'|'done', video_url: null }]
   sessionId: null,
@@ -2026,9 +2026,9 @@ function restoreMovieStateCache() {
     movieState.title = data.title || 'Kịch bản Phim Mới';
     movieState.logline = data.logline || '';
     movieState.script = data.script || '';
-    movieState.stylePreset = data.stylePreset || 'Điện ảnh 4K Hollywood';
+    movieState.stylePreset = (data.stylePreset === 'Điện ảnh 4K Hollywood' ? 'Điện ảnh HD Hollywood' : data.stylePreset) || 'Điện ảnh HD Hollywood';
     movieState.aspectRatio = data.aspectRatio || '16:9';
-    movieState.targetScenes = data.targetScenes || 4;
+    movieState.targetScenes = data.targetScenes || 'auto';
     movieState.characters = Array.isArray(data.characters) ? data.characters : [];
     movieState.scenes = Array.isArray(data.scenes) ? data.scenes : [];
     movieState.sessionId = data.sessionId || null;
@@ -2211,9 +2211,9 @@ async function switchMovieProject(projectId, updateUrl = true) {
     movieState.title = p.title || 'Kịch bản Phim Mới';
     movieState.logline = p.logline || '';
     movieState.script = p.script || '';
-    movieState.stylePreset = p.stylePreset || 'Điện ảnh 4K Hollywood';
+    movieState.stylePreset = (p.stylePreset === 'Điện ảnh 4K Hollywood' ? 'Điện ảnh HD Hollywood' : p.stylePreset) || 'Điện ảnh HD Hollywood';
     movieState.aspectRatio = p.aspectRatio || '16:9';
-    movieState.targetScenes = p.targetScenes || 4;
+    movieState.targetScenes = p.targetScenes || 'auto';
     movieState.characters = Array.isArray(p.characters) ? p.characters : [];
     movieState.scenes = Array.isArray(p.scenes) ? p.scenes : [];
     movieState.sessionId = p.sessionId || null;
@@ -2265,9 +2265,9 @@ async function saveCurrentMovieProject(showToast = true) {
       title: movieState.title || 'Kịch bản Phim Mới',
       logline: movieState.logline || '',
       script: movieState.script || '',
-      stylePreset: movieState.stylePreset || 'Điện ảnh 4K Hollywood',
+      stylePreset: movieState.stylePreset || 'Điện ảnh HD Hollywood',
       aspectRatio: movieState.aspectRatio || '16:9',
-      targetScenes: movieState.targetScenes || 4,
+      targetScenes: movieState.targetScenes || 'auto',
       characters: movieState.characters || [],
       scenes: movieState.scenes || [],
       sessionId: movieState.sessionId || null,
@@ -2349,11 +2349,14 @@ async function createNewMovieProject() {
   movieState.characters = [];
   movieState.scenes = [];
   movieState.sessionId = null;
+  movieState.targetScenes = 'auto';
   movieState.createdAt = Date.now();
   movieState.updatedAt = Date.now();
 
   const scriptInput = document.getElementById('movie-script-input');
   if (scriptInput) scriptInput.value = '';
+  const scenesTarget = document.getElementById('movie-scenes-target');
+  if (scenesTarget) scenesTarget.value = 'auto';
 
   saveMovieStateCache();
   renderMovieCharacters();
@@ -2538,7 +2541,7 @@ async function analyzeAndBreakdownScript() {
     if (btn) btn.disabled = true;
     if (btnText) btnText.innerText = 'Đang phân tích kịch bản & nhân vật...';
 
-    const style = document.getElementById('movie-style-select')?.value || 'Điện ảnh 4K Hollywood';
+    const style = document.getElementById('movie-style-select')?.value || 'Điện ảnh HD Hollywood';
     const ratio = document.getElementById('movie-ratio-select')?.value || '16:9';
     const scenesSelectVal = document.getElementById('movie-scenes-target')?.value || 'auto';
     const targetScenes = scenesSelectVal === 'auto' ? 'auto' : (parseInt(scenesSelectVal, 10) || 'auto');
@@ -2648,8 +2651,11 @@ async function clearMovieProject() {
   movieState.characters = [];
   movieState.scenes = [];
   movieState.sessionId = null;
+  movieState.targetScenes = 'auto';
   const scriptInput = document.getElementById('movie-script-input');
   if (scriptInput) scriptInput.value = '';
+  const scenesTarget = document.getElementById('movie-scenes-target');
+  if (scenesTarget) scenesTarget.value = 'auto';
   saveMovieStateCache();
   renderMovieCharacters();
   renderMovieScenes();

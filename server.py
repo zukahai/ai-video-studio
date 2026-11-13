@@ -94,7 +94,7 @@ class ChatModel(BaseModel):
 
 class MovieBreakdownModel(BaseModel):
     script: str
-    style_preset: Optional[str] = "Điện ảnh 4K Hollywood"
+    style_preset: Optional[str] = "Điện ảnh HD Hollywood"
     aspect_ratio: Optional[str] = "16:9"
     target_scenes: Optional[int | str] = "auto"
 
@@ -108,7 +108,7 @@ class CharacterPortraitRequest(BaseModel):
     character_id: str
     character_name: str
     character_description: str
-    style_preset: Optional[str] = "Điện ảnh 4K Hollywood"
+    style_preset: Optional[str] = "Điện ảnh HD Hollywood"
     angle_index: int = 1  # 1: Cận cảnh mặt, 2: Bán thân 3/4, 3: Toàn thân đứng
 
 
@@ -275,14 +275,14 @@ def build_hidden_video_prompt(
             f"{duration_desc} "
             f"Yêu cầu bắt buộc: Giữ nguyên hoàn toàn sự đồng nhất về nhân vật, trang phục, khuôn mặt, bối cảnh môi trường, "
             f"ánh sáng, bảng màu và phong cách góc máy từ cảnh trước để tạo thành một thước phim liên tục mượt mà. "
-            f"Chất lượng điện ảnh 4K Ultra HD, chuyển động vật lý tự nhiên, chi tiết sắc nét, âm thanh sống động đồng bộ hoàn hảo, "
+            f"Chất lượng điện ảnh HD, chuyển động vật lý tự nhiên, chi tiết sắc nét, âm thanh sống động đồng bộ hoàn hảo, "
             f"{ratio_desc}.{style_part}{dialogue_part}{ref_images_part}\n"
             f"Diễn biến cảnh tiếp theo: {clean_user_prompt}"
         )
     else:
         return (
             f"Hãy tạo một video chuyên nghiệp, {duration_desc} "
-            f"Chất lượng điện ảnh 4K Ultra HD, bố cục nghệ thuật xuất sắc, "
+            f"Chất lượng điện ảnh HD, bố cục nghệ thuật xuất sắc, "
             f"chuyển động camera và vật lý mượt mà chân thực, ánh sáng điện ảnh có chiều sâu, chi tiết cực kỳ sắc nét, "
             f"kèm âm thanh và hiệu ứng tiếng động sống động đồng bộ hoàn hảo, {ratio_desc}.{style_part}{dialogue_part}{ref_images_part}\n"
             f"Nội dung cảnh quay: {clean_user_prompt}"
@@ -1086,7 +1086,7 @@ MOVIE_CHARACTER_COLORS = [
 ]
 
 
-def _format_movie_result(parsed: dict, style_preset: str = "Điện ảnh 4K Hollywood") -> dict:
+def _format_movie_result(parsed: dict, style_preset: str = "Điện ảnh HD Hollywood") -> dict:
     characters = parsed.get("characters") or []
     if not isinstance(characters, list):
         characters = []
@@ -1164,7 +1164,7 @@ def _format_movie_result(parsed: dict, style_preset: str = "Điện ảnh 4K Hol
     }
 
 
-def _fallback_movie_breakdown(script: str, style_preset: str = "Điện ảnh 4K Hollywood", target_scenes: int | str = "auto") -> dict:
+def _fallback_movie_breakdown(script: str, style_preset: str = "Điện ảnh HD Hollywood", target_scenes: int | str = "auto") -> dict:
     script_clean = script.strip()
     lower = script_clean.lower()
 
@@ -1428,7 +1428,7 @@ async def breakdown_movie(data: MovieBreakdownModel):
     if not script:
         raise HTTPException(status_code=400, detail="Vui lòng nhập kịch bản hoặc ý tưởng phim.")
 
-    style_preset = data.style_preset or "Điện ảnh 4K Hollywood"
+    style_preset = data.style_preset or "Điện ảnh HD Hollywood"
 
     # 1. Direct JSON detection: If user or upstream passed a JSON structure
     try:
@@ -1704,7 +1704,7 @@ class MovieProjectModel(BaseModel):
     title: Optional[str] = "Kịch bản Phim Mới"
     logline: Optional[str] = ""
     script: Optional[str] = ""
-    stylePreset: Optional[str] = "Điện ảnh 4K Hollywood"
+    stylePreset: Optional[str] = "Điện ảnh HD Hollywood"
     aspectRatio: Optional[str] = "16:9"
     targetScenes: Optional[Any] = "auto"
     characters: Optional[list] = []
@@ -1753,7 +1753,7 @@ def _seed_initial_movie_projects():
                 "title": "Cô Bé Bán Diêm",
                 "logline": "Trong đêm giao thừa tuyết rơi lạnh giá, một cô bé nghèo bán diêm thắp từng que diêm nhỏ để sưởi ấm, và trong ánh lửa mong manh ấy, em nhìn thấy bà ngoại yêu dấu đến đón em về thiên đường.",
                 "script": "Đêm giao thừa, tuyết rơi lạnh buốt. Một cô bé đầu trần, chân đất co ro bước đi trên đường phố vắng vẻ...",
-                "stylePreset": "Điện ảnh 4K Hollywood",
+                "stylePreset": "Điện ảnh HD Hollywood",
                 "aspectRatio": "16:9",
                 "targetScenes": len(scenes),
                 "characters": [
@@ -1808,7 +1808,7 @@ def _seed_initial_movie_projects():
                 "title": "Có Công Mài Sắt, Có Ngày Nên Kim",
                 "logline": "Một cậu bé ham chơi lười học gặp bà cụ đang mài thỏi sắt lớn thành kim khâu, và từ bài học kiên trì ấy, cậu quyết tâm thay đổi để trở thành người chăm học.",
                 "script": "Ngày xửa ngày xưa, có một cậu bé rất lười học. Một hôm cậu đi chơi gặp bà cụ mài sắt thành kim...",
-                "stylePreset": "Điện ảnh 4K Hollywood",
+                "stylePreset": "Điện ảnh HD Hollywood",
                 "aspectRatio": "16:9",
                 "targetScenes": len(m_scenes),
                 "characters": [
@@ -1858,7 +1858,7 @@ def _seed_initial_movie_projects():
                 p_chars.append({
                     "id": f"char_{idx + 1}",
                     "name": cname,
-                    "description": f"Nhân vật {cname} mang phong thái điện ảnh đặc trưng Điện ảnh 4K Hollywood.",
+                    "description": f"Nhân vật {cname} mang phong thái điện ảnh đặc trưng Điện ảnh HD Hollywood.",
                     "color": palette[idx % len(palette)],
                     "images": imgs
                 })
@@ -1868,7 +1868,7 @@ def _seed_initial_movie_projects():
                 "title": "Chuyện Nhà Thiện",
                 "logline": "Câu chuyện gia đình ấm áp giữa Thiện, Ông Nội, Mẹ Thiện, Bác Cả và Hải Lượng qua những biến cố thâm tình.",
                 "script": "Kịch bản về gia đình của Thiện cùng Ông Nội, Bác Cả, Mẹ Thiện và Hải Lượng...",
-                "stylePreset": "Điện ảnh 4K Hollywood",
+                "stylePreset": "Điện ảnh HD Hollywood",
                 "aspectRatio": "16:9",
                 "targetScenes": 4,
                 "characters": p_chars,
@@ -1930,7 +1930,7 @@ def _seed_initial_movie_projects():
                 "title": "Ăn Khế Trả Vàng",
                 "logline": "Hai anh em mồ côi cha mẹ, người anh chia cho em cây khế cằn cỗi. Chim phượng hoàng đến ăn khế và bảo may túi ba gang mang đi mà đựng vàng.",
                 "script": "Cây khế chín rộ, chim thần đáp xuống ăn khế và trả vàng...",
-                "stylePreset": "Điện ảnh 4K Hollywood",
+                "stylePreset": "Điện ảnh HD Hollywood",
                 "aspectRatio": "16:9",
                 "targetScenes": 4,
                 "characters": khe_chars,
@@ -1989,7 +1989,7 @@ async def list_movie_projects():
                 "id": data.get("id") or file.stem,
                 "title": data.get("title") or "Kịch bản Phim Mới",
                 "logline": data.get("logline") or "",
-                "stylePreset": data.get("stylePreset") or "Điện ảnh 4K Hollywood",
+                "stylePreset": data.get("stylePreset") or "Điện ảnh HD Hollywood",
                 "aspectRatio": data.get("aspectRatio") or "16:9",
                 "targetScenes": data.get("targetScenes") or len(scenes),
                 "character_count": len(chars),
