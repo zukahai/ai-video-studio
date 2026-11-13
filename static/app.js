@@ -2798,8 +2798,7 @@ async function generateSingleMovieScene(idx) {
 function openCinemaTheater() {
   const readyScenes = movieState.scenes.filter(s => s.video_url);
   if (readyScenes.length === 0) {
-    alert('Chưa có phân cảnh nào được xuất bản thành video.
-Hãy bấm [Bắt Đầu Tạo Phim Tự Động] để sản xuất các phân cảnh trước!');
+    alert('Chưa có phân cảnh nào được xuất bản thành video.\\nHãy bấm [Bắt Đầu Tạo Phim Tự Động] để sản xuất các phân cảnh trước!');
     return;
   }
 
@@ -2864,8 +2863,7 @@ function theaterNextScene() {
     theaterPlayScene(movieState.theaterCurrentIndex + 1);
   } else {
     // End of movie
-    const playAgain = confirm('🎬 Đã chiếu hết toàn bộ các phân cảnh trong bộ phim!
-Bạn có muốn phát lại từ đầu không?');
+    const playAgain = confirm('🎬 Đã chiếu hết toàn bộ các phân cảnh trong bộ phim!\\nBạn có muốn phát lại từ đầu không?');
     if (playAgain) {
       theaterPlayScene(0);
     }
