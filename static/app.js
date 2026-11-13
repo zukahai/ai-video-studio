@@ -37,7 +37,7 @@ const state = {
 const TAB_TITLES = {
   dashboard: 'Tổng quan hệ thống (Dashboard)',
   video: 'H-AI Video Studio — Sản xuất & Nối tiếp Cảnh quay',
-  movie: 'H-AI Movie Studio — Tự động Đạo diễn & Sản xuất Phim',
+  movie: 'Tạo Phim AI — Tự động Đạo diễn & Sản xuất Phim',
   image: 'H-AI Image Studio — Sáng tạo Hình ảnh 8K',
   chat: 'Trợ lý Đạo diễn & Biên kịch H-AI',
   gallery: 'Thư viện Tác phẩm H-AI',

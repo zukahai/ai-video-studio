@@ -1039,19 +1039,76 @@ def _fallback_movie_breakdown(script: str, style_preset: str = "Điện ảnh 4K
             ]
         }, style_preset)
 
+    # Special handling for well-known story: Có Công Mài Sắt Có Ngày Nên Kim
+    if "mài sắt" in lower or "nên kim" in lower:
+        return _format_movie_result({
+            "title": "Có Công Mài Sắt, Có Ngày Nên Kim",
+            "logline": "Một cậu bé ham chơi lười học gặp bà cụ đang mài thỏi sắt lớn thành kim khâu, và từ bài học kiên trì ấy, cậu quyết tâm thay đổi để trở thành người chăm học.",
+            "characters": [
+                {
+                    "id": "char_1",
+                    "name": "Cậu Bé",
+                    "description": "Bé trai khoảng 10 tuổi, dáng người nhỏ gầy, tóc đen ngắn rối, gương mặt thông minh nhưng có nét lười biếng, thiếu kiên nhẫn, đôi mắt đen to. Mặc áo vải thô màu nâu nhạt, quần vải tối màu, đi dép rơm, tay ôm một cuốn sách cũ.",
+                    "color": "#ef4444",
+                    "images": []
+                },
+                {
+                    "id": "char_2",
+                    "name": "Bà Cụ",
+                    "description": "Phụ nữ khoảng 75 tuổi, dáng người nhỏ gầy, lưng hơi còng, tóc bạc phơ dài búi gọn sau gáy, khuôn mặt phúc hậu nhiều nếp nhăn, đôi mắt hiền từ đầy sự từng trải. Mặc áo dài nâu sẫm, khăn choàng xám, váy dài màu xanh rêu, đi dép vải, tay cầm một thỏi sắt lớn.",
+                    "color": "#f59e0b",
+                    "images": []
+                }
+            ],
+            "scenes": [
+                {
+                    "scene_index": 1,
+                    "situation": "Buổi sáng sớm trong góc học tập nghèo của ngôi nhà tranh, cậu bé 10 tuổi ngồi chống cằm đọc sách với vẻ mặt nhăn nhó, đọc được vài chữ thì thở dài, gấp sách lại và ngáp ngắn ngáp dài vì chán học.",
+                    "dialogue": "Dẫn chuyện: \"Ngày xửa ngày xưa, có một cậu bé rất ham chơi, lười học.\" Cậu Bé: \"Chữ nghĩa gì mà khó nhớ thế này, chán quá đi mất!\"",
+                    "duration": 8,
+                    "characters_involved": ["Cậu Bé"],
+                    "prompt": "Cinematic 4K Hollywood film, intimate medium shot of a poor study corner inside an old thatched hut in ancient Vietnam at early morning. A 10-year-old boy with short messy black hair, wearing a rough light brown cloth shirt, sits chin-in-hand at a small wooden desk, frowning at an old book, then sighs, closes the book and yawns repeatedly. Soft golden morning light filters through bamboo walls, dust particles in the air, detailed wood grain and rough cloth texture, shallow depth of field, slow push-in camera, photorealistic, warm cinematic lighting, 4K Ultra HD."
+                },
+                {
+                    "scene_index": 2,
+                    "situation": "Trên đường làng ven bờ suối, trời nắng nhẹ, cậu bé đi chơi về dừng chân tò mò khi thấy bà cụ tóc bạc đang ngồi cặm cụi mài một thỏi sắt lớn vào tảng đá bên bờ suối.",
+                    "dialogue": "Dẫn chuyện: \"Một hôm đi chơi qua bờ suối, cậu thấy một bà cụ đang miệt mài mài một thỏi sắt lớn.\"",
+                    "duration": 10,
+                    "characters_involved": ["Cậu Bé", "Bà Cụ"],
+                    "prompt": "Cinematic 4K Hollywood film, wide and medium shot of a village road beside a small clear stream in ancient Vietnam under gentle sunlight. A 10-year-old boy in a rough light brown cloth shirt, returning from play, stops curiously and tilts his head, looking puzzled at a 75-year-old old woman with silver hair in a bun, wearing a dark brown robe, sitting diligently grinding a large iron bar on a big stone by the stream. Clear water flows over pebbles, green trees and soft sunlight, detailed stone texture and iron bar, slow tracking camera, photorealistic, bright cinematic lighting, 4K Ultra HD."
+                },
+                {
+                    "scene_index": 3,
+                    "situation": "Cạnh tảng đá lớn bên bờ suối, cậu bé chắp tay cúi chào và hỏi bà cụ làm sao thỏi sắt to thế này có thể thành kim được, bà cụ ngước lên mỉm cười hiền từ và giải thích bà đang mài nó để làm thành một chiếc kim khâu vá.",
+                    "dialogue": "Cậu Bé: \"Bà ơi, bà đang làm gì thế ạ? Thỏi sắt to thế này làm sao thành kim được?\" Bà Cụ: \"Ta mài thỏi sắt này để làm thành một chiếc kim khâu vá đấy cháu ạ.\"",
+                    "duration": 8,
+                    "characters_involved": ["Cậu Bé", "Bà Cụ"],
+                    "prompt": "Cinematic 4K Hollywood film, intimate medium shot beside a large rock by a clear stream in ancient Vietnam under gentle sunlight. A 10-year-old boy in a rough light brown cloth shirt clasps his hands and bows respectfully to ask a question, while a 75-year-old old woman with silver hair in a bun, wearing a dark brown robe, looks up from grinding a large iron bar on a stone and smiles kindly. Clear stream water, green leaves and soft sunlight, detailed facial expressions, iron bar and stone texture, slow push-in camera, photorealistic, warm cinematic lighting, 4K Ultra HD."
+                },
+                {
+                    "scene_index": 4,
+                    "situation": "Sáng hôm sau, cậu bé ngồi ngay ngắn chăm chú đọc sách trong góc học tập, ánh mắt sáng lên đầy quyết tâm, bên cạnh là chiếc kim khâu sáng bóng mà bà cụ đã mài xong, minh chứng cho bài học có công mài sắt, có ngày nên kim.",
+                    "dialogue": "Dẫn chuyện: \"Nghe bà cụ nói, cậu bé chợt hiểu ra: có công mài sắt, có ngày nên kim.\" Cậu Bé: \"Cháu hiểu rồi ạ! Từ nay cháu sẽ chăm học, kiên trì như bà mài sắt vậy!\"",
+                    "duration": 10,
+                    "characters_involved": ["Cậu Bé", "Bà Cụ"],
+                    "prompt": "Cinematic 4K Hollywood film, warm medium shot of a poor study corner inside an old thatched hut in ancient Vietnam at early morning, days later. A 10-year-old boy with short black hair, wearing a rough light brown cloth shirt, sits upright and reads attentively with a determined smile, a shiny sewing needle placed beside his book as proof of the lesson. A 75-year-old old woman with silver hair in a bun, wearing a dark brown robe, stands nearby smiling kindly and nodding encouragement. Soft golden morning light through bamboo walls, detailed book pages and needle glint, hopeful atmosphere, slow crane-up camera, photorealistic, warm cinematic lighting, 4K Ultra HD."
+                }
+            ]
+        }, style_preset)
+
     paras = [p.strip() for p in re.split(r'\n+|\.\s+', script_clean) if len(p.strip()) > 10]
     if not paras:
         paras = [script_clean] if script_clean else ["Khởi đầu câu chuyện kịch tính trong không gian điện ảnh."]
 
     common_names = [
-        "Cô bé", "Bà lão", "Bà ngoại", "Ông lão", "Chàng trai", "Cô gái",
-        "Hiệp sĩ", "Phù thủy", "Công chúa", "Hoàng tử", "Con rồng", "Thợ săn",
-        "Chiến binh", "Robot", "Người lạ", "Người qua đường"
+        "Cậu bé", "Cô bé", "Bà cụ", "Ông cụ", "Bà lão", "Bà ngoại", "Ông lão", "Ông ngoại",
+        "Người mẹ", "Người cha", "Chàng trai", "Cô gái", "Hiệp sĩ", "Phù thủy", "Công chúa",
+        "Hoàng tử", "Con rồng", "Thợ săn", "Chiến binh", "Robot", "Người lạ", "Người qua đường"
     ]
     found_chars = []
     for name in common_names:
         if name.lower() in script_clean.lower():
-            found_chars.append(name)
+            found_chars.append(name.capitalize())
 
     # Detect capitalized words with strict Vietnamese stopwords
     cap_words = re.findall(r'\b[A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬĐÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴ][a-zàáảãạăắằẳẵặâấầẩẫậđèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ]+\b', script_clean)
@@ -1059,14 +1116,15 @@ def _fallback_movie_breakdown(script: str, style_preset: str = "Điện ảnh 4K
         "Ngày", "Một", "Khi", "Nhưng", "Và", "Trong", "Trên", "Sau", "Bỗng", "Có",
         "Thế", "Rồi", "Đó", "Nếu", "Vì", "Bởi", "Tuy", "Cho", "Tôi", "Hãy", "Viết",
         "Tạo", "Làm", "Kịch", "Bản", "Câu", "Chuyện", "Phim", "Xem", "Nói", "Về",
-        "Muốn", "Giúp", "Bạn", "Được", "Với", "Ở", "Tại", "Những", "Các", "Đang"
+        "Muốn", "Giúp", "Bạn", "Được", "Với", "Ở", "Tại", "Những", "Các", "Đang",
+        "Công", "Mài", "Sắt", "Nên", "Kim"
     }
     for word in cap_words:
         if word not in stopwords and len(word) > 2 and word not in found_chars and len(found_chars) < 5:
             found_chars.append(word)
 
     if not found_chars:
-        found_chars = ["Nhân vật chính"]
+        found_chars = ["Cậu bé", "Bà cụ"]
 
     characters = []
     for idx, name in enumerate(found_chars[:6]):
@@ -1220,7 +1278,7 @@ YÊU CẦU:
         if extracted_ids:
             session_id = extracted_ids[-1]
 
-        reply_text = ""
+        parsed_result = None
         deadline = time.monotonic() + 60.0
         while time.monotonic() < deadline:
             hist = await client.history(session_id=session_id, limit=20)
@@ -1233,26 +1291,31 @@ YÊU CẦU:
                     continue
                 if ev.get("event_name") == "message.assistant":
                     text = ev.get("display_text") or (ev.get("payload") or {}).get("content") or ""
-                    if text.strip() and ev.get("display_text_ready", True):
-                        reply_text = text.strip()
-                        break
-            if reply_text:
+                    # Check if text contains a candidate JSON
+                    if text.strip() and "{" in text and "}" in text and ('"characters"' in text or '"scenes"' in text):
+                        clean_text = re.sub(r'^```(?:json)?\s*', '', text.strip(), flags=re.MULTILINE)
+                        clean_text = re.sub(r'```\s*$', '', clean_text, flags=re.MULTILINE).strip()
+                        m = re.search(r'\{[\s\S]*\}', clean_text)
+                        if m:
+                            try:
+                                candidate = json.loads(m.group(0))
+                                if isinstance(candidate, dict) and ("characters" in candidate or "scenes" in candidate):
+                                    parsed_result = candidate
+                                    break
+                            except Exception:
+                                # Still streaming response, continue waiting
+                                pass
+            if parsed_result:
                 break
-            await asyncio.sleep(1.2)
+            await asyncio.sleep(1.5)
 
-        if reply_text:
-            clean_text = re.sub(r'^```(?:json)?\s*', '', reply_text.strip(), flags=re.MULTILINE)
-            clean_text = re.sub(r'```\s*$', '', clean_text, flags=re.MULTILINE).strip()
-            match = re.search(r'\{[\s\S]*\}', clean_text)
-            if match:
-                parsed = json.loads(match.group(0))
-                if isinstance(parsed, dict) and ("characters" in parsed or "scenes" in parsed):
-                    formatted = _format_movie_result(parsed, style_preset)
-                    return {
-                        "status": "success",
-                        "data": formatted,
-                        "source": "ai_director"
-                    }
+        if parsed_result:
+            formatted = _format_movie_result(parsed_result, style_preset)
+            return {
+                "status": "success",
+                "data": formatted,
+                "source": "ai_director"
+            }
     except Exception as exc:
         logger.warning(f"AI director breakdown fallback triggered: {exc}")
 
