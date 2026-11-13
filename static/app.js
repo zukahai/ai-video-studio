@@ -2818,8 +2818,12 @@ function renderMovieCharacters() {
 
   movieState.characters.forEach((char, idx) => {
     const card = document.createElement('div');
-    card.className = 'p-3.5 rounded-lg bg-[#252526] border border-[#333333] hover:border-[#3c3c3c] transition space-y-3';
+    card.className = 'p-3.5 rounded-lg bg-[#252526] border border-[#333333] hover:border-[#3c3c3c] focus-within:border-[#0078d4] transition space-y-3 outline-none';
     card.dataset.charId = char.id;
+    card.tabIndex = 0;
+    card.onmouseenter = () => { window._hoveredCharacterId = char.id; };
+    card.onmouseleave = () => { if (window._hoveredCharacterId === char.id) window._hoveredCharacterId = null; };
+    card.onpaste = (e) => handleCharacterPaste(e, char.id);
 
     // Render character image thumbnails with angle badge labels
     let imagesHtml = '';
@@ -2990,21 +2994,43 @@ async function handleCharacterUpload(e, charId) {
 }
 
 async function handleCharacterPaste(e, charId) {
+  if (e._charPasteHandled) return;
   const clipboardData = e.clipboardData || window.clipboardData;
   if (!clipboardData) return;
-  const items = clipboardData.items || [];
+
   const files = [];
+  const items = clipboardData.items || [];
   for (let i = 0; i < items.length; i++) {
-    if (items[i].type.indexOf('image') !== -1) {
+    if (items[i].type && items[i].type.indexOf('image') !== -1) {
       const blob = items[i].getAsFile();
       if (blob) files.push(blob);
     }
   }
+  if (files.length === 0 && clipboardData.files && clipboardData.files.length > 0) {
+    for (const f of clipboardData.files) {
+      if (f.type && f.type.indexOf('image') !== -1) files.push(f);
+    }
+  }
+
   if (files.length > 0) {
+    e._charPasteHandled = true;
     e.preventDefault();
+    showToast('📋 Đang tải ảnh vừa dán lên...');
     await uploadFilesForCharacter(files, charId);
   }
 }
+
+document.addEventListener('paste', (e) => {
+  if (e._charPasteHandled) return;
+  const movieTab = document.getElementById('tab-movie');
+  if (!movieTab || movieTab.classList.contains('hidden')) return;
+  const targetCharId =
+    window._hoveredCharacterId ||
+    (movieState.characters && movieState.characters.length === 1 ? movieState.characters[0].id : null);
+  if (targetCharId) {
+    handleCharacterPaste(e, targetCharId);
+  }
+});
 
 async function uploadFilesForCharacter(files, charId) {
   const char = movieState.characters.find(c => c.id === charId);
