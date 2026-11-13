@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 2. Restore active tab, mode, ratio, duration, style from URL query params
   restoreFromUrlParams();
   toggleAutoProduceAfterPortraits(isAutoProduceEnabled());
-  toggleAutoDrawCharacters(isAutoDrawCharactersEnabled());
+  toggleAutoDrawCharacters(isAutoDrawCharactersEnabled(), false);
 
   // 3. If storyboard was restored, render it and prepare next scene view
   if (hasCachedStoryboard && state.storyboard.length > 0) {
@@ -259,10 +259,25 @@ function isAutoDrawCharactersEnabled() {
   return val !== 'false';
 }
 
-function toggleAutoDrawCharacters(enabled) {
+function toggleAutoDrawCharacters(enabled, triggerIfReady = true) {
   localStorage.setItem('h_ai_movie_auto_draw_chars', enabled ? 'true' : 'false');
   const t = document.getElementById('movie-auto-draw-chars-toggle');
   if (t) t.checked = enabled;
+
+  if (enabled && triggerIfReady) {
+    const charsNeedingImages = (movieState.characters || []).filter(
+      c => !c._isGenerating && (!c.images || c.images.length === 0)
+    );
+    if (charsNeedingImages.length > 0) {
+      showToast('✨ Đang tự động vẽ 3 ảnh chuẩn cho các nhân vật còn thiếu ảnh...');
+      autoGenerateMissingCharacterPortraits(charsNeedingImages);
+    } else if ((movieState.characters || []).length === 0) {
+      const script = (document.getElementById('movie-script-input')?.value || '').trim();
+      if (script) {
+        analyzeAndBreakdownScript();
+      }
+    }
+  }
 }
 
 // Close preview modal on Esc
@@ -381,9 +396,18 @@ function switchTab(tabId, syncUrl = true) {
     renderMovieCharacters();
     renderMovieScenes();
     renderCharacterLegend();
-    healMovieCharactersCache();
     renderMovieProjectsRibbon();
     updateMovieActiveDisplay();
+    healMovieCharactersCache().then(() => {
+      if (isAutoDrawCharactersEnabled()) {
+        const charsNeedingImages = (movieState.characters || []).filter(
+          c => !c._isGenerating && (!c.images || c.images.length === 0)
+        );
+        if (charsNeedingImages.length > 0) {
+          autoGenerateMissingCharacterPortraits(charsNeedingImages);
+        }
+      }
+    });
     loadMovieProjectsList();
   }
   lucide.createIcons();
@@ -2239,9 +2263,18 @@ async function switchMovieProject(projectId, updateUrl = true) {
     renderMovieCharacters();
     renderMovieScenes();
     renderCharacterLegend();
-    healMovieCharactersCache();
+    await healMovieCharactersCache();
     renderMovieProjectsRibbon();
     updateMovieActiveDisplay();
+
+    if (isAutoDrawCharactersEnabled()) {
+      const charsNeedingImages = (movieState.characters || []).filter(
+        c => !c._isGenerating && (!c.images || c.images.length === 0)
+      );
+      if (charsNeedingImages.length > 0) {
+        autoGenerateMissingCharacterPortraits(charsNeedingImages);
+      }
+    }
 
     if (updateUrl) {
       const url = new URL(window.location.href);
@@ -3053,19 +3086,26 @@ async function generateAll3CharacterPortraits(charId) {
 }
 
 // Automatic background generation of 3 portraits for new script characters
+let _isAutoDrawingCharacters = false;
 async function autoGenerateMissingCharacterPortraits(charsList) {
-  for (const char of charsList) {
-    if (!char.images || char.images.length === 0) {
-      await generateAll3CharacterPortraits(char.id);
+  if (_isAutoDrawingCharacters) return;
+  _isAutoDrawingCharacters = true;
+  try {
+    for (const char of charsList) {
+      if (!char._isGenerating && (!char.images || char.images.length === 0)) {
+        await generateAll3CharacterPortraits(char.id);
+      }
     }
-  }
 
-  // Check if auto-produce movie is enabled
-  if (isAutoProduceEnabled() && movieState.scenes.length > 0 && !movieState.isGenerating) {
-    showToast('✨ Đã tạo xong tất cả ảnh nhân vật! Đang tự động bắt đầu sản xuất phim...', 'success');
-    setTimeout(() => {
-      startAutoMovieGeneration();
-    }, 1500);
+    // Check if auto-produce movie is enabled
+    if (isAutoProduceEnabled() && movieState.scenes.length > 0 && !movieState.isGenerating) {
+      showToast('✨ Đã tạo xong tất cả ảnh nhân vật! Đang tự động bắt đầu sản xuất phim...', 'success');
+      setTimeout(() => {
+        startAutoMovieGeneration();
+      }, 1500);
+    }
+  } finally {
+    _isAutoDrawingCharacters = false;
   }
 }
 
