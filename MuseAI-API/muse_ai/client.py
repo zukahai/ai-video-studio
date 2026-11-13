@@ -170,6 +170,7 @@ class MuseClient:
         *,
         session_id: str | None,
         baseline: set[str],
+        baseline_msg_ids: set[str] | None = None,
         timeout: float = 600.0,
         poll_interval: float = 3.0,
         settle_seconds: float = 5.0,
@@ -182,12 +183,22 @@ class MuseClient:
 
         while time.monotonic() < deadline:
             latest_history = await self.history(session_id=session_id, limit=80)
+            event_refs: list[VideoRef] = []
+            if baseline_msg_ids is not None and isinstance(latest_history, dict):
+                chat_events = (latest_history.get("result") or {}).get("chat_events") or []
+                new_events = [
+                    ev for ev in chat_events
+                    if isinstance(ev, dict) and ev.get("message_id") not in baseline_msg_ids
+                ]
+                if new_events:
+                    event_refs = extract_video_refs(new_events)
+
             refs = [
                 ref
                 for ref in extract_video_refs(latest_history)
                 if ref.identity not in baseline
             ]
-            unique = {ref.identity: ref for ref in refs}
+            unique = {ref.identity: ref for ref in (event_refs + refs)}
             latest_refs = list(unique.values())
             if len(latest_refs) >= min_videos:
                 if first_found_at is None:
@@ -305,6 +316,16 @@ class MuseClient:
 
         baseline_history = await self.history(session_id=session_id, limit=80)
         baseline = {ref.identity for ref in extract_video_refs(baseline_history)}
+        baseline_events = (
+            (baseline_history.get("result") or {}).get("chat_events") or []
+            if isinstance(baseline_history, dict)
+            else []
+        )
+        baseline_msg_ids = {
+            ev.get("message_id")
+            for ev in baseline_events
+            if isinstance(ev, dict) and ev.get("message_id")
+        }
 
         events = await self.chat_stream(
             prompt=prompt,
@@ -318,6 +339,7 @@ class MuseClient:
         videos, latest_history = await self.wait_for_videos(
             session_id=resolved_session,
             baseline=baseline,
+            baseline_msg_ids=baseline_msg_ids,
             timeout=timeout,
             min_videos=min_videos,
         )
