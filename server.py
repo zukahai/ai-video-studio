@@ -65,6 +65,7 @@ class VerifyOtpModel(BaseModel):
 
 class VideoGenerateModel(BaseModel):
     prompt: str
+    dialogue: Optional[str] = None
     image_paths: list[str] = []
     aspect_ratio: str = "16:9"
     duration: Optional[int] = 5
@@ -149,11 +150,21 @@ def build_hidden_video_prompt(
     is_continuation: bool = False,
     scene_index: int = 1,
     style_preset: Optional[str] = None,
+    dialogue: Optional[str] = None,
 ) -> str:
     ratio_desc = RATIO_DESCRIPTIONS.get(aspect_ratio, f"tỉ lệ khung hình {aspect_ratio}")
     style_part = f" Phong cách chủ đạo: {style_preset}." if style_preset else ""
     duration_val = duration if (duration and duration > 0) else 5
     duration_desc = f"Thời lượng video: đúng {duration_val} giây ({duration_val} seconds duration clip, pacing & action timing calibrated for exactly {duration_val}s)."
+
+    dialogue_part = ""
+    if dialogue and dialogue.strip():
+        diag_clean = dialogue.strip()
+        dialogue_part = (
+            f" Lời thoại nhân vật trong cảnh (Character Dialogue & Audio): \"{diag_clean}\". "
+            f"Yêu cầu diễn xuất & âm thanh: Nhân vật nói câu thoại này với khẩu hình môi, biểu cảm gương mặt và giọng nói đồng bộ chân thực "
+            f"(Spoken dialogue & synchronized lip-sync audio: \"{diag_clean}\" with natural mouth movement, clear audible character voice and matching facial expressions)."
+        )
 
     if is_continuation:
         return (
@@ -162,7 +173,7 @@ def build_hidden_video_prompt(
             f"Yêu cầu bắt buộc: Giữ nguyên hoàn toàn sự đồng nhất về nhân vật, trang phục, khuôn mặt, bối cảnh môi trường, "
             f"ánh sáng, bảng màu và phong cách góc máy từ cảnh trước để tạo thành một thước phim liên tục mượt mà. "
             f"Chất lượng điện ảnh 4K Ultra HD, chuyển động vật lý tự nhiên, chi tiết sắc nét, âm thanh sống động đồng bộ hoàn hảo, "
-            f"{ratio_desc}.{style_part} "
+            f"{ratio_desc}.{style_part}{dialogue_part} "
             f"Diễn biến cảnh tiếp theo: {user_prompt.strip()}"
         )
     else:
@@ -170,7 +181,7 @@ def build_hidden_video_prompt(
             f"Hãy tạo một video chuyên nghiệp, {duration_desc} "
             f"Chất lượng điện ảnh 4K Ultra HD, bố cục nghệ thuật xuất sắc, "
             f"chuyển động camera và vật lý mượt mà chân thực, ánh sáng điện ảnh có chiều sâu, chi tiết cực kỳ sắc nét, "
-            f"kèm âm thanh và hiệu ứng tiếng động sống động đồng bộ hoàn hảo, {ratio_desc}.{style_part} "
+            f"kèm âm thanh và hiệu ứng tiếng động sống động đồng bộ hoàn hảo, {ratio_desc}.{style_part}{dialogue_part} "
             f"Nội dung cảnh quay: {user_prompt.strip()}"
         )
 
@@ -610,6 +621,7 @@ async def generate_video(data: VideoGenerateModel):
             is_continuation=data.is_continuation,
             scene_index=data.scene_index,
             style_preset=data.style_preset,
+            dialogue=data.dialogue,
         )
 
         # Use existing session_id if continuing a video sequence
@@ -948,14 +960,25 @@ def _format_movie_result(parsed: dict, style_preset: str = "Điện ảnh 4K Hol
     for idx, sc in enumerate(scenes):
         if not isinstance(sc, dict):
             continue
-        dur = sc.get("duration", 8)
-        if dur not in [5, 8, 10, 15, 20]:
+        dur_raw = sc.get("duration", 8)
+        try:
+            dur = int(dur_raw)
+            if dur < 5:
+                dur = 5
+            elif dur > 20:
+                dur = 20
+        except (ValueError, TypeError):
             dur = 8
+
+        diag = (sc.get("dialogue") or "").strip()
         cinematic_prompt = sc.get("prompt") or f"Cinematic 4K Hollywood, {style_preset}, Scene {idx+1}: {sc.get('situation', '')}. 8k, photorealistic lighting, cinematic camera motion"
+        if diag and "spoken dialogue" not in cinematic_prompt.lower() and "dialogue:" not in cinematic_prompt.lower():
+            cinematic_prompt += f' Spoken dialogue: "{diag}" with clear synchronized lip movements and emotional expression.'
+
         formatted_scenes.append({
             "scene_index": idx + 1,
             "situation": sc.get("situation") or f"Diễn biến phân cảnh {idx+1}",
-            "dialogue": sc.get("dialogue") or f"Lời thoại Cảnh #{idx+1}",
+            "dialogue": diag or f"Lời thoại Cảnh #{idx+1}",
             "duration": dur,
             "characters_involved": sc.get("characters_involved") if isinstance(sc.get("characters_involved"), list) else [],
             "prompt": cinematic_prompt,
@@ -1208,7 +1231,11 @@ async def breakdown_movie(data: MovieBreakdownModel):
     if target_scenes_num:
         scenes_instruction = f"Hãy phân tích kịch bản thành một bộ phim ngắn gồm đúng {target_scenes_num} phân cảnh liên kết chặt chẽ theo thứ tự thời gian."
     else:
-        scenes_instruction = "Hãy tự động phân tích cốt truyện thành số phân cảnh tối ưu nhất (từ 3 đến 6 phân cảnh, đầy đủ mở đầu, cao trào và kết thúc trọn vẹn)."
+        scenes_instruction = (
+            "QUY TẮC CỐT LÕI: Phân tích kịch bản theo nguyên tắc 1 LỜI THOẠI = 1 PHÂN CẢNH RIÊNG BIỆT. "
+            "Cứ mỗi lời thoại của nhân vật (hoặc lời dẫn chuyển biến) là ĐÚNG 1 PHÂN CẢNH. "
+            "Không sợ quá nhiều phân cảnh, hãy chia đầy đủ và chi tiết từng câu thoại!"
+        )
 
     # Try AI Director breakdown via client
     try:
@@ -1233,14 +1260,22 @@ CỐT TRUYỆN / Ý TƯỞNG:
 
 PHONG CÁCH QUAY PHIM: {style_preset}
 
-YÊU CẦU:
-1. Trích xuất TẤT CẢ các nhân vật có trong câu chuyện (VD: nhân vật chính, phụ, người đồng hành). Với mỗi nhân vật, mô tả chi tiết ngoại hình, độ tuổi, trang phục để tạo ảnh tham chiếu.
-2. Phân chia các phân cảnh theo thứ tự thời gian. Mỗi phân cảnh có:
-   - situation: Tình huống diễn biến của cảnh quay.
-   - dialogue: Lời thoại hoặc độc thoại giàu cảm xúc.
-   - duration: Số giây phù hợp (chọn 5, 8, 10, 15, hoặc 20).
-   - characters_involved: Mảng tên các nhân vật có mặt trong cảnh.
-   - prompt: Prompt chi tiết chuẩn điện ảnh 4K tiếng Anh (Cinematic 4K Hollywood, camera angle, lighting, character details, photorealistic).
+YÊU CẦU ĐẶC BIỆT:
+1. NGUYÊN TẮC: 1 LỜI THOẠI = 1 PHÂN CẢNH RIÊNG:
+   - Cứ mỗi lời thoại của một nhân vật (hoặc mỗi đoạn thuyết minh / dẫn chuyện) phải tạo thành ĐÚNG 1 PHÂN CẢNH riêng biệt.
+   - Khi nhân vật A nói -> 1 cảnh riêng tập trung vào A đang nói với biểu cảm và khẩu hình.
+   - Khi nhân vật B nói -> 1 cảnh tiếp theo chuyển sang B đáp lại.
+   - Không gộp nhiều câu thoại khác nhau vào 1 cảnh. Không giới hạn số lượng phân cảnh (không sợ nhiều cảnh).
+2. THỜI LƯỢNG MỖI PHÂN CẢNH (5 đến 20 GIÂY TÙY Ý):
+   - Phân tích ngữ cảnh và độ dài câu thoại để chọn số giây chính xác: từ 5 đến 20 giây (chọn số giây phù hợp: 5s, 6s, 8s, 10s, 12s, 15s, 18s, 20s).
+   - Câu thoại ngắn: 5 - 8 giây.
+   - Câu thoại vừa: 8 - 12 giây.
+   - Câu thoại dài, giải thích hoặc cao trào: 12 - 20 giây.
+3. LỜI THOẠI & PROMPT QUAY PHIM:
+   - 'dialogue': Ghi rõ Tên Nhân Vật: "Câu thoại..." (bắt buộc phải có câu thoại).
+   - 'prompt': Prompt chi tiết chuẩn điện ảnh 4K tiếng Anh, LUÔN bao gồm câu thoại và khẩu hình: Spoken dialogue: "..." with synchronized natural lip movement, clear character voice, matching emotions.
+4. TRÍCH XUẤT NHÂN VẬT:
+   - Trích xuất TẤT CẢ các nhân vật có trong câu chuyện. Với mỗi nhân vật, mô tả chi tiết ngoại hình, độ tuổi, trang phục để tạo ảnh tham chiếu.
 
 ĐỊNH DẠNG ĐẦU RA BẮT BUỘC: DUY NHẤT một khối JSON hợp lệ (không kèm lời chào hay giải thích ngoài JSON):
 {{

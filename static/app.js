@@ -2369,12 +2369,15 @@ function renderMovieScenes() {
         </div>
 
         <div class="flex items-center space-x-1.5">
-          <!-- Duration selector (User request: 'số giây phù hợp') -->
+          <!-- Duration selector (5 đến 20 giây tuỳ ý) -->
           <select onchange="updateSceneDuration(${idx}, this.value)" class="bg-surface-950 border border-surface-600 focus:border-cyan-400 rounded-lg px-2 py-1 text-xs text-cyan-300 font-bold focus:outline-none cursor-pointer">
             <option value="5" ${scene.duration == 5 ? 'selected' : ''}>5 giây</option>
+            <option value="6" ${scene.duration == 6 ? 'selected' : ''}>6 giây</option>
             <option value="8" ${scene.duration == 8 ? 'selected' : ''}>8 giây</option>
             <option value="10" ${scene.duration == 10 ? 'selected' : ''}>10 giây</option>
+            <option value="12" ${scene.duration == 12 ? 'selected' : ''}>12 giây</option>
             <option value="15" ${scene.duration == 15 ? 'selected' : ''}>15 giây</option>
+            <option value="18" ${scene.duration == 18 ? 'selected' : ''}>18 giây</option>
             <option value="20" ${scene.duration == 20 ? 'selected' : ''}>20 giây</option>
           </select>
 
@@ -2727,6 +2730,7 @@ async function startAutoMovieGeneration() {
       const isContinuation = (i > 0 && movieState.sessionId !== null);
       const payload = {
         prompt: scene.prompt || scene.situation,
+        dialogue: scene.dialogue || '',
         image_paths: involvedImages,
         aspect_ratio: movieState.aspectRatio,
         duration: parseInt(scene.duration, 10) || 8,
@@ -2821,6 +2825,7 @@ async function generateSingleMovieScene(idx) {
     const isContinuation = (idx > 0 && movieState.sessionId !== null);
     const payload = {
       prompt: scene.prompt || scene.situation,
+      dialogue: scene.dialogue || '',
       image_paths: involvedImages,
       aspect_ratio: movieState.aspectRatio,
       duration: parseInt(scene.duration, 10) || 8,
