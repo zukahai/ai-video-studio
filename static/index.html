@@ -882,14 +882,22 @@
                 </div>
               </div>
 
-              <!-- Auto Draw Characters Toggle -->
-              <div class="flex items-center justify-between pt-0.5">
+              <!-- Auto Draw Characters & Narration Toggles -->
+              <div class="flex flex-wrap items-center justify-between gap-2 pt-0.5">
                 <label class="flex items-center space-x-2 cursor-pointer select-none text-xs text-[#cccccc]" title="Tự động dùng AI vẽ 3 ảnh chuẩn cho các nhân vật ngay sau khi phân tích kịch bản xong">
                   <div class="relative inline-block w-8 h-4 align-middle shrink-0">
                     <input type="checkbox" id="movie-auto-draw-chars-toggle" checked onchange="toggleAutoDrawCharacters(this.checked)" class="sr-only peer">
                     <div class="w-8 h-4 bg-[#3c3c3c] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#0078d4]"></div>
                   </div>
                   <span class="text-[11px] font-medium text-[#cccccc]">Tự động vẽ nhân vật AI khi đã có kịch bản</span>
+                </label>
+
+                <label class="flex items-center space-x-2 cursor-pointer select-none text-xs text-[#cccccc]" title="Khi bật, AI sẽ đọc lời dẫn chuyện (Voice-over). Mặc định tắt để không đọc dẫn chuyện.">
+                  <div class="relative inline-block w-8 h-4 align-middle shrink-0">
+                    <input type="checkbox" id="movie-narration-toggle" onchange="toggleMovieNarration(this.checked)" class="sr-only peer">
+                    <div class="w-8 h-4 bg-[#3c3c3c] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#0078d4]"></div>
+                  </div>
+                  <span class="text-[11px] font-medium text-[#cccccc]">Đọc dẫn chuyện</span>
                 </label>
               </div>
 
@@ -1276,7 +1284,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261113_22"></script>
+  <script src="/static/app.js?v=20261113_23"></script>
   <script>
     lucide.createIcons();
   </script>

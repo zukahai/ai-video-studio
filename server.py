@@ -77,6 +77,7 @@ class VideoGenerateModel(BaseModel):
     scene_index: int = 1
     style_preset: Optional[str] = None
     character_voices: Optional[dict[str, str]] = None
+    enable_narration: bool = False
     timeout: float = 600.0
 
 
@@ -98,6 +99,7 @@ class MovieBreakdownModel(BaseModel):
     style_preset: Optional[str] = "Điện ảnh HD Hollywood"
     aspect_ratio: Optional[str] = "16:9"
     target_scenes: Optional[int | str] = "auto"
+    enable_narration: bool = False
 
 
 class MergeVideosModel(BaseModel):
@@ -275,6 +277,7 @@ def build_hidden_video_prompt(
     dialogue: Optional[str] = None,
     has_reference_images: bool = False,
     character_voices: Optional[dict[str, str]] = None,
+    enable_narration: bool = False,
 ) -> str:
     ratio_desc = RATIO_DESCRIPTIONS.get(aspect_ratio, f"tỉ lệ khung hình {aspect_ratio}")
     style_part = f" Phong cách chủ đạo: {style_preset}." if style_preset else ""
@@ -292,22 +295,30 @@ def build_hidden_video_prompt(
         clean_user_prompt = re.sub(r'(?i)with (clear |natural )?synchronized lip movements?[^.]*\.?', '', clean_user_prompt).strip()
         clean_user_prompt = re.sub(r'(?i)lip-?sync[^.]*\.?', '', clean_user_prompt).strip()
 
-        _, narr_spoken = extract_speaker_and_spoken_text(diag_clean)
-        narr_text = narr_spoken if narr_spoken else "Thuyết minh dẫn chuyện"
-        narr_voice = (
-            _lookup_character_voice("Người dẫn chuyện", character_voices)
-            or _lookup_character_voice("Dẫn chuyện", character_voices)
-            or _lookup_character_voice("Narrator", character_voices)
-            or "Giọng người dẫn chuyện trầm ấm, truyền cảm, phát âm tiếng Việt rõ ràng, nhịp độ vừa phải và đồng nhất cùng một chất giọng xuyên suốt bộ phim (Consistent warm, clear, expressive Vietnamese narrator voice throughout the entire film)"
-        )
-        dialogue_part = (
-            f"\n[QUY TẮC BẮT BUỘC: GIỌNG DẪN CHUYỆN / NARRATOR VOICEOVER - KHÔNG MẤP MÁY MÔI]:\n"
-            f"- Hồ sơ giọng đọc dẫn chuyện (Consistent Narrator Voice Profile): {narr_voice}.\n"
-            f"- Âm thanh giọng đọc thuyết minh dẫn chuyện ngoài khung hình (Off-screen Narrator Voiceover Audio — CHỈ ĐỌC ĐÚNG NỘI DUNG TRONG NGOẶC KÉP, TUYỆT ĐỐI KHÔNG ĐỌC CHỮ 'Người dẫn chuyện' hay 'Dẫn chuyện'): \"{narr_text}\".\n"
-            f"- YÊU CẦU ĐẶC BIỆT BẮT BUỘC VỀ DIỄN XUẤT: Đây là GIỌNG ĐỌC DẪN CHUYỆN NGOÀI HÌNH ẢNH (Off-screen voiceover narration). "
-            f"TẤT CẢ NHÂN VẬT TRÊN MÀN ẢNH TUYỆT ĐỐI KHÔNG NÓI, KHÔNG MẤP MÁY MÔI, KHÔNG CỬ ĐỘNG KHẨU HÌNH, MIỆNG PHẢI NGẬM TỰ NHIÊN "
-            f"(CRITICAL ACTING INSTRUCTION: The narration is off-screen. Speak ONLY the exact quoted narration text \"{narr_text}\" using the consistent narrator voice profile above, without saying any label like 'Narrator' or 'Người dẫn chuyện'. On-screen characters DO NOT SPEAK, DO NOT MOVE THEIR LIPS, MOUTHS MUST REMAIN NATURALLY CLOSED WITH ZERO LIP-SYNC. Characters only perform silent natural acting, physical movements, thoughtful facial reactions and peaceful expressions while the off-screen narrator speaks)."
-        )
+        if enable_narration:
+            _, narr_spoken = extract_speaker_and_spoken_text(diag_clean)
+            narr_text = narr_spoken if narr_spoken else "Thuyết minh dẫn chuyện"
+            narr_voice = (
+                _lookup_character_voice("Người dẫn chuyện", character_voices)
+                or _lookup_character_voice("Dẫn chuyện", character_voices)
+                or _lookup_character_voice("Narrator", character_voices)
+                or "Giọng người dẫn chuyện trầm ấm, truyền cảm, phát âm tiếng Việt rõ ràng, nhịp độ vừa phải và đồng nhất cùng một chất giọng xuyên suốt bộ phim (Consistent warm, clear, expressive Vietnamese narrator voice throughout the entire film)"
+            )
+            dialogue_part = (
+                f"\n[QUY TẮC BẮT BUỘC: GIỌNG DẪN CHUYỆN / NARRATOR VOICEOVER - KHÔNG MẤP MÁY MÔI]:\n"
+                f"- Hồ sơ giọng đọc dẫn chuyện (Consistent Narrator Voice Profile): {narr_voice}.\n"
+                f"- Âm thanh giọng đọc thuyết minh dẫn chuyện ngoài khung hình (Off-screen Narrator Voiceover Audio — CHỈ ĐỌC ĐÚNG NỘI DUNG TRONG NGOẶC KÉP, TUYỆT ĐỐI KHÔNG ĐỌC CHỮ 'Người dẫn chuyện' hay 'Dẫn chuyện'): \"{narr_text}\".\n"
+                f"- YÊU CẦU ĐẶC BIỆT BẮT BUỘC VỀ DIỄN XUẤT: Đây là GIỌNG ĐỌC DẪN CHUYỆN NGOÀI HÌNH ẢNH (Off-screen voiceover narration). "
+                f"TẤT CẢ NHÂN VẬT TRÊN MÀN ẢNH TUYỆT ĐỐI KHÔNG NÓI, KHÔNG MẤP MÁY MÔI, KHÔNG CỬ ĐỘNG KHẨU HÌNH, MIỆNG PHẢI NGẬM TỰ NHIÊN "
+                f"(CRITICAL ACTING INSTRUCTION: The narration is off-screen. Speak ONLY the exact quoted narration text \"{narr_text}\" using the consistent narrator voice profile above, without saying any label like 'Narrator' or 'Người dẫn chuyện'. On-screen characters DO NOT SPEAK, DO NOT MOVE THEIR LIPS, MOUTHS MUST REMAIN NATURALLY CLOSED WITH ZERO LIP-SYNC. Characters only perform silent natural acting, physical movements, thoughtful facial reactions and peaceful expressions while the off-screen narrator speaks)."
+            )
+        else:
+            clean_user_prompt = re.sub(r'(?i)off-screen\s+(?:narrator\s+)?voiceover(?:\s+narration)?[^.]*\.?', '', clean_user_prompt).strip()
+            dialogue_part = (
+                "\n[QUY TẮC ÂM THANH: KHÔNG ĐỌC DẪN CHUYỆN (NO NARRATION)]:\n"
+                "- Cảnh quay này KHÔNG có giọng người dẫn chuyện hay thuyết minh ngoài khung hình. "
+                "Chỉ sử dụng âm thanh môi trường, tiếng động tự nhiên và diễn xuất hình thể chân thực (Pure visual cinematic scene with natural ambient sound effects only, NO narrator voiceover, NO off-screen narration, characters keep mouths naturally closed)."
+            )
     elif diag_clean:
         speaker_name, spoken_line = extract_speaker_and_spoken_text(diag_clean)
         spoken_only = spoken_line or diag_clean
@@ -927,6 +938,7 @@ async def generate_video(data: VideoGenerateModel):
             dialogue=data.dialogue,
             has_reference_images=bool(resolved_images),
             character_voices=data.character_voices,
+            enable_narration=data.enable_narration,
         )
 
         # Use existing session_id if continuing a video sequence
@@ -1236,7 +1248,7 @@ def _split_long_dialogue_into_chunks(dialogue: str, max_words: int = 24) -> list
     return [f'{prefix}"{c}"' if prefix else c for c in chunks]
 
 
-def _format_movie_result(parsed: dict, style_preset: str = "Điện ảnh HD Hollywood") -> dict:
+def _format_movie_result(parsed: dict, style_preset: str = "Điện ảnh HD Hollywood", enable_narration: bool = False) -> dict:
     characters = parsed.get("characters") or []
     if not isinstance(characters, list):
         characters = []
@@ -1297,13 +1309,17 @@ def _format_movie_result(parsed: dict, style_preset: str = "Điện ảnh HD Hol
                 cinematic_prompt = re.sub(r'(?i)with (clear |natural )?synchronized lip movements?[^.]*\.?', '', cinematic_prompt).strip()
                 cinematic_prompt = re.sub(r'(?i)lip-?sync[^.]*\.?', '', cinematic_prompt).strip()
 
-                if "off-screen" not in cinematic_prompt.lower() and "narrator" not in cinematic_prompt.lower():
-                    _, narr_spoken = extract_speaker_and_spoken_text(chunk_diag)
-                    narr_text = narr_spoken if narr_spoken else "Thuyết minh dẫn chuyện"
-                    cinematic_prompt += (
-                        f' Off-screen voiceover narration (speak ONLY these exact words, do NOT say "Người dẫn chuyện"): "{narr_text}". '
-                        f'Critical acting constraint: The narration is off-screen. On-screen characters DO NOT SPEAK, DO NOT MOVE LIPS, mouths remain naturally closed with zero lip-sync, characters perform silent expressive acting only.'
-                    )
+                if enable_narration:
+                    if "off-screen" not in cinematic_prompt.lower() and "narrator" not in cinematic_prompt.lower():
+                        _, narr_spoken = extract_speaker_and_spoken_text(chunk_diag)
+                        narr_text = narr_spoken if narr_spoken else "Thuyết minh dẫn chuyện"
+                        cinematic_prompt += (
+                            f' Off-screen voiceover narration (speak ONLY these exact words, do NOT say "Người dẫn chuyện"): "{narr_text}". '
+                            f'Critical acting constraint: The narration is off-screen. On-screen characters DO NOT SPEAK, DO NOT MOVE LIPS, mouths remain naturally closed with zero lip-sync, characters perform silent expressive acting only.'
+                        )
+                else:
+                    cinematic_prompt = re.sub(r'(?i)off-screen\s+(?:narrator\s+)?voiceover(?:\s+narration)?[^.]*\.?', '', cinematic_prompt).strip()
+                    chunk_diag = ""
             else:
                 if chunk_diag and "spoken dialogue" not in cinematic_prompt.lower() and "dialogue:" not in cinematic_prompt.lower():
                     _, spoken_line = extract_speaker_and_spoken_text(chunk_diag)
@@ -1313,7 +1329,7 @@ def _format_movie_result(parsed: dict, style_preset: str = "Điện ảnh HD Hol
             formatted_scenes.append({
                 "scene_index": scene_num,
                 "situation": f"{sc.get('situation') or f'Diễn biến phân cảnh {scene_num}'}{part_suffix}",
-                "dialogue": chunk_diag or f"Lời thoại Cảnh #{scene_num}",
+                "dialogue": chunk_diag,
                 "duration": min(10, max(5, dur)),
                 "characters_involved": sc.get("characters_involved") if isinstance(sc.get("characters_involved"), list) else [],
                 "prompt": cinematic_prompt,
@@ -1624,7 +1640,7 @@ async def breakdown_movie(data: MovieBreakdownModel):
             if match:
                 direct_parsed = json.loads(match.group(0))
                 if isinstance(direct_parsed, dict) and ("characters" in direct_parsed or "scenes" in direct_parsed):
-                    formatted = _format_movie_result(direct_parsed, style_preset)
+                    formatted = _format_movie_result(direct_parsed, style_preset, enable_narration=data.enable_narration)
                     return {
                         "status": "success",
                         "data": formatted,
@@ -1665,6 +1681,14 @@ async def breakdown_movie(data: MovieBreakdownModel):
         except Exception:
             pass
 
+        narration_rule = (
+            "   - ĐƯỢC PHÉP tạo cảnh Người dẫn chuyện (Voice-over) nếu cần thiết cho mạch truyện. NẾU LÀ CẢNH DẪN CHUYỆN / THUYẾT MINH (dialogue bắt đầu bằng 'Dẫn chuyện:', 'Người dẫn chuyện:', 'Thuyết minh:'):\n"
+            "     'prompt' BẮT BUỘC PHẢI DÙNG CẤU TRÚC: Off-screen narrator voiceover: \"...\". Critical acting constraint: The narrator is off-screen. Characters on screen DO NOT SPEAK, DO NOT MOVE THEIR LIPS, zero lip-sync, mouths remain naturally closed, characters only perform silent natural acting, physical movements and facial reactions.\n"
+            "     TUYỆT ĐỐI KHÔNG DÙNG từ 'spoken dialogue' hay 'lip-sync' cho cảnh dẫn chuyện để tránh nhân vật bị mấp máy môi!"
+            if data.enable_narration
+            else "   - TUYỆT ĐỐI KHÔNG TẠO PHÂN CẢNH DẪN CHUYỆN / THUYẾT MINH (NO NARRATOR / NO VOICEOVER): Không dùng 'Người dẫn chuyện:', 'Dẫn chuyện:', hay 'Thuyết minh:'. Nếu là cảnh mở đầu hoặc chuyển cảnh không có nhân vật nói, hãy để 'dialogue' rỗng (\"\") và chỉ mô tả hình ảnh điện ảnh + âm thanh môi trường tự nhiên (no voiceover, no narrator)!"
+        )
+
         director_prompt = f"""Bạn là một Đạo diễn & Biên kịch điện ảnh chuyên nghiệp (H-AI Movie Director).
 {scenes_instruction}
 
@@ -1685,10 +1709,8 @@ YÊU CẦU ĐẶC BIỆT:
    - Mỗi phân cảnh chỉ được phép tối đa 10 giây (chỉ chọn: 5, 6, 8 hoặc 10 giây). TUYỆT ĐỐI KHÔNG tạo cảnh > 10 giây.
    - Câu thoại ngắn: 5 - 6 giây. Câu thoại vừa: 8 - 10 giây.
    - Nếu có câu thoại hoặc đoạn dẫn chuyện dài (quá ~22-25 từ, đọc mất hơn 10 giây), BẮT BUỘC chia nhỏ thành nhiều phân cảnh nối tiếp nhau (mỗi cảnh <= 10 giây) để giọng đọc tự nhiên, không bị gấp hay cắt chữ!
-3. QUY ĐỊNH BẮT BUỘC VỀ LỜI DẪN CHUYỆN VS THOẠI NHÂN VẬT TRONG 'prompt' (CHỐNG LỖI MẤP MÁY MÔI KHI DẪN CHUYỆN):
-   - NẾU LÀ CẢNH DẪN CHUYỆN / THUYẾT MINH (dialogue bắt đầu bằng 'Dẫn chuyện:', 'Người dẫn chuyện:', 'Thuyết minh:'):
-     'prompt' BẮT BUỘC PHẢI DÙNG CẤU TRÚC: Off-screen narrator voiceover: "...". Critical acting constraint: The narrator is off-screen. Characters on screen DO NOT SPEAK, DO NOT MOVE THEIR LIPS, zero lip-sync, mouths remain naturally closed, characters only perform silent natural acting, physical movements and facial reactions.
-     TUYỆT ĐỐI KHÔNG DÙNG từ 'spoken dialogue' hay 'lip-sync' cho cảnh dẫn chuyện để tránh nhân vật bị mấp máy môi!
+3. QUY ĐỊNH VỀ LỜI DẪN CHUYỆN VS THOẠI NHÂN VẬT TRONG 'prompt':
+{narration_rule}
    - NẾU LÀ CẢNH NHÂN VẬT NÓI (dialogue của nhân vật):
      'prompt' DÙNG CẤU TRÚC: Spoken character dialogue: "..." with natural synchronized lip movements, audible voice and matching facial expressions. Other characters in the scene keep mouths closed and listen silently.
 4. TRÍCH XUẤT NHÂN VẬT & HỒ SƠ GIỌNG NÓI ĐỒNG BỘ:
@@ -1772,7 +1794,7 @@ YÊU CẦU ĐẶC BIỆT:
             await asyncio.sleep(1.5)
 
         if parsed_result:
-            formatted = _format_movie_result(parsed_result, style_preset)
+            formatted = _format_movie_result(parsed_result, style_preset, enable_narration=data.enable_narration)
             return {
                 "status": "success",
                 "data": formatted,

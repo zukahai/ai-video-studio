@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
   restoreFromUrlParams();
   toggleAutoProduceAfterPortraits(isAutoProduceEnabled());
   toggleAutoDrawCharacters(isAutoDrawCharactersEnabled(), false);
+  toggleMovieNarration(isMovieNarrationEnabled());
 
   // 3. If storyboard was restored, render it and prepare next scene view
   if (hasCachedStoryboard && state.storyboard.length > 0) {
@@ -278,6 +279,16 @@ function toggleAutoDrawCharacters(enabled, triggerIfReady = true) {
       }
     }
   }
+}
+
+function isMovieNarrationEnabled() {
+  return localStorage.getItem('h_ai_movie_narration') === 'true';
+}
+
+function toggleMovieNarration(enabled) {
+  localStorage.setItem('h_ai_movie_narration', enabled ? 'true' : 'false');
+  const t = document.getElementById('movie-narration-toggle');
+  if (t) t.checked = enabled;
 }
 
 // Close preview modal on Esc
@@ -2610,6 +2621,7 @@ async function analyzeAndBreakdownScript() {
           style_preset: style,
           aspect_ratio: ratio,
           target_scenes: targetScenes,
+          enable_narration: isMovieNarrationEnabled(),
         }),
       });
 
@@ -3675,6 +3687,7 @@ async function startAutoMovieGeneration() {
         scene_index: scene.scene_index,
         style_preset: movieState.stylePreset,
         character_voices: getInvolvedCharacterVoices(scene),
+        enable_narration: isMovieNarrationEnabled(),
         timeout: 600.0,
       };
 
@@ -3772,6 +3785,7 @@ async function generateSingleMovieScene(idx) {
       scene_index: scene.scene_index,
       style_preset: movieState.stylePreset,
       character_voices: getInvolvedCharacterVoices(scene),
+      enable_narration: isMovieNarrationEnabled(),
       timeout: 600.0,
     };
 
