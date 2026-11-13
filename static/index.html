@@ -17,18 +17,33 @@
         extend: {
           colors: {
             surface: {
-              950: '#080c14',
-              900: '#0c121e',
-              800: '#121b2d',
-              700: '#18243c',
-              600: '#223252',
-              500: '#324772',
+              950: '#181818', // VS Code Activity Bar & deepest neutral
+              900: '#1e1e1e', // VS Code Editor Base background
+              850: '#222222', // Neutral dark layer
+              800: '#252526', // VS Code Sidebar, Panels, Cards
+              750: '#2a2d2e', // Hover item state
+              700: '#2d2d2d', // Secondary buttons, inputs
+              600: '#383838', // Border divider
+              500: '#4d4d4d', // Subtle icons / hints
+            },
+            vscode: {
+              blue: '#0078d4',       // VS Code Primary Blue
+              blueHover: '#1f8ad2',  // Hover Blue
+              darkBlue: '#0e639c',   // Dark Accent
+              selection: '#04395e',  // Selection background
+              border: '#333333',     // Clean standard border
+              inputBg: '#252526',
+              grayBtn: '#2d2d2d',
+              grayBtnHover: '#37373d',
+              grayBtnBorder: '#3c3c3c',
+              text: '#cccccc',
+              textMuted: '#9d9d9d',
             },
             studio: {
-              cyan: '#42c3e5',
-              teal: '#1abc9c',
-              navy: '#202e50',
-              blue: '#0284c7',
+              cyan: '#38bdf8',
+              teal: '#4ec9b0',
+              navy: '#1e1e1e',
+              blue: '#0078d4',
               sky: '#38bdf8',
             }
           }
@@ -37,33 +52,33 @@
     }
   </script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
     body {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      background-color: #080c14;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Plus Jakarta Sans', Roboto, sans-serif;
+      background-color: #1e1e1e;
+      color: #cccccc;
     }
     ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
+      width: 7px;
+      height: 7px;
     }
     ::-webkit-scrollbar-track {
-      background: #0c121e;
+      background: #1e1e1e;
     }
     ::-webkit-scrollbar-thumb {
-      background: #18243c;
-      border-radius: 9999px;
+      background: #3c3c3c;
+      border-radius: 4px;
     }
     ::-webkit-scrollbar-thumb:hover {
-      background: #223252;
+      background: #4f4f4f;
     }
     .glass-card {
-      background: rgba(18, 27, 45, 0.85);
-      backdrop-filter: blur(18px);
-      border: 1px solid rgba(66, 195, 229, 0.12);
+      background: #252526;
+      border: 1px solid #333333;
     }
     .glow-border:focus-within {
-      border-color: #38bdf8;
-      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+      border-color: #0078d4;
+      box-shadow: 0 0 0 1px #0078d4;
     }
     /* Hide native number input stepper arrows */
     input[type=number]::-webkit-inner-spin-button,
@@ -97,40 +112,40 @@
       <div class="p-3 space-y-1">
         <p class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">Không gian làm việc</p>
 
-        <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="tab-btn w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all text-white bg-gradient-to-r from-sky-500 to-blue-600 shadow-lg shadow-sky-600/25">
+        <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="tab-btn w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-semibold transition text-white bg-[#37373d] border-l-2 border-[#0078d4]">
           <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
           <span>Tổng quan (Dashboard)</span>
         </button>
 
-        <button onclick="switchTab('video')" id="tab-btn-video" class="tab-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-surface-800">
-          <div class="flex items-center space-x-3">
+        <button onclick="switchTab('video')" id="tab-btn-video" class="tab-btn w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
+          <div class="flex items-center space-x-2.5">
             <i data-lucide="clapperboard" class="w-4 h-4"></i>
             <span>Tạo Video AI</span>
           </div>
-          <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/25">Nối tiếp</span>
+          <span class="text-[9px] px-1.5 py-0.5 rounded bg-[#2d2d2d] text-[#38bdf8] border border-[#3c3c3c]">Nối tiếp</span>
         </button>
 
-        <button onclick="switchTab('movie')" id="tab-btn-movie" class="tab-btn w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-surface-800">
-          <i data-lucide="film" class="w-4 h-4 text-cyan-400"></i>
+        <button onclick="switchTab('movie')" id="tab-btn-movie" class="tab-btn w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
+          <i data-lucide="film" class="w-4 h-4 text-[#38bdf8]"></i>
           <span>Tạo Phim AI</span>
         </button>
 
-        <button onclick="switchTab('image')" id="tab-btn-image" class="tab-btn w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-surface-800">
+        <button onclick="switchTab('image')" id="tab-btn-image" class="tab-btn w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
           <i data-lucide="palette" class="w-4 h-4"></i>
           <span>Tạo Ảnh Nghệ Thuật</span>
         </button>
 
-        <button onclick="switchTab('chat')" id="tab-btn-chat" class="tab-btn w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-surface-800">
+        <button onclick="switchTab('chat')" id="tab-btn-chat" class="tab-btn w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
           <i data-lucide="sparkles" class="w-4 h-4"></i>
           <span>Trợ lý Đạo diễn H-AI</span>
         </button>
 
-        <button onclick="switchTab('gallery')" id="tab-btn-gallery" class="tab-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-surface-800">
-          <div class="flex items-center space-x-3">
+        <button onclick="switchTab('gallery')" id="tab-btn-gallery" class="tab-btn w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
+          <div class="flex items-center space-x-2.5">
             <i data-lucide="folder-heart" class="w-4 h-4"></i>
             <span>Thư viện sản phẩm</span>
           </div>
-          <span id="sidebar-gallery-count" class="text-[10px] px-2 py-0.5 rounded-full bg-surface-700 text-slate-300">0</span>
+          <span id="sidebar-gallery-count" class="text-[10px] px-2 py-0.5 rounded-full bg-[#2d2d2d] text-[#cccccc] border border-[#3c3c3c]">0</span>
         </button>
       </div>
     </div>
@@ -215,17 +230,17 @@
 
       <div class="flex items-center space-x-3">
         <!-- Live Token Quota Badge -->
-        <div id="header-quota-badge" class="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-sky-500/10 border border-sky-500/20 text-xs text-sky-300">
-          <i data-lucide="zap" class="w-3.5 h-3.5 text-sky-400"></i>
+        <div id="header-quota-badge" class="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-md bg-[#252526] border border-[#3c3c3c] text-xs text-[#cccccc]">
+          <i data-lucide="zap" class="w-3.5 h-3.5 text-[#38bdf8]"></i>
           <span>Token: <b id="header-quota-tokens" class="text-white font-bold">982 triệu</b></span>
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
         </div>
 
-        <div class="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-surface-800 border border-white/[0.06] text-xs text-slate-300">
-          <i data-lucide="globe" class="w-3.5 h-3.5 text-cyan-400"></i>
-          <span>Định tuyến: <b>US High-Speed</b></span>
+        <div class="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-md bg-[#252526] border border-[#3c3c3c] text-xs text-[#cccccc]">
+          <i data-lucide="globe" class="w-3.5 h-3.5 text-[#38bdf8]"></i>
+          <span>Định tuyến: <b class="text-white">US High-Speed</b></span>
         </div>
-        <button onclick="switchTab('video')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white shadow flex items-center space-x-1.5 transition">
+        <button onclick="switchTab('video')" class="px-3.5 py-1.5 rounded-md text-xs font-medium bg-[#0078d4] hover:bg-[#1f8ad2] text-white flex items-center space-x-1.5 transition cursor-pointer shadow-none border border-transparent">
           <i data-lucide="plus" class="w-3.5 h-3.5"></i>
           <span>Tạo Video Mới</span>
         </button>
@@ -591,7 +606,7 @@
               </div>
 
               <!-- Generate Button -->
-              <button id="btn-generate-video" onclick="generateVideo()" class="w-full py-3.5 px-5 rounded-xl font-bold text-sm bg-gradient-to-r from-sky-500 via-blue-600 to-teal-500 hover:from-sky-400 hover:to-blue-500 text-white shadow-xl shadow-sky-600/25 flex items-center justify-center space-x-2 transition disabled:opacity-50">
+              <button id="btn-generate-video" onclick="generateVideo()" class="w-full py-2.5 px-4 rounded-md font-semibold text-xs bg-[#0078d4] hover:bg-[#1f8ad2] text-white flex items-center justify-center space-x-2 transition disabled:opacity-50 shadow-none border border-transparent cursor-pointer">
                 <i data-lucide="clapperboard" class="w-4 h-4"></i>
                 <span id="btn-generate-video-text">Sản xuất Video Chuyên Nghiệp</span>
               </button>
@@ -654,12 +669,12 @@
 
                   <!-- Action Bar under Video -->
                   <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
-                    <button onclick="prepareNextScene()" class="px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold flex items-center space-x-2 shadow-lg shadow-cyan-600/20 transition">
-                      <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                    <button onclick="prepareNextScene()" class="px-3.5 py-1.5 bg-[#0078d4] hover:bg-[#1f8ad2] text-white rounded-md text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer shadow-none border border-transparent">
+                      <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
                       <span>Tạo cảnh nối tiếp từ video này (Giữ nhân vật & bối cảnh)</span>
                     </button>
 
-                    <a id="video-download-btn" href="#" download class="px-4 py-2.5 bg-surface-700 hover:bg-surface-600 text-white border border-white/10 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition">
+                    <a id="video-download-btn" href="#" download class="px-3.5 py-1.5 bg-[#2d2d2d] hover:bg-[#37373d] text-[#cccccc] hover:text-white border border-[#3c3c3c] rounded-md text-xs font-medium flex items-center space-x-1.5 transition">
                       <i data-lucide="download" class="w-3.5 h-3.5"></i>
                       <span>Tải MP4</span>
                     </a>
@@ -672,7 +687,7 @@
               <div id="storyboard-container" class="hidden pt-4 border-t border-white/[0.06] space-y-2.5">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <span class="text-xs font-bold text-cyan-300 flex items-center space-x-1.5">
+                    <span class="text-xs font-bold text-[#38bdf8] flex items-center space-x-1.5">
                       <i data-lucide="layers" class="w-3.5 h-3.5"></i>
                       <span>Chuỗi cảnh nối tiếp trong phim (Storyboard)</span>
                       <span id="storyboard-count" class="text-[11px] font-normal text-slate-400 ml-1">· 1 cảnh</span>
@@ -680,12 +695,12 @@
                     <p class="text-[10px] text-slate-400 mt-0.5">Kéo thả hoặc bấm ◀ ▶ để sắp xếp lại phân cảnh • Bấm 🗑 để xóa cảnh</p>
                   </div>
                   <div class="flex items-center space-x-2">
-                    <button id="btn-clear-storyboard" onclick="clearStoryboardScenes()" type="button" class="px-3 py-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer">
-                      <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    <button id="btn-clear-storyboard" onclick="clearStoryboardScenes()" type="button" class="px-3 py-1.5 bg-[#2d2d2d] hover:bg-[#37373d] text-rose-300 hover:text-rose-200 border border-[#3c3c3c] rounded-md text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer">
+                      <i data-lucide="trash-2" class="w-3.5 h-3.5 text-rose-400"></i>
                       <span>Làm sạch các phân cảnh</span>
                     </button>
-                    <button id="btn-merge-storyboard" onclick="mergeAndDownloadStoryboard()" type="button" class="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-emerald-600/20 transition cursor-pointer">
-                      <i data-lucide="film" class="w-3.5 h-3.5"></i>
+                    <button id="btn-merge-storyboard" onclick="mergeAndDownloadStoryboard()" type="button" class="px-3.5 py-1.5 bg-[#2d2d2d] hover:bg-[#37373d] text-[#cccccc] hover:text-white border border-[#3c3c3c] rounded-md text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer">
+                      <i data-lucide="film" class="w-3.5 h-3.5 text-[#4ec9b0]"></i>
                       <span id="merge-btn-text">Ghép & Tải Toàn Bộ Phim</span>
                     </button>
                   </div>
@@ -705,31 +720,31 @@
       <div id="view-movie" class="tab-view hidden max-w-7xl mx-auto space-y-6">
 
         <!-- Top Header & Actions -->
-        <div class="glass-card rounded-2xl p-5 shadow-xl flex flex-wrap items-center justify-between gap-4 border border-cyan-500/20 bg-gradient-to-r from-surface-900 via-surface-800 to-cyan-950/30">
+        <div class="glass-card rounded-xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-4 border border-[#333333] bg-[#252526]">
           <div class="flex items-center space-x-3.5">
-            <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-cyan-500/20 via-sky-500/20 to-teal-500/20 border border-cyan-400/30 flex items-center justify-center text-cyan-300 shadow-lg shadow-cyan-500/20">
-              <i data-lucide="clapperboard" class="w-6 h-6"></i>
+            <div class="w-10 h-10 rounded-lg bg-[#1e1e1e] border border-[#3c3c3c] flex items-center justify-center text-[#38bdf8] shrink-0">
+              <i data-lucide="clapperboard" class="w-5 h-5"></i>
             </div>
             <div>
               <div class="flex items-center space-x-2">
-                <h2 class="font-extrabold text-base text-white tracking-tight">H-AI Auto Movie Studio</h2>
-                <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold uppercase tracking-wider">Đạo Diễn Tự Động</span>
+                <h2 class="font-bold text-sm text-white tracking-tight">H-AI Auto Movie Studio</h2>
+                <span class="text-[9px] px-2 py-0.5 rounded bg-[#1e1e1e] text-[#38bdf8] border border-[#3c3c3c] font-semibold uppercase tracking-wider">Đạo Diễn Tự Động</span>
               </div>
               <p class="text-xs text-slate-400">Nhập kịch bản, tự động phân tích nhân vật và quay phim nối tiếp giữ trọn vẹn đặc trưng</p>
             </div>
           </div>
 
-          <div class="flex flex-wrap items-center gap-2.5">
-            <button type="button" onclick="openCinemaTheater()" id="btn-cinema-play" class="px-4 py-2 bg-gradient-to-r from-cyan-600 via-sky-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold flex items-center space-x-2 shadow-lg shadow-cyan-600/25 transition cursor-pointer">
-              <i data-lucide="play-circle" class="w-4 h-4"></i>
-              <span>Phát Toàn Bộ Phim (Liên Tục)</span>
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" onclick="openCinemaTheater()" id="btn-cinema-play" class="px-3.5 py-1.5 bg-[#2d2d2d] hover:bg-[#37373d] text-[#cccccc] hover:text-white border border-[#3c3c3c] rounded-md text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer">
+              <i data-lucide="play" class="w-3.5 h-3.5 text-[#38bdf8]"></i>
+              <span>Phát Toàn Bộ Phim</span>
             </button>
-            <button type="button" onclick="startAutoMovieGeneration()" id="btn-start-movie-gen" class="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold flex items-center space-x-2 shadow-lg shadow-emerald-600/25 transition cursor-pointer">
-              <i data-lucide="sparkles" class="w-4 h-4"></i>
+            <button type="button" onclick="startAutoMovieGeneration()" id="btn-start-movie-gen" class="px-4 py-1.5 bg-[#0078d4] hover:bg-[#1f8ad2] text-white rounded-md text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer shadow-none border border-transparent">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
               <span id="btn-start-movie-gen-text">Bắt Đầu Tạo Phim Tự Động</span>
             </button>
-            <button type="button" onclick="mergeAndDownloadMovie()" id="btn-merge-movie" class="px-3.5 py-2 bg-surface-700 hover:bg-surface-600 text-white border border-white/10 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer">
-              <i data-lucide="film" class="w-3.5 h-3.5 text-cyan-400"></i>
+            <button type="button" onclick="mergeAndDownloadMovie()" id="btn-merge-movie" class="px-3.5 py-1.5 bg-[#2d2d2d] hover:bg-[#37373d] text-[#cccccc] hover:text-white border border-[#3c3c3c] rounded-md text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer">
+              <i data-lucide="film" class="w-3.5 h-3.5 text-[#4ec9b0]"></i>
               <span>Ghép & Tải MP4</span>
             </button>
           </div>
@@ -778,18 +793,18 @@
 
             <!-- Right: Action Buttons -->
             <div class="flex items-center space-x-2 shrink-0">
-              <button type="button" onclick="createNewMovieProject()" class="px-3 py-1.5 bg-gradient-to-r from-cyan-600/30 to-blue-600/30 hover:from-cyan-600/40 hover:to-blue-600/40 text-cyan-300 hover:text-white border border-cyan-500/40 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer shadow-sm">
-                <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-cyan-400"></i>
+              <button type="button" onclick="createNewMovieProject()" class="px-3 py-1.5 bg-[#0078d4]/15 hover:bg-[#0078d4]/25 text-[#38bdf8] hover:text-white border border-[#0078d4]/40 rounded-md text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
                 <span>+ Phim Mới</span>
               </button>
               
-              <button type="button" onclick="saveCurrentMovieProject(true)" id="btn-save-movie-manual" class="px-3 py-1.5 bg-surface-800 hover:bg-surface-700 text-slate-200 border border-white/10 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer">
-                <i data-lucide="save" class="w-3.5 h-3.5 text-cyan-400"></i>
+              <button type="button" onclick="saveCurrentMovieProject(true)" id="btn-save-movie-manual" class="px-3 py-1.5 bg-[#2d2d2d] hover:bg-[#37373d] text-[#cccccc] hover:text-white border border-[#3c3c3c] rounded-md text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer">
+                <i data-lucide="save" class="w-3.5 h-3.5 text-slate-400"></i>
                 <span id="btn-save-movie-text">Lưu Phim</span>
               </button>
 
-              <button type="button" onclick="openMovieLibraryModal()" class="px-3 py-1.5 bg-surface-800 hover:bg-surface-700 text-slate-200 border border-white/10 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer">
-                <i data-lucide="library" class="w-3.5 h-3.5 text-teal-400"></i>
+              <button type="button" onclick="openMovieLibraryModal()" class="px-3 py-1.5 bg-[#2d2d2d] hover:bg-[#37373d] text-[#cccccc] hover:text-white border border-[#3c3c3c] rounded-md text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer">
+                <i data-lucide="library" class="w-3.5 h-3.5 text-slate-400"></i>
                 <span id="btn-movie-library-count">Tất Cả Phim (0)</span>
               </button>
             </div>
@@ -869,12 +884,12 @@
 
               <!-- Action Buttons Row: Balanced, Spacious, No Text Wrap -->
               <div class="flex items-center space-x-2.5 pt-1">
-                <button type="button" onclick="clearMovieProject()" title="Làm sạch kịch bản & phân cảnh hiện tại để bắt đầu mới" class="shrink-0 px-4 py-2.5 bg-surface-800 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 border border-white/10 hover:border-rose-500/30 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer whitespace-nowrap">
-                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                <button type="button" onclick="clearMovieProject()" title="Làm sạch kịch bản & phân cảnh hiện tại để bắt đầu mới" class="shrink-0 px-3.5 py-2 bg-[#2d2d2d] hover:bg-[#37373d] text-slate-300 hover:text-white border border-[#3c3c3c] rounded-md text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer whitespace-nowrap">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5 text-rose-400"></i>
                   <span>Làm sạch</span>
                 </button>
 
-                <button type="button" onclick="analyzeAndBreakdownScript()" id="btn-breakdown-script" class="flex-1 py-2.5 px-4 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-2 shadow-lg shadow-sky-600/25 transition cursor-pointer whitespace-nowrap">
+                <button type="button" onclick="analyzeAndBreakdownScript()" id="btn-breakdown-script" class="flex-1 py-2 px-4 bg-[#0078d4] hover:bg-[#1f8ad2] text-white rounded-md text-xs font-semibold flex items-center justify-center space-x-2 transition cursor-pointer whitespace-nowrap shadow-none border border-transparent">
                   <i data-lucide="wand-sparkles" class="w-4 h-4 shrink-0"></i>
                   <span id="btn-breakdown-text">Phân Tích Kịch Bản</span>
                 </button>
@@ -898,7 +913,7 @@
                     </div>
                     <span class="text-[10px] font-semibold text-slate-300 hidden sm:inline">Tự động sản xuất phim</span>
                   </label>
-                  <button type="button" onclick="addNewCharacter()" class="px-2.5 py-1.5 bg-surface-800 hover:bg-surface-700 text-cyan-300 border border-cyan-500/30 rounded-lg text-xs font-semibold flex items-center space-x-1 transition cursor-pointer">
+                  <button type="button" onclick="addNewCharacter()" class="px-2.5 py-1.5 bg-[#2d2d2d] hover:bg-[#37373d] text-[#38bdf8] hover:text-white border border-[#3c3c3c] rounded-md text-xs font-medium flex items-center space-x-1 transition cursor-pointer">
                     <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
                     <span>Thêm nhân vật</span>
                   </button>
@@ -930,12 +945,12 @@
                   </div>
 
                   <div class="flex items-center space-x-2">
-                    <button type="button" onclick="addNewScene()" class="px-3 py-1.5 bg-surface-800 hover:bg-surface-700 text-slate-200 border border-white/10 rounded-lg text-xs font-semibold flex items-center space-x-1 transition cursor-pointer">
-                      <i data-lucide="plus" class="w-3.5 h-3.5 text-cyan-400"></i>
+                    <button type="button" onclick="addNewScene()" class="px-3 py-1.5 bg-[#2d2d2d] hover:bg-[#37373d] text-[#cccccc] hover:text-white border border-[#3c3c3c] rounded-md text-xs font-medium flex items-center space-x-1 transition cursor-pointer">
+                      <i data-lucide="plus" class="w-3.5 h-3.5 text-[#38bdf8]"></i>
                       <span>Thêm cảnh</span>
                     </button>
-                    <button type="button" onclick="clearMovieScenes()" class="px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 rounded-lg text-xs font-semibold flex items-center space-x-1 transition cursor-pointer">
-                      <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    <button type="button" onclick="clearMovieScenes()" class="px-2.5 py-1.5 bg-[#2d2d2d] hover:bg-[#37373d] text-rose-300 hover:text-rose-200 border border-[#3c3c3c] rounded-md text-xs font-medium flex items-center space-x-1 transition cursor-pointer">
+                      <i data-lucide="trash-2" class="w-3.5 h-3.5 text-rose-400"></i>
                       <span>Làm sạch kịch bản</span>
                     </button>
                   </div>
@@ -972,12 +987,12 @@
                     <span class="text-[11px] font-semibold text-slate-300 hidden md:inline">Tự động sản xuất khi tạo xong ảnh</span>
                   </label>
 
-                  <button type="button" onclick="openCinemaTheater()" class="px-3.5 py-2 rounded-xl bg-surface-800 hover:bg-surface-700 text-white border border-white/10 text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer">
-                    <i data-lucide="monitor-play" class="w-3.5 h-3.5 text-sky-400"></i>
+                  <button type="button" onclick="openCinemaTheater()" class="px-3.5 py-1.5 rounded-md bg-[#2d2d2d] hover:bg-[#37373d] text-[#cccccc] hover:text-white border border-[#3c3c3c] text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer">
+                    <i data-lucide="monitor-play" class="w-3.5 h-3.5 text-[#38bdf8]"></i>
                     <span>Rạp Chiếu Phim</span>
                   </button>
-                  <button type="button" onclick="startAutoMovieGeneration()" class="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 via-sky-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold flex items-center space-x-2 shadow-lg shadow-cyan-600/25 transition cursor-pointer">
-                    <i data-lucide="clapperboard" class="w-4 h-4"></i>
+                  <button type="button" onclick="startAutoMovieGeneration()" class="px-4 py-1.5 rounded-md bg-[#0078d4] hover:bg-[#1f8ad2] text-white text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer shadow-none border border-transparent">
+                    <i data-lucide="clapperboard" class="w-3.5 h-3.5"></i>
                     <span>Sản Xuất Phim Tự Động</span>
                   </button>
                 </div>
@@ -1069,7 +1084,7 @@
                 </div>
               </div>
 
-              <button id="btn-generate-image" onclick="generateImage()" class="w-full py-3.5 px-5 rounded-xl font-bold text-sm bg-gradient-to-r from-teal-600 via-sky-600 to-blue-600 hover:from-teal-500 hover:to-blue-500 text-white shadow-xl shadow-teal-600/25 flex items-center justify-center space-x-2 transition disabled:opacity-50">
+              <button id="btn-generate-image" onclick="generateImage()" class="w-full py-2.5 px-4 rounded-md font-semibold text-xs bg-[#0078d4] hover:bg-[#1f8ad2] text-white flex items-center justify-center space-x-2 transition disabled:opacity-50 shadow-none border border-transparent cursor-pointer">
                 <i data-lucide="wand-2" class="w-4 h-4"></i>
                 <span>Khởi tạo Ảnh Chuyên Nghiệp</span>
               </button>
@@ -1161,7 +1176,7 @@
           <div class="p-4 border-t border-white/[0.06] bg-surface-950/60">
             <form onsubmit="sendChatMessage(event)" class="flex items-center space-x-2.5">
               <input type="text" id="chat-input" placeholder="Nhập yêu cầu cho H-AI (VD: Viết kịch bản 3 cảnh nối tiếp về chú mèo phiêu lưu trong rừng phép thuật)..." class="flex-1 bg-surface-800 border border-surface-600 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-400 transition">
-              <button type="submit" id="btn-send-chat" class="px-5 py-3 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-sky-600/25 transition flex items-center space-x-1.5 shrink-0">
+              <button type="submit" id="btn-send-chat" class="px-4 py-2.5 bg-[#0078d4] hover:bg-[#1f8ad2] text-white rounded-md font-semibold text-xs transition flex items-center space-x-1.5 shrink-0 shadow-none border border-transparent cursor-pointer">
                 <span>Gửi</span>
                 <i data-lucide="send" class="w-3.5 h-3.5"></i>
               </button>
@@ -1250,7 +1265,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261113_15"></script>
+  <script src="/static/app.js?v=20261113_16"></script>
   <script>
     lucide.createIcons();
   </script>
@@ -1371,8 +1386,8 @@
       </div>
 
       <div class="flex items-center justify-end space-x-2.5 pt-2 border-t border-white/[0.06]" id="dialog-buttons">
-        <button type="button" id="dialog-btn-cancel" class="px-4 py-2 rounded-xl bg-surface-800 hover:bg-surface-700 text-slate-300 text-xs font-semibold transition cursor-pointer">Huỷ bỏ</button>
-        <button type="button" id="dialog-btn-confirm" class="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold transition cursor-pointer shadow-md shadow-cyan-600/25">Đồng ý</button>
+        <button type="button" id="dialog-btn-cancel" class="px-3.5 py-1.5 rounded-md bg-[#2d2d2d] hover:bg-[#37373d] text-[#cccccc] hover:text-white border border-[#3c3c3c] text-xs font-medium transition cursor-pointer">Huỷ bỏ</button>
+        <button type="button" id="dialog-btn-confirm" class="px-4 py-1.5 rounded-md bg-[#0078d4] hover:bg-[#1f8ad2] text-white text-xs font-semibold transition cursor-pointer shadow-none border border-transparent">Đồng ý</button>
       </div>
     </div>
   </div>

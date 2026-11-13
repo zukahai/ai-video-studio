@@ -135,7 +135,7 @@ function customAlert(message, title = 'Thông báo', type = 'info') {
     msgEl.innerText = message;
     btnCancel.classList.add('hidden');
     btnConfirm.innerText = 'Đã hiểu';
-    btnConfirm.className = 'px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold transition cursor-pointer shadow-md shadow-cyan-600/25';
+    btnConfirm.className = 'px-4 py-1.5 rounded-md bg-[#0078d4] hover:bg-[#1f8ad2] text-white text-xs font-semibold transition cursor-pointer shadow-none border border-transparent';
 
     if (type === 'error') {
       iconContainer.className = 'w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-400/30 flex items-center justify-center text-rose-400 shrink-0';
@@ -181,13 +181,13 @@ function customConfirm(message, title = 'Xác nhận thao tác', confirmText = '
     btnConfirm.innerText = confirmText;
 
     if (isDanger) {
-      iconContainer.className = 'w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-400/30 flex items-center justify-center text-rose-400 shrink-0';
+      iconContainer.className = 'w-9 h-9 rounded-lg bg-rose-500/15 border border-rose-400/30 flex items-center justify-center text-rose-400 shrink-0';
       iconEl.setAttribute('data-lucide', 'alert-triangle');
-      btnConfirm.className = 'px-5 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white text-xs font-bold transition cursor-pointer shadow-md shadow-rose-600/25';
+      btnConfirm.className = 'px-4 py-1.5 rounded-md bg-[#c52f2f] hover:bg-[#a82222] text-white text-xs font-semibold transition cursor-pointer shadow-none border border-transparent';
     } else {
-      iconContainer.className = 'w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-400/30 flex items-center justify-center text-amber-400 shrink-0';
+      iconContainer.className = 'w-9 h-9 rounded-lg bg-blue-500/15 border border-blue-400/30 flex items-center justify-center text-[#38bdf8] shrink-0';
       iconEl.setAttribute('data-lucide', 'help-circle');
-      btnConfirm.className = 'px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold transition cursor-pointer shadow-md shadow-cyan-600/25';
+      btnConfirm.className = 'px-4 py-1.5 rounded-md bg-[#0078d4] hover:bg-[#1f8ad2] text-white text-xs font-semibold transition cursor-pointer shadow-none border border-transparent';
     }
     lucide.createIcons();
 
@@ -333,28 +333,24 @@ function switchTab(tabId, syncUrl = true) {
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.remove(
       'text-white',
-      'bg-gradient-to-r',
-      'from-sky-500',
-      'to-blue-600',
-      'shadow-lg',
-      'shadow-sky-600/25',
+      'bg-[#37373d]',
+      'border-l-2',
+      'border-[#0078d4]',
       'font-semibold'
     );
-    btn.classList.add('text-slate-400', 'hover:text-white', 'hover:bg-surface-800', 'font-medium');
+    btn.classList.add('text-[#cccccc]', 'hover:text-white', 'hover:bg-[#2a2d2e]', 'font-medium');
   });
 
   const activeView = document.getElementById(`view-${tabId}`);
   const activeBtn = document.getElementById(`tab-btn-${tabId}`);
   if (activeView) activeView.classList.remove('hidden');
   if (activeBtn) {
-    activeBtn.classList.remove('text-slate-400', 'hover:text-white', 'hover:bg-surface-800', 'font-medium');
+    activeBtn.classList.remove('text-[#cccccc]', 'hover:text-white', 'hover:bg-[#2a2d2e]', 'font-medium');
     activeBtn.classList.add(
       'text-white',
-      'bg-gradient-to-r',
-      'from-sky-500',
-      'to-blue-600',
-      'shadow-lg',
-      'shadow-sky-600/25',
+      'bg-[#37373d]',
+      'border-l-2',
+      'border-[#0078d4]',
       'font-semibold'
     );
   }
@@ -2131,49 +2127,49 @@ function renderMovieProjectsRibbon() {
   movieProjectsState.list.forEach(p => {
     const isActive = (p.id === movieState.id || p.id === movieProjectsState.currentId);
     const activeClass = isActive
-      ? 'border-cyan-400 bg-gradient-to-r from-cyan-950/80 via-surface-900 to-surface-900 text-white shadow-xl shadow-cyan-950/50 ring-2 ring-cyan-400/40 scale-[1.01]'
-      : 'border-white/[0.08] bg-surface-950/80 text-slate-300 hover:text-white hover:bg-surface-850 hover:border-cyan-500/30 hover:shadow-lg hover:scale-[1.01]';
+      ? 'border-[#0078d4] bg-[#2a2d2e] text-white shadow-sm ring-1 ring-[#0078d4]/40'
+      : 'border-[#333333] bg-[#252526] text-[#cccccc] hover:text-white hover:bg-[#2d2d2d] hover:border-[#3c3c3c]';
 
     const rendered = p.rendered_count || 0;
     const totalScenes = p.scene_count || 0;
     const isCompleted = rendered === totalScenes && totalScenes > 0;
     const sceneBadge = totalScenes > 0
-      ? `<span class="text-[10px] px-2 py-0.5 rounded-lg ${isCompleted ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold' : 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-semibold'} flex items-center space-x-1 shrink-0">
+      ? `<span class="text-[10px] px-2 py-0.5 rounded ${isCompleted ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-700/40 font-medium' : 'bg-[#0078d4]/15 text-[#38bdf8] border border-[#0078d4]/30 font-medium'} flex items-center space-x-1 shrink-0">
           <i data-lucide="${isCompleted ? 'check-circle-2' : 'clapperboard'}" class="w-3 h-3"></i>
           <span>${rendered}/${totalScenes} cảnh</span>
         </span>`
-      : `<span class="text-[10px] px-2 py-0.5 rounded-lg bg-surface-800 text-slate-400 border border-white/5 shrink-0">0 cảnh</span>`;
+      : `<span class="text-[10px] px-2 py-0.5 rounded bg-[#1e1e1e] text-[#9d9d9d] border border-[#333333] shrink-0">0 cảnh</span>`;
 
     const thumbHtml = p.thumbnail_url
       ? (p.thumbnail_url.endsWith('.mp4')
           ? `<video src="${p.thumbnail_url}" class="w-full h-full object-cover" muted loop playsinline></video>`
           : `<img src="${p.thumbnail_url}" alt="${escapeHtml(p.title || '')}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">`
         )
-      : `<div class="w-full h-full bg-gradient-to-br from-cyan-950/50 to-surface-900 flex items-center justify-center text-cyan-400/80 group-hover:text-cyan-300 transition">
+      : `<div class="w-full h-full bg-[#1e1e1e] flex items-center justify-center text-[#38bdf8]/70 group-hover:text-[#38bdf8] transition">
           <i data-lucide="film" class="w-7 h-7"></i>
         </div>`;
 
     html += `
-      <div onclick="switchMovieProject('${p.id}')" class="flex items-center space-x-3.5 p-3 rounded-2xl border-2 transition-all duration-200 cursor-pointer shrink-0 min-w-[310px] max-w-[370px] group ${activeClass}">
+      <div onclick="switchMovieProject('${p.id}')" class="flex items-center space-x-3.5 p-3 rounded-xl border transition-all duration-200 cursor-pointer shrink-0 min-w-[310px] max-w-[370px] group ${activeClass}">
         <!-- Big Thumbnail (w-16 h-16) -->
-        <div class="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-white/10 bg-surface-900 shadow-md">
+        <div class="relative w-16 h-16 rounded-lg overflow-hidden shrink-0 border border-[#3c3c3c] bg-[#1e1e1e]">
           ${thumbHtml}
-          ${isActive ? `<div class="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full bg-cyan-400 ring-2 ring-black shadow-sm" title="Phim đang mở"></div>` : ''}
+          ${isActive ? `<div class="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full bg-[#0078d4] ring-2 ring-[#1e1e1e]" title="Phim đang mở"></div>` : ''}
         </div>
 
         <!-- Movie Details -->
         <div class="min-w-0 flex-1 pr-1">
           <div class="flex items-center justify-between space-x-1">
-            <h4 class="text-sm font-extrabold truncate text-white ${isActive ? 'text-cyan-300' : 'group-hover:text-white transition'}">${escapeHtml(p.title || 'Phim Mới')}</h4>
-            ${isActive ? `<span class="text-[9px] px-1.5 py-0.5 rounded-md bg-cyan-500/25 text-cyan-300 border border-cyan-400/40 font-bold uppercase tracking-wider shrink-0">Đang mở</span>` : ''}
+            <h4 class="text-sm font-bold truncate ${isActive ? 'text-white' : 'text-[#e0e0e0] group-hover:text-white transition'}">${escapeHtml(p.title || 'Phim Mới')}</h4>
+            ${isActive ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-[#0078d4]/20 text-[#38bdf8] border border-[#0078d4]/40 font-semibold uppercase tracking-wider shrink-0">Đang mở</span>` : ''}
           </div>
           
-          <p class="text-[11px] text-slate-400 truncate mt-0.5 leading-tight">${escapeHtml(p.logline || 'Chưa có tóm tắt cốt truyện')}</p>
+          <p class="text-[11px] text-[#9d9d9d] truncate mt-0.5 leading-tight">${escapeHtml(p.logline || 'Chưa có tóm tắt cốt truyện')}</p>
           
           <div class="flex items-center space-x-2 mt-2">
             ${sceneBadge}
-            <span class="text-[10px] text-slate-300 font-semibold px-2 py-0.5 rounded-lg bg-surface-800/80 border border-white/[0.06] flex items-center space-x-1 shrink-0">
-              <i data-lucide="users" class="w-3 h-3 text-cyan-400"></i>
+            <span class="text-[10px] text-[#cccccc] font-medium px-2 py-0.5 rounded bg-[#1e1e1e] border border-[#333333] flex items-center space-x-1 shrink-0">
+              <i data-lucide="users" class="w-3 h-3 text-[#9cdcfe]"></i>
               <span>${p.character_count || 0} n.vật</span>
             </span>
           </div>
@@ -2753,7 +2749,7 @@ function renderMovieCharacters() {
 
   movieState.characters.forEach((char, idx) => {
     const card = document.createElement('div');
-    card.className = 'p-3.5 rounded-xl bg-surface-900/90 border border-white/[0.08] hover:border-cyan-500/30 transition space-y-3';
+    card.className = 'p-3.5 rounded-lg bg-[#252526] border border-[#333333] hover:border-[#3c3c3c] transition space-y-3';
     card.dataset.charId = char.id;
 
     // Render character image thumbnails with angle badge labels
@@ -2828,7 +2824,7 @@ function renderMovieCharacters() {
             <i data-lucide="image-plus" class="w-4 h-4 text-cyan-400 shrink-0"></i>
             <span class="text-[11px] text-slate-300">Bấm chọn ảnh hoặc bấm <kbd class="px-1 py-0.5 rounded bg-surface-800 text-[10px] text-cyan-300 font-mono">Ctrl+V</kbd> dán</span>
           </div>
-          <button type="button" onclick="generateAll3CharacterPortraits('${char.id}')" id="btn-gen-char-${char.id}" ${isGeneratingPortraits ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 hover:from-teal-500 hover:to-sky-500 disabled:opacity-50 text-white text-[10px] font-bold flex items-center space-x-1 shrink-0 shadow-sm transition cursor-pointer">
+          <button type="button" onclick="generateAll3CharacterPortraits('${char.id}')" id="btn-gen-char-${char.id}" ${isGeneratingPortraits ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-md bg-[#0078d4] hover:bg-[#1f8ad2] disabled:opacity-50 text-white text-[10px] font-semibold flex items-center space-x-1 shrink-0 transition cursor-pointer">
             <i data-lucide="${isGeneratingPortraits ? 'loader-2' : 'sparkles'}" class="w-3.5 h-3.5 ${isGeneratingPortraits ? 'animate-spin' : ''}"></i>
             <span>${isGeneratingPortraits ? (char._genStatusText || 'Đang vẽ...') : (imgCount >= 3 ? 'AI Vẽ Lại 3 Ảnh' : 'AI Tạo 3 Ảnh')}</span>
           </button>
@@ -3164,12 +3160,12 @@ function renderMovieScenes() {
     const isGenerating = scene.status === 'generating';
     const isDone = scene.status === 'done' || Boolean(scene.video_url);
 
-    card.className = `p-4 rounded-2xl bg-surface-900 border transition space-y-3 relative ${
+    card.className = `p-4 rounded-xl bg-[#252526] border transition space-y-3 relative ${
       isGenerating
-        ? 'border-cyan-400 ring-2 ring-cyan-400/40 shadow-lg shadow-cyan-500/20'
+        ? 'border-[#0078d4] ring-1 ring-[#0078d4]/40'
         : isDone
-        ? 'border-emerald-500/40 bg-surface-900/90 shadow-md'
-        : 'border-white/[0.08] hover:border-cyan-500/20'
+        ? 'border-emerald-500/35 bg-[#252526]'
+        : 'border-[#333333] hover:border-[#3c3c3c]'
     }`;
 
     // Characters involved tags & reference images
@@ -3290,7 +3286,7 @@ function renderMovieScenes() {
           ${isDone ? '✓ Đã quay xong' : isGenerating ? '● Đang quay video...' : '○ Chờ sản xuất'}
         </span>
 
-        <button type="button" onclick="generateSingleMovieScene(${idx})" class="px-3 py-1 rounded-lg bg-surface-800 hover:bg-surface-700 text-cyan-300 border border-cyan-500/30 text-xs font-semibold flex items-center space-x-1 transition cursor-pointer">
+        <button type="button" onclick="generateSingleMovieScene(${idx})" class="px-3 py-1 rounded-md bg-[#2d2d2d] hover:bg-[#37373d] text-[#38bdf8] hover:text-white border border-[#3c3c3c] text-xs font-medium flex items-center space-x-1 transition cursor-pointer">
           <i data-lucide="refresh-cw" class="w-3 h-3"></i>
           <span>${isDone ? 'Quay lại cảnh này' : 'Quay cảnh này'}</span>
         </button>
