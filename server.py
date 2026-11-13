@@ -1160,6 +1160,46 @@ MOVIE_CHARACTER_COLORS = [
 ]
 
 
+def _split_long_dialogue_into_chunks(dialogue: str, max_words: int = 24) -> list[str]:
+    """Split a long dialogue (> max_words) into <= max_words chunks while preserving the speaker/narrator label."""
+    raw = (dialogue or "").strip()
+    if not raw:
+        return []
+    m_prefix = re.match(r'^([^:\n]{1,40}\s*:\s*)(.+)$', raw, flags=re.DOTALL)
+    prefix = m_prefix.group(1) if m_prefix else ""
+    body = (m_prefix.group(2) if m_prefix else raw).strip().strip('"').strip("'").strip()
+    words = body.split()
+    if len(words) <= max_words:
+        return [raw]
+
+    parts = [p.strip() for p in re.split(r'(?<=[.!?;,])\s+', body) if p.strip()]
+    chunks: list[str] = []
+    cur: list[str] = []
+    cur_words = 0
+
+    for part in parts:
+        p_words = part.split()
+        if len(p_words) > max_words:
+            if cur:
+                chunks.append(" ".join(cur))
+                cur = []
+                cur_words = 0
+            for i in range(0, len(p_words), max_words):
+                chunks.append(" ".join(p_words[i:i + max_words]))
+        elif cur_words + len(p_words) > max_words and cur:
+            chunks.append(" ".join(cur))
+            cur = [part]
+            cur_words = len(p_words)
+        else:
+            cur.append(part)
+            cur_words += len(p_words)
+
+    if cur:
+        chunks.append(" ".join(cur))
+
+    return [f'{prefix}"{c}"' if prefix else c for c in chunks]
+
+
 def _format_movie_result(parsed: dict, style_preset: str = "Điện ảnh HD Hollywood") -> dict:
     characters = parsed.get("characters") or []
     if not isinstance(characters, list):
@@ -1193,46 +1233,53 @@ def _format_movie_result(parsed: dict, style_preset: str = "Điện ảnh HD Hol
             dur = int(dur_raw)
             if dur < 5:
                 dur = 5
-            elif dur > 20:
-                dur = 20
+            elif dur > 10:
+                dur = 10
         except (ValueError, TypeError):
             dur = 8
 
         diag = (sc.get("dialogue") or "").strip()
-        cinematic_prompt = clean_narration_prefixes_in_prompt(
+        diag_chunks = _split_long_dialogue_into_chunks(diag, max_words=24) if diag else [""]
+        base_prompt = clean_narration_prefixes_in_prompt(
             (sc.get("prompt") or f"Cinematic HD Hollywood, {style_preset}, Scene {idx+1}: {sc.get('situation', '')}. photorealistic lighting, cinematic camera motion").strip()
         )
+        # Strip any embedded spoken/voiceover text if we are splitting into multiple chunks so each chunk gets its own exact audio
+        if len(diag_chunks) > 1:
+            base_prompt = re.sub(r'(?i)(?:off-screen\s+(?:narrator\s+)?voiceover(?:\s+narration)?|spoken\s+(?:character\s+)?dialogue)[^.]*\.?', '', base_prompt).strip()
 
-        is_narr = is_narration_dialogue(diag) or is_narration_dialogue(cinematic_prompt)
+        for chunk_idx, chunk_diag in enumerate(diag_chunks):
+            scene_num = len(formatted_scenes) + 1
+            cinematic_prompt = base_prompt
+            is_narr = is_narration_dialogue(chunk_diag) or is_narration_dialogue(cinematic_prompt)
 
-        if is_narr:
-            # Clean out any contradictory lip-sync keywords
-            cinematic_prompt = re.sub(r'(?i)spoken dialogue[^.]*\.?', '', cinematic_prompt).strip()
-            cinematic_prompt = re.sub(r'(?i)with (clear |natural )?synchronized lip movements?[^.]*\.?', '', cinematic_prompt).strip()
-            cinematic_prompt = re.sub(r'(?i)lip-?sync[^.]*\.?', '', cinematic_prompt).strip()
+            if is_narr:
+                cinematic_prompt = re.sub(r'(?i)spoken dialogue[^.]*\.?', '', cinematic_prompt).strip()
+                cinematic_prompt = re.sub(r'(?i)with (clear |natural )?synchronized lip movements?[^.]*\.?', '', cinematic_prompt).strip()
+                cinematic_prompt = re.sub(r'(?i)lip-?sync[^.]*\.?', '', cinematic_prompt).strip()
 
-            if "off-screen" not in cinematic_prompt.lower() and "narrator" not in cinematic_prompt.lower():
-                _, narr_spoken = extract_speaker_and_spoken_text(diag)
-                narr_text = narr_spoken if narr_spoken else "Thuyết minh dẫn chuyện"
-                cinematic_prompt += (
-                    f' Off-screen voiceover narration (speak ONLY these exact words, do NOT say "Người dẫn chuyện"): "{narr_text}". '
-                    f'Critical acting constraint: The narration is off-screen. On-screen characters DO NOT SPEAK, DO NOT MOVE LIPS, mouths remain naturally closed with zero lip-sync, characters perform silent expressive acting only.'
-                )
-        else:
-            if diag and "spoken dialogue" not in cinematic_prompt.lower() and "dialogue:" not in cinematic_prompt.lower():
-                _, spoken_line = extract_speaker_and_spoken_text(diag)
-                cinematic_prompt += f' Spoken character dialogue: "{spoken_line or diag}" with natural synchronized lip movement and clear audible voice.'
+                if "off-screen" not in cinematic_prompt.lower() and "narrator" not in cinematic_prompt.lower():
+                    _, narr_spoken = extract_speaker_and_spoken_text(chunk_diag)
+                    narr_text = narr_spoken if narr_spoken else "Thuyết minh dẫn chuyện"
+                    cinematic_prompt += (
+                        f' Off-screen voiceover narration (speak ONLY these exact words, do NOT say "Người dẫn chuyện"): "{narr_text}". '
+                        f'Critical acting constraint: The narration is off-screen. On-screen characters DO NOT SPEAK, DO NOT MOVE LIPS, mouths remain naturally closed with zero lip-sync, characters perform silent expressive acting only.'
+                    )
+            else:
+                if chunk_diag and "spoken dialogue" not in cinematic_prompt.lower() and "dialogue:" not in cinematic_prompt.lower():
+                    _, spoken_line = extract_speaker_and_spoken_text(chunk_diag)
+                    cinematic_prompt += f' Spoken character dialogue: "{spoken_line or chunk_diag}" with natural synchronized lip movement and clear audible voice.'
 
-        formatted_scenes.append({
-            "scene_index": idx + 1,
-            "situation": sc.get("situation") or f"Diễn biến phân cảnh {idx+1}",
-            "dialogue": diag or f"Lời thoại Cảnh #{idx+1}",
-            "duration": dur,
-            "characters_involved": sc.get("characters_involved") if isinstance(sc.get("characters_involved"), list) else [],
-            "prompt": cinematic_prompt,
-            "status": "idle",
-            "video_url": None
-        })
+            part_suffix = f" (Phần {chunk_idx + 1}/{len(diag_chunks)})" if len(diag_chunks) > 1 else ""
+            formatted_scenes.append({
+                "scene_index": scene_num,
+                "situation": f"{sc.get('situation') or f'Diễn biến phân cảnh {scene_num}'}{part_suffix}",
+                "dialogue": chunk_diag or f"Lời thoại Cảnh #{scene_num}",
+                "duration": min(10, max(5, dur)),
+                "characters_involved": sc.get("characters_involved") if isinstance(sc.get("characters_involved"), list) else [],
+                "prompt": cinematic_prompt,
+                "status": "idle",
+                "video_url": None
+            })
 
     return {
         "title": parsed.get("title") or "Phim Điện Ảnh H-AI",
@@ -1572,11 +1619,10 @@ YÊU CẦU ĐẶC BIỆT:
    - Khi nhân vật B nói -> 1 cảnh tiếp theo chuyển sang B đáp lại.
    - Khi có người dẫn chuyện (Voice-over) -> 1 cảnh riêng biệt dành cho người dẫn chuyện.
    - Không giới hạn số lượng phân cảnh (không sợ nhiều cảnh).
-2. THỜI LƯỢNG MỖI PHÂN CẢNH (5 đến 20 GIÂY TÙY Ý):
-   - Phân tích ngữ cảnh và độ dài câu thoại để chọn số giây chính xác: từ 5 đến 20 giây (5s, 6s, 8s, 10s, 12s, 15s, 18s, 20s).
-   - Câu thoại ngắn: 5 - 8 giây.
-   - Câu thoại vừa: 8 - 12 giây.
-   - Câu thoại dài, giải thích hoặc cao trào: 12 - 20 giây.
+2. THỜI LƯỢNG MỖI PHÂN CẢNH (TỐI ĐA 10 GIÂY - BẮT BUỘC CHIA NHỎ CÂU THOẠI DÀI):
+   - Mỗi phân cảnh chỉ được phép tối đa 10 giây (chỉ chọn: 5, 6, 8 hoặc 10 giây). TUYỆT ĐỐI KHÔNG tạo cảnh > 10 giây.
+   - Câu thoại ngắn: 5 - 6 giây. Câu thoại vừa: 8 - 10 giây.
+   - Nếu có câu thoại hoặc đoạn dẫn chuyện dài (quá ~22-25 từ, đọc mất hơn 10 giây), BẮT BUỘC chia nhỏ thành nhiều phân cảnh nối tiếp nhau (mỗi cảnh <= 10 giây) để giọng đọc tự nhiên, không bị gấp hay cắt chữ!
 3. QUY ĐỊNH BẮT BUỘC VỀ LỜI DẪN CHUYỆN VS THOẠI NHÂN VẬT TRONG 'prompt' (CHỐNG LỖI MẤP MÁY MÔI KHI DẪN CHUYỆN):
    - NẾU LÀ CẢNH DẪN CHUYỆN / THUYẾT MINH (dialogue bắt đầu bằng 'Dẫn chuyện:', 'Người dẫn chuyện:', 'Thuyết minh:'):
      'prompt' BẮT BUỘC PHẢI DÙNG CẤU TRÚC: Off-screen narrator voiceover: "...". Critical acting constraint: The narrator is off-screen. Characters on screen DO NOT SPEAK, DO NOT MOVE THEIR LIPS, zero lip-sync, mouths remain naturally closed, characters only perform silent natural acting, physical movements and facial reactions.
