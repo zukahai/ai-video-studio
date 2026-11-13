@@ -31,11 +31,13 @@ STATE_DIR = BASE_DIR / ".muse-state"
 OUTPUTS_DIR = BASE_DIR / "outputs"
 UPLOADS_DIR = BASE_DIR / "uploads"
 STATIC_DIR = BASE_DIR / "static"
+MOVIES_DIR = OUTPUTS_DIR / "movies"
 
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
 STATE_DIR.mkdir(parents=True, exist_ok=True)
+MOVIES_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="H-AI Studio", version="2.0.0")
 
@@ -1675,6 +1677,365 @@ async def get_existing_character_images(name: str):
                         "local_path": str(file.resolve()),
                     })
     return {"status": "success", "images": found[:6]}
+
+
+# ==================== MOVIE PROJECTS PERSISTENCE API ====================
+
+class MovieProjectModel(BaseModel):
+    id: Optional[str] = None
+    title: Optional[str] = "Kịch bản Phim Mới"
+    logline: Optional[str] = ""
+    script: Optional[str] = ""
+    stylePreset: Optional[str] = "Điện ảnh 4K Hollywood"
+    aspectRatio: Optional[str] = "16:9"
+    targetScenes: Optional[Any] = "auto"
+    characters: Optional[list] = []
+    scenes: Optional[list] = []
+    sessionId: Optional[str] = None
+    createdAt: Optional[float] = None
+    updatedAt: Optional[float] = None
+
+
+def _seed_initial_movie_projects():
+    """Auto-discovers prior generated movies from outputs/ and seeds project JSON files."""
+    try:
+        MOVIES_DIR.mkdir(parents=True, exist_ok=True)
+        now_ms = time.time() * 1000
+
+        # 1. Co Be Ban Diem
+        co_be_files = sorted(OUTPUTS_DIR.glob("*co-be-ban-diem*canh-*.mp4"))
+        if co_be_files:
+            scenes = []
+            situations = [
+                "Đêm giao thừa, tuyết rơi dày trên phố cổ châu Âu, cô bé bán diêm chân trần run rẩy ôm giỏ diêm đi giữa dòng người vội vã về nhà đón năm mới.",
+                "Cô bé ngồi nép vào góc tường giữa hai ngôi nhà lạnh giá, run rẩy quẹt que diêm đầu tiên để sưởi ấm đôi tay tê cóng.",
+                "Trong ánh lửa que diêm đầu tiên, cô bé nhìn thấy một lò sưởi bằng sắt rực sáng, tỏa hơi ấm ngập tràn.",
+                "Em quẹt que diêm thứ hai, bức tường biến thành một tấm rèm trong suốt mở ra bàn tiệc thịnh soạn với đĩa ngỗng quay thơm phức.",
+                "Em quẹt que diêm thứ ba, hiện ra một cây thông Noel khổng lồ lấp lánh ngàn ngọn nến sáng rực trên cành lá xanh tươi.",
+                "Que diêm thứ tư bừng sáng, người bà ngoại hiền hậu hiện về mỉm cười dịu dàng ôm em vào lòng.",
+                "Em vội quẹt hết cả bao diêm để giữ bà ở lại bên mình thật lâu trong đêm đông băng giá.",
+                "Bà ngoại nắm tay cô bé bay lên cao, vượt qua mọi đói rét và đau khổ, cùng bay về chốn thiên đường an lành."
+            ]
+            for i, f in enumerate(co_be_files):
+                idx = i + 1
+                sit = situations[i] if i < len(situations) else f"Phân cảnh #{idx}"
+                scenes.append({
+                    "scene_index": idx,
+                    "situation": sit,
+                    "dialogue": f"Cô Bé Bán Diêm: 'Que diêm sưởi ấm...' (Cảnh #{idx})",
+                    "duration": 10,
+                    "characters_involved": ["Cô Bé Bán Diêm", "Bà Ngoại"] if idx >= 6 else ["Cô Bé Bán Diêm"],
+                    "prompt": f"Cinematic 4K Hollywood film, scene {idx} of The Little Match Girl on snowy European street...",
+                    "status": "done",
+                    "video_url": f"/outputs/{f.name}"
+                })
+            
+            p_cobe = {
+                "id": "mov_co_be_ban_diem",
+                "title": "Cô Bé Bán Diêm",
+                "logline": "Trong đêm giao thừa tuyết rơi lạnh giá, một cô bé nghèo bán diêm thắp từng que diêm nhỏ để sưởi ấm, và trong ánh lửa mong manh ấy, em nhìn thấy bà ngoại yêu dấu đến đón em về thiên đường.",
+                "script": "Đêm giao thừa, tuyết rơi lạnh buốt. Một cô bé đầu trần, chân đất co ro bước đi trên đường phố vắng vẻ...",
+                "stylePreset": "Điện ảnh 4K Hollywood",
+                "aspectRatio": "16:9",
+                "targetScenes": len(scenes),
+                "characters": [
+                    {
+                        "id": "char_1",
+                        "name": "Cô Bé Bán Diêm",
+                        "description": "Bé gái khoảng 9 tuổi, tóc vàng hoe phủ tuyết, mặc áo rách nâu, ôm giỏ diêm.",
+                        "color": "#ef4444",
+                        "images": []
+                    },
+                    {
+                        "id": "char_2",
+                        "name": "Bà Ngoại",
+                        "description": "Bà cụ khoảng 70 tuổi, tóc bạc trắng, nụ cười hiền hậu, ánh mắt ấm áp.",
+                        "color": "#f59e0b",
+                        "images": []
+                    }
+                ],
+                "scenes": scenes,
+                "createdAt": now_ms - 86400000,
+                "updatedAt": now_ms - 3600000
+            }
+            with open(MOVIES_DIR / "mov_co_be_ban_diem.json", "w", encoding="utf-8") as f:
+                json.dump(p_cobe, f, ensure_ascii=False, indent=2)
+
+        # 2. Co Cong Mai Sat
+        mai_sat_files = sorted(OUTPUTS_DIR.glob("*mai-sat-canh-*.mp4"))
+        if mai_sat_files:
+            m_scenes = []
+            m_sits = [
+                "Góc học tập nghèo, cậu bé 10 tuổi nhăn nhó gập sách, ngáp ngắn ngáp dài vì chán học.",
+                "Bên bờ suối nhỏ, cậu bé thấy một bà cụ tóc bạc đang miệt mài mài một thỏi sắt lớn vào tảng đá.",
+                "Cậu bé tò mò hỏi thăm, bà cụ mỉm cười dịu dàng giải thích bà đang mài thỏi sắt thành một chiếc kim khâu.",
+                "Cậu bé hiểu ra bài học kiên trì, trở về nhà chăm chỉ đọc sách với nụ cười rạng rỡ."
+            ]
+            for i, f in enumerate(mai_sat_files):
+                idx = i + 1
+                sit = m_sits[i] if i < len(m_sits) else f"Phân cảnh #{idx}"
+                m_scenes.append({
+                    "scene_index": idx,
+                    "situation": sit,
+                    "dialogue": f"Lời thoại Cảnh #{idx}",
+                    "duration": 10,
+                    "characters_involved": ["Cậu Bé", "Bà Cụ"] if idx in (2, 3) else ["Cậu Bé"],
+                    "prompt": f"Cinematic 4K Hollywood film, ancient Vietnam, scene {idx} of boy learning diligence...",
+                    "status": "done",
+                    "video_url": f"/outputs/{f.name}"
+                })
+            
+            p_maisat = {
+                "id": "mov_co_cong_mai_sat",
+                "title": "Có Công Mài Sắt, Có Ngày Nên Kim",
+                "logline": "Một cậu bé ham chơi lười học gặp bà cụ đang mài thỏi sắt lớn thành kim khâu, và từ bài học kiên trì ấy, cậu quyết tâm thay đổi để trở thành người chăm học.",
+                "script": "Ngày xửa ngày xưa, có một cậu bé rất lười học. Một hôm cậu đi chơi gặp bà cụ mài sắt thành kim...",
+                "stylePreset": "Điện ảnh 4K Hollywood",
+                "aspectRatio": "16:9",
+                "targetScenes": len(m_scenes),
+                "characters": [
+                    {
+                        "id": "char_1",
+                        "name": "Cậu Bé",
+                        "description": "Bé trai 10 tuổi, tóc đen ngắn rối, áo nâu vải thô, đôi mắt thông minh.",
+                        "color": "#ef4444",
+                        "images": []
+                    },
+                    {
+                        "id": "char_2",
+                        "name": "Bà Cụ",
+                        "description": "Bà cụ khoảng 75 tuổi, lưng hơi còng, tóc búi sau gáy, áo dài nâu sẫm.",
+                        "color": "#f59e0b",
+                        "images": []
+                    }
+                ],
+                "scenes": m_scenes,
+                "createdAt": now_ms - 72000000,
+                "updatedAt": now_ms - 1800000
+            }
+            with open(MOVIES_DIR / "mov_co_cong_mai_sat.json", "w", encoding="utf-8") as f:
+                json.dump(p_maisat, f, ensure_ascii=False, indent=2)
+
+        # 3. Chuyen Nha Thien
+        thien_imgs = sorted(OUTPUTS_DIR.glob("char_*179455*.png"))
+        if thien_imgs:
+            char_map = {
+                "Thiện": [f for f in thien_imgs if "thien" in f.name.lower() and "me_thien" not in f.name.lower()],
+                "Ông Nội": [f for f in thien_imgs if "ong_noi" in f.name.lower()],
+                "Mẹ Thiện": [f for f in thien_imgs if "me_thien" in f.name.lower()],
+                "Bác Cả": [f for f in thien_imgs if "bac_ca" in f.name.lower() or "char_bac_1" in f.name.lower()],
+                "Hải Lượng": [f for f in thien_imgs if "hai_luong" in f.name.lower()]
+            }
+            p_chars = []
+            palette = ["#ef4444", "#06b6d4", "#10b981", "#f59e0b", "#8b5cf6"]
+            for idx, (cname, files) in enumerate(char_map.items()):
+                imgs = []
+                for j, f in enumerate(files):
+                    imgs.append({
+                        "id": f"img_{f.stem}",
+                        "name": f"Ảnh {j + 1}: Chân dung {cname}",
+                        "url": f"/outputs/{f.name}",
+                        "local_path": str(f.resolve())
+                    })
+                p_chars.append({
+                    "id": f"char_{idx + 1}",
+                    "name": cname,
+                    "description": f"Nhân vật {cname} mang phong thái điện ảnh đặc trưng Điện ảnh 4K Hollywood.",
+                    "color": palette[idx % len(palette)],
+                    "images": imgs
+                })
+
+            p_thien = {
+                "id": "mov_chuyen_nha_thien",
+                "title": "Chuyện Nhà Thiện",
+                "logline": "Câu chuyện gia đình ấm áp giữa Thiện, Ông Nội, Mẹ Thiện, Bác Cả và Hải Lượng qua những biến cố thâm tình.",
+                "script": "Kịch bản về gia đình của Thiện cùng Ông Nội, Bác Cả, Mẹ Thiện và Hải Lượng...",
+                "stylePreset": "Điện ảnh 4K Hollywood",
+                "aspectRatio": "16:9",
+                "targetScenes": 4,
+                "characters": p_chars,
+                "scenes": [
+                    {
+                        "scene_index": 1,
+                        "situation": "Phòng khách ấm cúng của ngôi nhà gia đình, Thiện trò chuyện cùng Ông Nội và Mẹ Thiện.",
+                        "dialogue": "Thiện: 'Con chào ông nội và mẹ, hôm nay nhà mình đông đủ quá ạ!'",
+                        "duration": 8,
+                        "characters_involved": ["Thiện", "Ông Nội", "Mẹ Thiện"],
+                        "prompt": "Cinematic 4K Hollywood film, cozy living room in Vietnam, Thiện talks warmly with Grandfather and Mother...",
+                        "status": "idle",
+                        "video_url": None
+                    }
+                ],
+                "createdAt": now_ms - 3600000,
+                "updatedAt": now_ms
+            }
+            with open(MOVIES_DIR / "mov_chuyen_nha_thien.json", "w", encoding="utf-8") as f:
+                json.dump(p_thien, f, ensure_ascii=False, indent=2)
+
+        # 4. An Khe Tra Vang
+        em_imgs = sorted(OUTPUTS_DIR.glob("char_*_rec.png"))
+        if em_imgs:
+            khe_chars = [
+                {
+                    "id": "char_1",
+                    "name": "Người Em",
+                    "description": "Người em hiền lành, áo vải nâu thô, chân thật, giàu tình cảm.",
+                    "color": "#ef4444",
+                    "images": [
+                        {"id": f"img_{f.stem}", "name": f.name, "url": f"/outputs/{f.name}", "local_path": str(f.resolve())}
+                        for f in em_imgs if "nguoi_em" in f.name and "vo_nguoi_em" not in f.name
+                    ]
+                },
+                {
+                    "id": "char_2",
+                    "name": "Người Anh",
+                    "description": "Người anh tham lam, áo gấm hoa lệ, vẻ mặt toan tính.",
+                    "color": "#f59e0b",
+                    "images": [
+                        {"id": f"img_{f.stem}", "name": f.name, "url": f"/outputs/{f.name}", "local_path": str(f.resolve())}
+                        for f in em_imgs if "nguoi_anh" in f.name
+                    ]
+                },
+                {
+                    "id": "char_3",
+                    "name": "Vợ Người Em",
+                    "description": "Vợ người em dịu dàng, đảm đang, nụ cười hiền hậu.",
+                    "color": "#06b6d4",
+                    "images": [
+                        {"id": f"img_{f.stem}", "name": f.name, "url": f"/outputs/{f.name}", "local_path": str(f.resolve())}
+                        for f in em_imgs if "vo_nguoi_em" in f.name
+                    ]
+                }
+            ]
+            p_khe = {
+                "id": "mov_an_khe_tra_vang",
+                "title": "Ăn Khế Trả Vàng",
+                "logline": "Hai anh em mồ côi cha mẹ, người anh chia cho em cây khế cằn cỗi. Chim phượng hoàng đến ăn khế và bảo may túi ba gang mang đi mà đựng vàng.",
+                "script": "Cây khế chín rộ, chim thần đáp xuống ăn khế và trả vàng...",
+                "stylePreset": "Điện ảnh 4K Hollywood",
+                "aspectRatio": "16:9",
+                "targetScenes": 4,
+                "characters": khe_chars,
+                "scenes": [
+                    {
+                        "scene_index": 1,
+                        "situation": "Dưới gốc cây khế sai trĩu quả vàng, hai vợ chồng người em ngước nhìn chim phượng hoàng khổng lồ đáp xuống.",
+                        "dialogue": "Người Em: 'Chim ơi khế này gia tài duy nhất của chúng tôi, chim ăn hết lấy gì sinh sống?'",
+                        "duration": 10,
+                        "characters_involved": ["Người Em", "Vợ Người Em"],
+                        "prompt": "Cinematic 4K Hollywood film, ancient Vietnamese countryside, giant mythical phoenix bird perches on starfruit tree...",
+                        "status": "idle",
+                        "video_url": None
+                    }
+                ],
+                "createdAt": now_ms - 10000000,
+                "updatedAt": now_ms - 500000
+            }
+            with open(MOVIES_DIR / "mov_an_khe_tra_vang.json", "w", encoding="utf-8") as f:
+                json.dump(p_khe, f, ensure_ascii=False, indent=2)
+
+    except Exception as e:
+        logger.warning(f"Lỗi seed initial movie projects: {e}")
+
+
+@app.get("/api/movie/projects")
+async def list_movie_projects():
+    MOVIES_DIR.mkdir(parents=True, exist_ok=True)
+    existing_files = list(MOVIES_DIR.glob("*.json"))
+    if not existing_files:
+        _seed_initial_movie_projects()
+
+    projects = []
+    for file in sorted(MOVIES_DIR.glob("*.json"), key=lambda f: f.stat().st_mtime, reverse=True):
+        try:
+            with open(file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            chars = data.get("characters") or []
+            scenes = data.get("scenes") or []
+            rendered_count = sum(1 for s in scenes if s.get("video_url") or s.get("status") == "done")
+
+            thumbnail_url = None
+            for c in chars:
+                imgs = c.get("images") or []
+                if imgs and imgs[0].get("url"):
+                    thumbnail_url = imgs[0].get("url")
+                    break
+            if not thumbnail_url:
+                for s in scenes:
+                    if s.get("video_url"):
+                        thumbnail_url = s.get("video_url")
+                        break
+
+            projects.append({
+                "id": data.get("id") or file.stem,
+                "title": data.get("title") or "Kịch bản Phim Mới",
+                "logline": data.get("logline") or "",
+                "stylePreset": data.get("stylePreset") or "Điện ảnh 4K Hollywood",
+                "aspectRatio": data.get("aspectRatio") or "16:9",
+                "targetScenes": data.get("targetScenes") or len(scenes),
+                "character_count": len(chars),
+                "characters_summary": [c.get("name") for c in chars if c.get("name")][:5],
+                "scene_count": len(scenes),
+                "rendered_count": rendered_count,
+                "thumbnail_url": thumbnail_url,
+                "createdAt": data.get("createdAt") or file.stat().st_ctime * 1000,
+                "updatedAt": data.get("updatedAt") or file.stat().st_mtime * 1000,
+            })
+        except Exception as e:
+            logger.warning(f"Lỗi đọc movie project {file.name}: {e}")
+
+    return {"status": "success", "projects": projects}
+
+
+@app.get("/api/movie/projects/{project_id}")
+async def get_movie_project(project_id: str):
+    file_path = MOVIES_DIR / f"{project_id}.json"
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Không tìm thấy dự án phim.")
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return {"status": "success", "project": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi đọc dự án phim: {e}")
+
+
+@app.post("/api/movie/projects")
+async def save_movie_project(project: MovieProjectModel):
+    data = project.dict()
+    now_ms = time.time() * 1000
+
+    pid = data.get("id")
+    if not pid or not pid.strip():
+        slug = slugify_simple(data.get("title") or "phim")[:20]
+        pid = f"mov_{slug}_{int(time.time())}"
+        data["id"] = pid
+        data["createdAt"] = now_ms
+
+    if not data.get("createdAt"):
+        data["createdAt"] = now_ms
+    data["updatedAt"] = now_ms
+
+    file_path = MOVIES_DIR / f"{pid}.json"
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return {"status": "success", "project": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi lưu dự án phim: {e}")
+
+
+@app.delete("/api/movie/projects/{project_id}")
+async def delete_movie_project(project_id: str):
+    file_path = MOVIES_DIR / f"{project_id}.json"
+    if file_path.exists():
+        try:
+            file_path.unlink()
+            return {"status": "success", "deleted_id": project_id}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Lỗi xoá dự án phim: {e}")
+    return {"status": "success", "deleted_id": project_id}
 
 
 @app.get("/api/gallery")

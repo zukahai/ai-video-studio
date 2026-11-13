@@ -71,6 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupDropzones();
   setupDashboardLazyScroll();
   restoreMovieStateCache();
+  loadMovieProjectsList();
   loadDashboardAndGallery();
 });
 
@@ -94,11 +95,18 @@ function updateUrlParams() {
       url.searchParams.delete('mode');
       url.searchParams.delete('style');
       url.searchParams.delete('duration');
+      url.searchParams.delete('movie');
+    } else if (state.currentTab === 'movie') {
+      if (movieState.id) url.searchParams.set('movie', movieState.id);
+      url.searchParams.delete('mode');
+      url.searchParams.delete('style');
+      url.searchParams.delete('duration');
     } else {
       url.searchParams.delete('mode');
       url.searchParams.delete('ratio');
       url.searchParams.delete('style');
       url.searchParams.delete('duration');
+      url.searchParams.delete('movie');
     }
 
     window.history.replaceState({}, '', url.pathname + url.search);
@@ -213,6 +221,9 @@ function switchTab(tabId, syncUrl = true) {
     renderMovieScenes();
     renderCharacterLegend();
     healMovieCharactersCache();
+    renderMovieProjectsRibbon();
+    updateMovieActiveDisplay();
+    loadMovieProjectsList();
   }
   lucide.createIcons();
 
@@ -1758,7 +1769,15 @@ const MOVIE_PALETTE = [
   '#a855f7', // Violet
 ];
 
+const movieProjectsState = {
+  list: [],
+  currentId: null,
+  isLoading: false,
+  syncTimeout: null,
+};
+
 const movieState = {
+  id: null,
   title: 'Kịch bản Phim Mới',
   logline: '',
   script: '',
@@ -1768,6 +1787,8 @@ const movieState = {
   characters: [], // [{ id, name, description, color, images: [{ id, local_path, url, name }] }]
   scenes: [], // [{ scene_index, situation, dialogue, duration, characters_involved: [], prompt, status: 'idle'|'generating'|'done', video_url: null }]
   sessionId: null,
+  createdAt: null,
+  updatedAt: null,
   isGenerating: false,
   currentGeneratingIndex: -1,
   shouldStop: false,
@@ -1776,10 +1797,20 @@ const movieState = {
   theaterIsPlaying: false,
 };
 
-// ==================== CACHING & RESTORATION ====================
+// ==================== MOVIE PROJECTS PERSISTENCE & MANAGEMENT ====================
+
+// Debounced background sync to server
+function debouncedSyncMovieProjectToServer() {
+  if (movieProjectsState.syncTimeout) clearTimeout(movieProjectsState.syncTimeout);
+  movieProjectsState.syncTimeout = setTimeout(() => {
+    saveCurrentMovieProject(false);
+  }, 1200);
+}
+
 function saveMovieStateCache() {
   try {
     const data = {
+      id: movieState.id,
       title: movieState.title,
       logline: movieState.logline,
       script: movieState.script,
@@ -1789,9 +1820,15 @@ function saveMovieStateCache() {
       characters: movieState.characters,
       scenes: movieState.scenes,
       sessionId: movieState.sessionId,
+      createdAt: movieState.createdAt || Date.now(),
       updatedAt: Date.now(),
     };
     localStorage.setItem('h_ai_movie_studio_cache', JSON.stringify(data));
+    if (movieState.id) {
+      localStorage.setItem('h_ai_current_movie_id', movieState.id);
+    }
+    updateMovieActiveDisplay();
+    debouncedSyncMovieProjectToServer();
   } catch (err) {
     console.warn('Lỗi lưu cache tạo phim:', err);
   }
@@ -1804,6 +1841,7 @@ function restoreMovieStateCache() {
     const data = JSON.parse(raw);
     if (!data) return false;
 
+    movieState.id = data.id || null;
     movieState.title = data.title || 'Kịch bản Phim Mới';
     movieState.logline = data.logline || '';
     movieState.script = data.script || '';
@@ -1813,6 +1851,8 @@ function restoreMovieStateCache() {
     movieState.characters = Array.isArray(data.characters) ? data.characters : [];
     movieState.scenes = Array.isArray(data.scenes) ? data.scenes : [];
     movieState.sessionId = data.sessionId || null;
+    movieState.createdAt = data.createdAt || null;
+    movieState.updatedAt = data.updatedAt || null;
 
     // Restore UI Inputs
     const scriptInput = document.getElementById('movie-script-input');
@@ -1831,11 +1871,428 @@ function restoreMovieStateCache() {
     renderMovieScenes();
     renderCharacterLegend();
     healMovieCharactersCache();
+    updateMovieActiveDisplay();
     return true;
   } catch (err) {
     console.warn('Lỗi đọc cache tạo phim:', err);
   }
   return false;
+}
+
+async function loadMovieProjectsList(autoSelectId = null) {
+  try {
+    movieProjectsState.isLoading = true;
+    const res = await fetch('/api/movie/projects');
+    const data = await res.json();
+    if (res.ok && data.status === 'success') {
+      movieProjectsState.list = data.projects || [];
+      renderMovieProjectsRibbon();
+      updateMovieLibraryCount();
+
+      // Determine which movie to load
+      let targetId = autoSelectId;
+      if (!targetId) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlMovieId = urlParams.get('movie');
+        if (urlMovieId && movieProjectsState.list.some(p => p.id === urlMovieId)) {
+          targetId = urlMovieId;
+        } else {
+          const savedId = localStorage.getItem('h_ai_current_movie_id');
+          if (savedId && movieProjectsState.list.some(p => p.id === savedId)) {
+            targetId = savedId;
+          } else if (movieProjectsState.list.length > 0 && !movieState.id) {
+            targetId = movieProjectsState.list[0].id;
+          }
+        }
+      }
+
+      if (targetId && targetId !== movieState.id) {
+        await switchMovieProject(targetId, false);
+      } else {
+        updateMovieActiveDisplay();
+      }
+    }
+  } catch (err) {
+    console.warn('Lỗi tải danh sách dự án phim:', err);
+  } finally {
+    movieProjectsState.isLoading = false;
+  }
+}
+
+function updateMovieLibraryCount() {
+  const countEl = document.getElementById('btn-movie-library-count');
+  if (countEl) {
+    countEl.innerText = `Tất Cả Phim (${movieProjectsState.list.length})`;
+  }
+  const totalEl = document.getElementById('movie-library-total-label');
+  if (totalEl) {
+    totalEl.innerText = `${movieProjectsState.list.length} bộ phim`;
+  }
+}
+
+function updateMovieActiveDisplay() {
+  const titleEl = document.getElementById('current-movie-title-display');
+  const badgeEl = document.getElementById('current-movie-badge');
+  const loglineEl = document.getElementById('current-movie-logline-display');
+
+  if (titleEl) titleEl.innerText = movieState.title || 'Kịch bản Phim Mới';
+  if (loglineEl) loglineEl.innerText = movieState.logline || (movieState.script ? movieState.script.slice(0, 100) + '...' : 'Chưa có tóm tắt cốt truyện');
+  if (badgeEl) {
+    const rendered = movieState.scenes.filter(s => s.video_url || s.status === 'done').length;
+    badgeEl.innerText = `${rendered}/${movieState.scenes.length} cảnh • ${movieState.characters.length} nhân vật`;
+  }
+}
+
+function renderMovieProjectsRibbon() {
+  const container = document.getElementById('movie-projects-ribbon');
+  if (!container) return;
+
+  if (movieProjectsState.list.length === 0) {
+    container.innerHTML = `
+      <div class="text-[11px] text-slate-500 py-1 px-2 italic">
+        Chưa có phim nào được lưu. Bấm "+ Phim Mới" hoặc nhập kịch bản để bắt đầu.
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+  movieProjectsState.list.forEach(p => {
+    const isActive = (p.id === movieState.id || p.id === movieProjectsState.currentId);
+    const activeClass = isActive
+      ? 'border-cyan-400 bg-cyan-950/70 text-white shadow-md shadow-cyan-950/40 ring-1 ring-cyan-400/50'
+      : 'border-white/[0.08] bg-surface-950/80 text-slate-300 hover:text-white hover:bg-surface-800 hover:border-white/20';
+
+    const rendered = p.rendered_count || 0;
+    const totalScenes = p.scene_count || 0;
+    const sceneBadge = totalScenes > 0
+      ? `<span class="text-[9px] px-1.5 py-0.5 rounded ${rendered === totalScenes && totalScenes > 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold' : 'bg-surface-800 text-cyan-300 font-semibold'}">${rendered}/${totalScenes} cảnh</span>`
+      : `<span class="text-[9px] px-1.5 py-0.5 rounded bg-surface-800 text-slate-400">0 cảnh</span>`;
+
+    const thumbHtml = p.thumbnail_url
+      ? (p.thumbnail_url.endsWith('.mp4')
+          ? `<div class="w-8 h-8 rounded-lg bg-surface-900 border border-white/10 flex items-center justify-center shrink-0 text-cyan-400"><i data-lucide="video" class="w-4 h-4"></i></div>`
+          : `<img src="${p.thumbnail_url}" alt="${p.title}" class="w-8 h-8 rounded-lg object-cover border border-white/10 shrink-0">`
+        )
+      : `<div class="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0 text-cyan-400 font-bold text-xs"><i data-lucide="film" class="w-4 h-4"></i></div>`;
+
+    html += `
+      <div onclick="switchMovieProject('${p.id}')" class="flex items-center space-x-2.5 px-3 py-2 rounded-xl border transition cursor-pointer shrink-0 max-w-[270px] ${activeClass}">
+        ${thumbHtml}
+        <div class="min-w-0 pr-1">
+          <div class="text-xs font-bold truncate">${p.title || 'Phim Mới'}</div>
+          <div class="flex items-center space-x-1.5 mt-0.5">
+            ${sceneBadge}
+            <span class="text-[9px] text-slate-400">${p.character_count || 0} n.vật</span>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+  lucide.createIcons();
+}
+
+async function switchMovieProject(projectId, updateUrl = true) {
+  if (!projectId) return;
+  try {
+    const res = await fetch(`/api/movie/projects/${projectId}`);
+    const data = await res.json();
+    if (!res.ok || data.status !== 'success') {
+      throw new Error(data.detail || 'Không thể tải dự án phim.');
+    }
+
+    const p = data.project;
+    movieState.id = p.id;
+    movieProjectsState.currentId = p.id;
+    movieState.title = p.title || 'Kịch bản Phim Mới';
+    movieState.logline = p.logline || '';
+    movieState.script = p.script || '';
+    movieState.stylePreset = p.stylePreset || 'Điện ảnh 4K Hollywood';
+    movieState.aspectRatio = p.aspectRatio || '16:9';
+    movieState.targetScenes = p.targetScenes || 4;
+    movieState.characters = Array.isArray(p.characters) ? p.characters : [];
+    movieState.scenes = Array.isArray(p.scenes) ? p.scenes : [];
+    movieState.sessionId = p.sessionId || null;
+    movieState.createdAt = p.createdAt || Date.now();
+    movieState.updatedAt = p.updatedAt || Date.now();
+
+    // Update form elements
+    const scriptInput = document.getElementById('movie-script-input');
+    if (scriptInput) scriptInput.value = movieState.script || '';
+
+    const styleSelect = document.getElementById('movie-style-select');
+    if (styleSelect && movieState.stylePreset) styleSelect.value = movieState.stylePreset;
+
+    const ratioSelect = document.getElementById('movie-ratio-select');
+    if (ratioSelect && movieState.aspectRatio) ratioSelect.value = movieState.aspectRatio;
+
+    const scenesTarget = document.getElementById('movie-scenes-target');
+    if (scenesTarget && movieState.targetScenes) scenesTarget.value = String(movieState.targetScenes);
+
+    localStorage.setItem('h_ai_current_movie_id', p.id);
+    localStorage.setItem('h_ai_movie_studio_cache', JSON.stringify(p));
+
+    renderMovieCharacters();
+    renderMovieScenes();
+    renderCharacterLegend();
+    healMovieCharactersCache();
+    renderMovieProjectsRibbon();
+    updateMovieActiveDisplay();
+
+    if (updateUrl) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', 'movie');
+      url.searchParams.set('movie', p.id);
+      window.history.replaceState({}, '', url);
+    }
+  } catch (err) {
+    console.error('Lỗi chuyển dự án phim:', err);
+  }
+}
+
+async function saveCurrentMovieProject(showToast = true) {
+  const saveBtnText = document.getElementById('btn-save-movie-text');
+  const originalText = saveBtnText ? saveBtnText.innerText : 'Lưu Phim';
+  try {
+    if (showToast && saveBtnText) saveBtnText.innerText = 'Đang lưu...';
+
+    const payload = {
+      id: movieState.id,
+      title: movieState.title || 'Kịch bản Phim Mới',
+      logline: movieState.logline || '',
+      script: movieState.script || '',
+      stylePreset: movieState.stylePreset || 'Điện ảnh 4K Hollywood',
+      aspectRatio: movieState.aspectRatio || '16:9',
+      targetScenes: movieState.targetScenes || 4,
+      characters: movieState.characters || [],
+      scenes: movieState.scenes || [],
+      sessionId: movieState.sessionId || null,
+      createdAt: movieState.createdAt || Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    const res = await fetch('/api/movie/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+    if (!res.ok || data.status !== 'success') {
+      throw new Error(data.detail || 'Lưu thất bại');
+    }
+
+    const saved = data.project;
+    movieState.id = saved.id;
+    movieProjectsState.currentId = saved.id;
+    localStorage.setItem('h_ai_current_movie_id', saved.id);
+
+    // Update list entry or prepend
+    const existingIdx = movieProjectsState.list.findIndex(p => p.id === saved.id);
+    const summary = {
+      id: saved.id,
+      title: saved.title,
+      logline: saved.logline,
+      stylePreset: saved.stylePreset,
+      aspectRatio: saved.aspectRatio,
+      targetScenes: saved.targetScenes,
+      character_count: saved.characters.length,
+      characters_summary: saved.characters.map(c => c.name).filter(Boolean).slice(0, 5),
+      scene_count: saved.scenes.length,
+      rendered_count: saved.scenes.filter(s => s.video_url || s.status === 'done').length,
+      thumbnail_url: saved.characters[0]?.images[0]?.url || saved.scenes.find(s => s.video_url)?.video_url || null,
+      createdAt: saved.createdAt,
+      updatedAt: saved.updatedAt,
+    };
+
+    if (existingIdx >= 0) {
+      movieProjectsState.list[existingIdx] = summary;
+    } else {
+      movieProjectsState.list.unshift(summary);
+    }
+
+    renderMovieProjectsRibbon();
+    updateMovieActiveDisplay();
+    updateMovieLibraryCount();
+
+    if (showToast) {
+      if (saveBtnText) saveBtnText.innerText = 'Đã lưu ✓';
+      setTimeout(() => {
+        if (saveBtnText) saveBtnText.innerText = originalText;
+      }, 1500);
+      showToast('Đã lưu dự án phim thành công!');
+    }
+  } catch (err) {
+    console.error('Lỗi lưu dự án phim:', err);
+    if (showToast) alert('Lỗi lưu phim: ' + err.message);
+  } finally {
+    if (!showToast && saveBtnText) saveBtnText.innerText = originalText;
+  }
+}
+
+async function createNewMovieProject() {
+  if (movieState.characters.length > 0 || movieState.scenes.length > 0) {
+    if (!confirm('Tạo một dự án phim mới? Phim hiện tại của bạn đã được lưu an toàn trong danh sách.')) {
+      return;
+    }
+  }
+
+  const newId = `mov_${Date.now()}`;
+  movieState.id = newId;
+  movieProjectsState.currentId = newId;
+  movieState.title = 'Kịch bản Phim Mới';
+  movieState.logline = '';
+  movieState.script = '';
+  movieState.characters = [];
+  movieState.scenes = [];
+  movieState.sessionId = null;
+  movieState.createdAt = Date.now();
+  movieState.updatedAt = Date.now();
+
+  const scriptInput = document.getElementById('movie-script-input');
+  if (scriptInput) scriptInput.value = '';
+
+  saveMovieStateCache();
+  renderMovieCharacters();
+  renderMovieScenes();
+  renderCharacterLegend();
+  updateMovieActiveDisplay();
+  renderMovieProjectsRibbon();
+  closeMovieLibraryModal();
+
+  const url = new URL(window.location.href);
+  url.searchParams.set('tab', 'movie');
+  url.searchParams.set('movie', newId);
+  window.history.replaceState({}, '', url);
+
+  showToast('Đã tạo dự án phim mới! Nhập kịch bản để bắt đầu.');
+}
+
+async function deleteMovieProject(projectId, event = null) {
+  if (event) event.stopPropagation();
+  const proj = movieProjectsState.list.find(p => p.id === projectId);
+  const pName = proj ? proj.title : 'bộ phim này';
+
+  if (!confirm(`Bạn có chắc chắn muốn xoá ${pName} không?`)) {
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/movie/projects/${projectId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Không thể xoá');
+
+    movieProjectsState.list = movieProjectsState.list.filter(p => p.id !== projectId);
+    renderMovieProjectsRibbon();
+    updateMovieLibraryCount();
+    renderMovieLibraryCards();
+
+    if (movieState.id === projectId) {
+      if (movieProjectsState.list.length > 0) {
+        await switchMovieProject(movieProjectsState.list[0].id);
+      } else {
+        await createNewMovieProject();
+      }
+    }
+    showToast(`Đã xoá ${pName}`);
+  } catch (err) {
+    alert('Lỗi xoá dự án: ' + err.message);
+  }
+}
+
+// Movie Library Modal
+function openMovieLibraryModal() {
+  const modal = document.getElementById('movie-library-modal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  renderMovieLibraryCards();
+  lucide.createIcons();
+}
+
+function closeMovieLibraryModal() {
+  const modal = document.getElementById('movie-library-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function renderMovieLibraryCards(filterQuery = '') {
+  const container = document.getElementById('movie-library-cards-container');
+  if (!container) return;
+
+  let filtered = movieProjectsState.list;
+  if (filterQuery) {
+    const q = filterQuery.toLowerCase();
+    filtered = filtered.filter(p =>
+      (p.title && p.title.toLowerCase().includes(q)) ||
+      (p.logline && p.logline.toLowerCase().includes(q)) ||
+      (p.characters_summary && p.characters_summary.some(c => c.toLowerCase().includes(q)))
+    );
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-12 text-slate-500 space-y-2">
+        <i data-lucide="film" class="w-10 h-10 mx-auto opacity-40"></i>
+        <p class="text-sm">Không tìm thấy bộ phim nào phù hợp.</p>
+      </div>
+    `;
+    lucide.createIcons();
+    return;
+  }
+
+  let html = '';
+  filtered.forEach(p => {
+    const isActive = (p.id === movieState.id);
+    const rendered = p.rendered_count || 0;
+    const totalScenes = p.scene_count || 0;
+    const dateStr = p.updatedAt ? new Date(p.updatedAt).toLocaleDateString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '';
+
+    const thumbHtml = p.thumbnail_url
+      ? (p.thumbnail_url.endsWith('.mp4')
+          ? `<div class="w-16 h-16 rounded-xl bg-surface-900 border border-white/10 flex items-center justify-center shrink-0 text-cyan-400"><i data-lucide="video" class="w-6 h-6"></i></div>`
+          : `<img src="${p.thumbnail_url}" alt="${p.title}" class="w-16 h-16 rounded-xl object-cover border border-white/10 shrink-0">`
+        )
+      : `<div class="w-16 h-16 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0 text-cyan-400 font-bold text-sm"><i data-lucide="clapperboard" class="w-6 h-6"></i></div>`;
+
+    html += `
+      <div onclick="switchMovieProject('${p.id}'); closeMovieLibraryModal();" class="p-4 rounded-xl border ${isActive ? 'border-cyan-400 bg-cyan-950/40 ring-1 ring-cyan-400/40' : 'border-white/[0.08] bg-surface-900 hover:bg-surface-850 hover:border-white/20'} flex flex-wrap items-center justify-between gap-4 transition cursor-pointer group">
+        <div class="flex items-center space-x-4 min-w-0">
+          ${thumbHtml}
+          <div class="min-w-0">
+            <div class="flex items-center space-x-2">
+              <h4 class="font-bold text-sm text-white group-hover:text-cyan-300 transition truncate">${p.title || 'Phim Mới'}</h4>
+              ${isActive ? '<span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">Đang mở</span>' : ''}
+            </div>
+            <p class="text-xs text-slate-400 truncate max-w-[480px] mt-0.5">${p.logline || 'Chưa có tóm tắt cốt truyện'}</p>
+            <div class="flex items-center space-x-3 text-[11px] text-slate-500 mt-1.5 flex-wrap">
+              <span class="text-slate-300 font-semibold">${p.character_count || 0} nhân vật</span>
+              <span>•</span>
+              <span class="text-cyan-400 font-semibold">Đã quay ${rendered}/${totalScenes} cảnh</span>
+              <span>•</span>
+              <span>Cập nhật: ${dateStr}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-2 shrink-0" onclick="event.stopPropagation()">
+          <button onclick="switchMovieProject('${p.id}'); closeMovieLibraryModal();" type="button" class="px-3 py-1.5 rounded-lg bg-surface-800 hover:bg-cyan-600 text-slate-200 hover:text-white border border-white/10 text-xs font-semibold flex items-center space-x-1 transition">
+            <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>
+            <span>Mở phim</span>
+          </button>
+          <button onclick="deleteMovieProject('${p.id}', event)" type="button" title="Xoá phim này" class="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 transition cursor-pointer">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+  lucide.createIcons();
+}
+
+function filterMovieLibrary(query) {
+  renderMovieLibraryCards(query);
 }
 
 // Sample Script
@@ -1949,7 +2406,13 @@ async function analyzeAndBreakdownScript() {
     movieState.scenes = scenes;
     movieState.sessionId = null; // Fresh movie session
 
+    // Ensure dedicated project ID
+    const titleSlug = (movieState.title || 'phim').toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 16);
+    movieState.id = `mov_${titleSlug}_${Date.now()}`;
+    movieProjectsState.currentId = movieState.id;
+
     saveMovieStateCache();
+    saveCurrentMovieProject(false);
     renderMovieCharacters();
     renderMovieScenes();
     renderCharacterLegend();
