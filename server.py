@@ -143,6 +143,21 @@ RATIO_DESCRIPTIONS = {
 }
 
 
+def is_narration_dialogue(text: str) -> bool:
+    if not text:
+        return False
+    t_lower = text.lower().strip()
+    narration_keywords = [
+        "dẫn chuyện", "người dẫn chuyện", "thuyết minh", "lời dẫn", "lời kể",
+        "người kể chuyện", "narrator", "voiceover", "voice-over", "voice over",
+        "lời bình", "bình luận viên", "kể lại:", "dẫn lời:", "off-screen", "tiếng dẫn"
+    ]
+    for kw in narration_keywords:
+        if kw in t_lower:
+            return True
+    return False
+
+
 def build_hidden_video_prompt(
     user_prompt: str,
     aspect_ratio: str,
@@ -157,13 +172,32 @@ def build_hidden_video_prompt(
     duration_val = duration if (duration and duration > 0) else 5
     duration_desc = f"Thời lượng video: đúng {duration_val} giây ({duration_val} seconds duration clip, pacing & action timing calibrated for exactly {duration_val}s)."
 
+    clean_user_prompt = user_prompt.strip()
+    diag_clean = (dialogue or "").strip()
+    is_narr = is_narration_dialogue(diag_clean) or is_narration_dialogue(clean_user_prompt)
+
     dialogue_part = ""
-    if dialogue and dialogue.strip():
-        diag_clean = dialogue.strip()
+    if is_narr:
+        # Strip out any contradictory lip-sync keywords from prompt
+        clean_user_prompt = re.sub(r'(?i)spoken dialogue[^.]*\.?', '', clean_user_prompt).strip()
+        clean_user_prompt = re.sub(r'(?i)with (clear |natural )?synchronized lip movements?[^.]*\.?', '', clean_user_prompt).strip()
+        clean_user_prompt = re.sub(r'(?i)lip-?sync[^.]*\.?', '', clean_user_prompt).strip()
+
+        narr_text = diag_clean if diag_clean else "Thuyết minh dẫn chuyện"
         dialogue_part = (
-            f" Lời thoại nhân vật trong cảnh (Character Dialogue & Audio): \"{diag_clean}\". "
-            f"Yêu cầu diễn xuất & âm thanh: Nhân vật nói câu thoại này với khẩu hình môi, biểu cảm gương mặt và giọng nói đồng bộ chân thực "
-            f"(Spoken dialogue & synchronized lip-sync audio: \"{diag_clean}\" with natural mouth movement, clear audible character voice and matching facial expressions)."
+            f"\n[QUY TẮC BẮT BUỘC: GIỌNG DẪN CHUYỆN / NARRATOR VOICEOVER - KHÔNG MẤP MÁY MÔI]:\n"
+            f"- Âm thanh giọng đọc thuyết minh dẫn chuyện ngoài khung hình (Off-screen Narrator Voiceover Audio): \"{narr_text}\".\n"
+            f"- YÊU CẦU ĐẶC BIỆT BẮT BUỘC VỀ DIỄN XUẤT: Đây là GIỌNG ĐỌC DẪN CHUYỆN NGOÀI HÌNH ẢNH (Off-screen voiceover narration). "
+            f"TẤT CẢ NHÂN VẬT TRÊN MÀN ẢNH TUYỆT ĐỐI KHÔNG NÓI, KHÔNG MẤP MÁY MÔI, KHÔNG CỬ ĐỘNG KHẨU HÌNH, MIỆNG PHẢI NGẬM TỰ NHIÊN "
+            f"(CRITICAL ACTING INSTRUCTION: The narration is off-screen. On-screen characters DO NOT SPEAK, DO NOT MOVE THEIR LIPS, MOUTHS MUST REMAIN NATURALLY CLOSED WITH ZERO LIP-SYNC. Characters only perform silent natural acting, physical movements, thoughtful facial reactions and peaceful expressions while the off-screen narrator speaks)."
+        )
+    elif diag_clean:
+        dialogue_part = (
+            f"\n[LỜI THOẠI NHÂN VẬT & ĐỒNG BỘ KHẨU HÌNH (LIP-SYNC)]:\n"
+            f"- Lời thoại nhân vật trong cảnh (Character Spoken Dialogue): \"{diag_clean}\".\n"
+            f"- Yêu cầu diễn xuất & âm thanh: Chỉ nhân vật nói câu thoại này mới cử động khẩu hình môi và phát âm giọng nói đồng bộ "
+            f"(Spoken character dialogue with natural synchronized lip-sync and clear audible voice: \"{diag_clean}\"). "
+            f"Các nhân vật khác trong cảnh (nếu có) giữ miệng ngậm tự nhiên và im lặng lắng nghe (Other characters keep mouths naturally closed without speaking)."
         )
 
     if is_continuation:
@@ -173,16 +207,16 @@ def build_hidden_video_prompt(
             f"Yêu cầu bắt buộc: Giữ nguyên hoàn toàn sự đồng nhất về nhân vật, trang phục, khuôn mặt, bối cảnh môi trường, "
             f"ánh sáng, bảng màu và phong cách góc máy từ cảnh trước để tạo thành một thước phim liên tục mượt mà. "
             f"Chất lượng điện ảnh 4K Ultra HD, chuyển động vật lý tự nhiên, chi tiết sắc nét, âm thanh sống động đồng bộ hoàn hảo, "
-            f"{ratio_desc}.{style_part}{dialogue_part} "
-            f"Diễn biến cảnh tiếp theo: {user_prompt.strip()}"
+            f"{ratio_desc}.{style_part}{dialogue_part}\n"
+            f"Diễn biến cảnh tiếp theo: {clean_user_prompt}"
         )
     else:
         return (
             f"Hãy tạo một video chuyên nghiệp, {duration_desc} "
             f"Chất lượng điện ảnh 4K Ultra HD, bố cục nghệ thuật xuất sắc, "
             f"chuyển động camera và vật lý mượt mà chân thực, ánh sáng điện ảnh có chiều sâu, chi tiết cực kỳ sắc nét, "
-            f"kèm âm thanh và hiệu ứng tiếng động sống động đồng bộ hoàn hảo, {ratio_desc}.{style_part}{dialogue_part} "
-            f"Nội dung cảnh quay: {user_prompt.strip()}"
+            f"kèm âm thanh và hiệu ứng tiếng động sống động đồng bộ hoàn hảo, {ratio_desc}.{style_part}{dialogue_part}\n"
+            f"Nội dung cảnh quay: {clean_user_prompt}"
         )
 
 
@@ -971,9 +1005,25 @@ def _format_movie_result(parsed: dict, style_preset: str = "Điện ảnh 4K Hol
             dur = 8
 
         diag = (sc.get("dialogue") or "").strip()
-        cinematic_prompt = sc.get("prompt") or f"Cinematic 4K Hollywood, {style_preset}, Scene {idx+1}: {sc.get('situation', '')}. 8k, photorealistic lighting, cinematic camera motion"
-        if diag and "spoken dialogue" not in cinematic_prompt.lower() and "dialogue:" not in cinematic_prompt.lower():
-            cinematic_prompt += f' Spoken dialogue: "{diag}" with clear synchronized lip movements and emotional expression.'
+        cinematic_prompt = (sc.get("prompt") or f"Cinematic 4K Hollywood, {style_preset}, Scene {idx+1}: {sc.get('situation', '')}. 8k, photorealistic lighting, cinematic camera motion").strip()
+
+        is_narr = is_narration_dialogue(diag) or is_narration_dialogue(cinematic_prompt)
+
+        if is_narr:
+            # Clean out any contradictory lip-sync keywords
+            cinematic_prompt = re.sub(r'(?i)spoken dialogue[^.]*\.?', '', cinematic_prompt).strip()
+            cinematic_prompt = re.sub(r'(?i)with (clear |natural )?synchronized lip movements?[^.]*\.?', '', cinematic_prompt).strip()
+            cinematic_prompt = re.sub(r'(?i)lip-?sync[^.]*\.?', '', cinematic_prompt).strip()
+
+            if "off-screen" not in cinematic_prompt.lower() and "narrator" not in cinematic_prompt.lower():
+                narr_text = diag if diag else "Thuyết minh dẫn chuyện"
+                cinematic_prompt += (
+                    f' Off-screen voiceover narration: "{narr_text}". '
+                    f'Critical acting constraint: The narration is off-screen. On-screen characters DO NOT SPEAK, DO NOT MOVE LIPS, mouths remain naturally closed with zero lip-sync, characters perform silent expressive acting only.'
+                )
+        else:
+            if diag and "spoken dialogue" not in cinematic_prompt.lower() and "dialogue:" not in cinematic_prompt.lower():
+                cinematic_prompt += f' Spoken character dialogue: "{diag}" with natural synchronized lip movement and clear audible voice.'
 
         formatted_scenes.append({
             "scene_index": idx + 1,
@@ -1029,35 +1079,51 @@ def _fallback_movie_breakdown(script: str, style_preset: str = "Điện ảnh 4K
             "scenes": [
                 {
                     "scene_index": 1,
-                    "situation": "Đêm giao thừa, tuyết rơi dày trên phố cổ châu Âu, cô bé bán diêm chân trần run rẩy ôm giỏ diêm đi giữa dòng người vội vã về nhà đón năm mới, không ai dừng lại mua diêm cho em.",
-                    "dialogue": "Cô Bé Bán Diêm: \"Ai mua diêm không? Diêm đây... chỉ một xu thôi ạ...\"",
+                    "situation": "Đêm giao thừa, tuyết rơi dày trên phố cổ châu Âu, cô bé bán diêm chân trần run rẩy ôm giỏ diêm đi giữa dòng người vội vã về nhà đón năm mới, cố cất tiếng mời mọi người mua diêm.",
+                    "dialogue": "Cô Bé Bán Diêm: \"Ai mua diêm không ạ? Diêm đây... chỉ một xu thôi ạ...\"",
                     "duration": 10,
                     "characters_involved": ["Cô Bé Bán Diêm", "Người Qua Đường"],
-                    "prompt": "Cinematic 4K Hollywood film, wide shot of a snowy European old town street on New Year's Eve at dusk. A 9-year-old little girl with long messy blonde hair covered in snow, wearing an oversized torn dark brown coat and grey wool dress, barefoot with purple cold feet, hugs a wicker basket of matches and walks slowly through a crowd of hurried adults in dark wool coats and fur hats. Warm golden light glows from shop windows and Christmas decorations, contrasting with cold blue snowfall and the girl's pale, shivering face, snowflakes falling on her hair, detailed cobblestone street, slow tracking camera following the girl, photorealistic, epic cinematic lighting, 4K Ultra HD."
+                    "prompt": "Cinematic 4K Hollywood film, wide shot of a snowy European old town street on New Year's Eve at dusk. A 9-year-old little girl with long messy blonde hair covered in snow, wearing an oversized torn dark brown coat and grey wool dress, barefoot with purple cold feet, hugs a wicker basket of matches and speaks with trembling lips. Spoken character dialogue: \"Ai mua diêm không ạ? Diêm đây... chỉ một xu thôi ạ...\" with natural synchronized lip-sync and clear trembling voice. Warm shop lights, photorealistic, 4K Ultra HD."
                 },
                 {
                     "scene_index": 2,
-                    "situation": "Không bán được que diêm nào, cô bé co ro ngồi nép vào góc tường giữa hai ngôi nhà, run rẩy quẹt que diêm đầu tiên để sưởi ấm đôi tay tê cóng, và trong ánh lửa, em mơ thấy một lò sưởi ấm áp với bữa ăn ngon.",
-                    "dialogue": "Dẫn chuyện: \"Em quẹt que diêm đầu tiên, và trong ánh lửa nhỏ bé ấy, em thấy một lò sưởi ấm áp đang cháy rực rỡ.\"",
+                    "situation": "Không bán được que diêm nào, cô bé co ro ngồi nép vào góc tường giữa hai ngôi nhà trong gió tuyết rít từng cơn, run rẩy quẹt que diêm đầu tiên để sưởi ấm đôi bàn tay tê cóng.",
+                    "dialogue": "Dẫn chuyện: \"Đêm giao thừa giá rét, không bán được que diêm nào, em co ro nép vào góc tường lạnh buốt và quẹt que diêm đầu tiên để sưởi ấm đôi bàn tay tê cóng.\"",
                     "duration": 10,
                     "characters_involved": ["Cô Bé Bán Diêm"],
-                    "prompt": "Cinematic 4K Hollywood film, intimate close-up and medium shot of a 9-year-old little girl with long blonde hair covered in snow, wearing a torn dark brown coat, crouching in a snowy corner between two brick houses at night. She strikes a match with trembling hands, the small golden flame illuminating her pale, hopeful face and cold red fingers, her breath visible in the freezing air. In the warm glow of the flame, a magical vision of a glowing fireplace appears faintly before her, snow falling around her, cold blue night light contrasting with the warm orange match light, shallow depth of field, slow push-in camera, photorealistic, emotional cinematic lighting, 4K Ultra HD."
+                    "prompt": "Cinematic 4K Hollywood film, intimate close-up and medium shot of a 9-year-old girl with blonde hair in snow, wearing a torn dark brown coat, crouching in a snowy corner between two brick houses at night. She strikes a match with trembling hands, the golden flame illuminating her pale hopeful face. Off-screen narrator voiceover: \"Đêm giao thừa giá rét, không bán được que diêm nào, em co ro nép vào góc tường lạnh buốt và quẹt que diêm đầu tiên để sưởi ấm đôi bàn tay tê cóng.\" Critical acting constraint: The narrator is off-screen. Characters on screen DO NOT SPEAK, DO NOT MOVE LIPS, mouths remain naturally closed with zero lip-sync, shivering silent acting, 4K Ultra HD."
                 },
                 {
                     "scene_index": 3,
-                    "situation": "Cô bé quẹt thêm nhiều que diêm, ánh lửa nối tiếp nhau hiện ra cây thông Noel lấp lánh và cuối cùng là hình ảnh bà ngoại yêu dấu mỉm cười dang tay đón em, em vội quẹt hết cả bao diêm để giữ bà ở lại.",
-                    "dialogue": "Cô Bé Bán Diêm: \"Bà ơi! Bà đừng đi! Cháu quẹt hết diêm đây, bà ở lại với cháu nhé!\"",
-                    "duration": 10,
-                    "characters_involved": ["Cô Bé Bán Diêm", "Bà Ngoại"],
-                    "prompt": "Cinematic 4K Hollywood film, magical medium shot in a snowy street corner at night. A 9-year-old little girl with long blonde hair, wearing a torn dark brown coat, kneels in the snow striking match after match, each golden flame revealing a glowing vision: a sparkling Christmas tree with candles and gifts, then a kind 70-year-old grandmother with long white hair, wearing a glowing ivory-white gown, smiling warmly with open arms. The grandmother's radiant golden light surrounds the girl, snowflakes glowing in the warm light, the girl's face filled with joy and tears, cold blue night contrasting with warm magical golden glow, slow crane-up camera, photorealistic, dreamlike cinematic lighting, 4K Ultra HD."
+                    "situation": "Trong ánh sáng ấm áp lung linh của ngọn lửa diêm, một lò sưởi ấm áp với ngọn lửa hồng rực rỡ và bàn tiệc thịnh soạn hiện ra kỳ diệu ngay trước mắt cô bé.",
+                    "dialogue": "Dẫn chuyện: \"Trong ánh lửa que diêm bập bùng, một chiếc lò sưởi bằng đồng sáng loáng với ngọn lửa ấm áp và bàn tiệc thịnh soạn hiện ra kỳ diệu trước mắt em.\"",
+                    "duration": 9,
+                    "characters_involved": ["Cô Bé Bán Diêm"],
+                    "prompt": "Cinematic 4K Hollywood film, magical medium shot in a snowy street corner. A 9-year-old girl gazes in pure wonder and joy at a glowing vision of a crackling warm fireplace and a delicious roast goose feast floating in warm golden light. Off-screen narrator voiceover: \"Trong ánh lửa que diêm bập bùng, một chiếc lò sưởi bằng đồng sáng loáng với ngọn lửa ấm áp và bàn tiệc thịnh soạn hiện ra kỳ diệu trước mắt em.\" Critical acting constraint: The narrator is off-screen. Characters on screen DO NOT SPEAK, DO NOT MOVE LIPS, mouths remain naturally closed with zero lip-sync, silent emotional acting, warm magical light against dark snow, 4K Ultra HD."
                 },
                 {
                     "scene_index": 4,
-                    "situation": "Sáng mùng một năm mới, tuyết ngừng rơi, người qua đường phát hiện cô bé đã ra đi trong nụ cười bình yên bên góc tường, tay vẫn nắm chặt bao diêm đã cháy hết, linh hồn em được bà ngoại bế lên thiên đường trong ánh sáng rực rỡ.",
-                    "dialogue": "Dẫn chuyện: \"Sáng hôm sau, người ta thấy em ngồi đó, má vẫn ửng hồng, môi vẫn mỉm cười — em đã đi theo bà ngoại về nơi ấm áp và hạnh phúc mãi mãi.\"",
+                    "situation": "Cô bé vội quẹt thêm nhiều que diêm, và trong ánh lửa rực rỡ nhất, hình ảnh bà ngoại hiền hậu hiện ra mỉm cười dang rộng vòng tay đón em, cô bé khẩn thiết gọi bà.",
+                    "dialogue": "Cô Bé Bán Diêm: \"Bà ơi! Cho cháu đi với bà! Cháu biết que diêm tắt thì bà cũng biến mất như lò sưởi kia... Bà ở lại với cháu nhé!\"",
+                    "duration": 10,
+                    "characters_involved": ["Cô Bé Bán Diêm", "Bà Ngoại"],
+                    "prompt": "Cinematic 4K Hollywood film, emotional medium shot in snowy corner. A 9-year-old girl with blonde hair kneels in snow, looking up with tears of joy at a kind 70-year-old grandmother with glowing silver hair in an ivory gown opening warm arms. The girl speaks with heartfelt longing. Spoken character dialogue: \"Bà ơi! Cho cháu đi với bà! Cháu biết que diêm tắt thì bà cũng biến mất như lò sưởi kia... Bà ở lại với cháu nhé!\" with natural synchronized lip-sync and clear emotional voice. Grandmother listens with kind smile and mouth closed. 4K Ultra HD."
+                },
+                {
+                    "scene_index": 5,
+                    "situation": "Bà ngoại dịu dàng cúi xuống, ôm chầm lấy cô bé trong vòng tay ấm áp và cất giọng yêu thương vỗ về.",
+                    "dialogue": "Bà Ngoại: \"Đừng sợ cháu ngoan, bà đến đón cháu đây, chúng ta sẽ về nơi không còn đói rét và đau buồn nữa.\"",
                     "duration": 8,
+                    "characters_involved": ["Cô Bé Bán Diêm", "Bà Ngoại"],
+                    "prompt": "Cinematic 4K Hollywood film, warm radiant medium close-up of the 70-year-old grandmother in glowing ivory gown gently embracing the little girl in the snow. The grandmother speaks softly with deep maternal love. Spoken character dialogue: \"Đừng sợ cháu ngoan, bà đến đón cháu đây, chúng ta sẽ về nơi không còn đói rét và đau buồn nữa.\" with natural synchronized lip-sync and clear gentle voice. The little girl smiles peacefully with mouth closed. Golden celestial light, 4K Ultra HD."
+                },
+                {
+                    "scene_index": 6,
+                    "situation": "Sáng mùng một năm mới, tuyết ngừng rơi, người qua đường phát hiện cô bé ngồi bình yên bên góc tường, môi vẫn hé nụ cười tươi tắn — linh hồn em và bà ngoại đã cùng bay về thiên đường ngập tràn ánh sáng.",
+                    "dialogue": "Dẫn chuyện: \"Sáng hôm sau, người ta thấy em ngồi mỉm cười thanh thản giữa tuyết trắng — em và bà ngoại đã nắm tay nhau bay về thiên đường hạnh phúc mãi mãi.\"",
+                    "duration": 9,
                     "characters_involved": ["Cô Bé Bán Diêm", "Bà Ngoại", "Người Qua Đường"],
-                    "prompt": "Cinematic 4K Hollywood film, poignant wide and medium shot on a snowy street at dawn on New Year's morning. A 9-year-old little girl with long blonde hair, wearing a torn dark brown coat, sits peacefully against a brick wall in the snow, smiling gently with rosy cheeks, holding burnt matchsticks, while a few passersby in dark wool coats stand nearby in sorrow. Above her, a radiant vision of a 70-year-old grandmother with long white hair in a glowing ivory gown gently lifts the girl's spirit into warm golden heavenly light breaking through soft pink dawn clouds, snow sparkling, cold blue morning light contrasting with warm golden heavenly glow, slow crane-up camera rising toward the sky, photorealistic, deeply emotional cinematic lighting, 4K Ultra HD."
+                    "prompt": "Cinematic 4K Hollywood film, poignant wide and crane-up shot on snowy European street at sunrise. A little girl sits peacefully smiling against a brick wall holding burnt matchsticks, while a radiant vision of grandmother and girl ascending together into golden heavenly clouds. Off-screen narrator voiceover: \"Sáng hôm sau, người ta thấy em ngồi mỉm cười thanh thản giữa tuyết trắng — em và bà ngoại đã nắm tay nhau bay về thiên đường hạnh phúc mãi mãi.\" Critical acting constraint: The narrator is off-screen. Characters on screen DO NOT SPEAK, DO NOT MOVE LIPS, mouths naturally closed with zero lip-sync, silent peaceful emotional acting, slow crane-up, 4K Ultra HD."
                 }
             ]
         }, style_preset)
@@ -1086,35 +1152,59 @@ def _fallback_movie_breakdown(script: str, style_preset: str = "Điện ảnh 4K
             "scenes": [
                 {
                     "scene_index": 1,
-                    "situation": "Buổi sáng sớm trong góc học tập nghèo của ngôi nhà tranh, cậu bé 10 tuổi ngồi chống cằm đọc sách với vẻ mặt nhăn nhó, đọc được vài chữ thì thở dài, gấp sách lại và ngáp ngắn ngáp dài vì chán học.",
-                    "dialogue": "Dẫn chuyện: \"Ngày xửa ngày xưa, có một cậu bé rất ham chơi, lười học.\" Cậu Bé: \"Chữ nghĩa gì mà khó nhớ thế này, chán quá đi mất!\"",
-                    "duration": 8,
+                    "situation": "Buổi sáng sớm trong góc học tập của ngôi nhà tranh ở làng quê xưa, cậu bé ngồi bên bàn gỗ chống cằm đọc sách với vẻ mặt chán ngán, ngáp dài ngáp ngắn vì lười học.",
+                    "dialogue": "Dẫn chuyện: \"Ngày xửa ngày xưa, có một cậu bé rất ham chơi và lười học bài.\"",
+                    "duration": 7,
                     "characters_involved": ["Cậu Bé"],
-                    "prompt": "Cinematic 4K Hollywood film, intimate medium shot of a poor study corner inside an old thatched hut in ancient Vietnam at early morning. A 10-year-old boy with short messy black hair, wearing a rough light brown cloth shirt, sits chin-in-hand at a small wooden desk, frowning at an old book, then sighs, closes the book and yawns repeatedly. Soft golden morning light filters through bamboo walls, dust particles in the air, detailed wood grain and rough cloth texture, shallow depth of field, slow push-in camera, photorealistic, warm cinematic lighting, 4K Ultra HD."
+                    "prompt": "Cinematic 4K Hollywood film, intimate medium shot inside an old thatched hut in ancient Vietnam at early morning. A 10-year-old boy with short messy black hair, wearing a rough light brown cloth shirt, sits chin-in-hand at a small wooden desk, yawning and sighing lazily beside an open ancient book. Soft golden morning light through bamboo walls. Off-screen narrator voiceover: \"Ngày xửa ngày xưa, có một cậu bé rất ham chơi và lười học bài.\" Critical acting constraint: The narrator is off-screen. Characters on screen DO NOT SPEAK, DO NOT MOVE LIPS, mouths remain naturally closed with zero lip-sync, bored silent acting, 4K Ultra HD."
                 },
                 {
                     "scene_index": 2,
-                    "situation": "Trên đường làng ven bờ suối, trời nắng nhẹ, cậu bé đi chơi về dừng chân tò mò khi thấy bà cụ tóc bạc đang ngồi cặm cụi mài một thỏi sắt lớn vào tảng đá bên bờ suối.",
-                    "dialogue": "Dẫn chuyện: \"Một hôm đi chơi qua bờ suối, cậu thấy một bà cụ đang miệt mài mài một thỏi sắt lớn.\"",
-                    "duration": 10,
-                    "characters_involved": ["Cậu Bé", "Bà Cụ"],
-                    "prompt": "Cinematic 4K Hollywood film, wide and medium shot of a village road beside a small clear stream in ancient Vietnam under gentle sunlight. A 10-year-old boy in a rough light brown cloth shirt, returning from play, stops curiously and tilts his head, looking puzzled at a 75-year-old old woman with silver hair in a bun, wearing a dark brown robe, sitting diligently grinding a large iron bar on a big stone by the stream. Clear water flows over pebbles, green trees and soft sunlight, detailed stone texture and iron bar, slow tracking camera, photorealistic, bright cinematic lighting, 4K Ultra HD."
+                    "situation": "Cậu bé bực dọc gấp mạnh cuốn sách lại, lắc đầu chán nản và cất tiếng than thở rồi bỏ học đi chơi.",
+                    "dialogue": "Cậu Bé: \"Chữ nghĩa gì mà khó nhớ thế này, chán quá đi mất!\"",
+                    "duration": 6,
+                    "characters_involved": ["Cậu Bé"],
+                    "prompt": "Cinematic 4K Hollywood film, medium shot of a 10-year-old boy in rough light brown cloth shirt at a wooden desk in ancient thatched room. He frowns, slams the book shut, pushes his chair back and speaks with frustration. Spoken character dialogue: \"Chữ nghĩa gì mà khó nhớ thế này, chán quá đi mất!\" with natural synchronized lip-sync and clear boy voice. Photorealistic, warm cinematic lighting, 4K Ultra HD."
                 },
                 {
                     "scene_index": 3,
-                    "situation": "Cạnh tảng đá lớn bên bờ suối, cậu bé chắp tay cúi chào và hỏi bà cụ làm sao thỏi sắt to thế này có thể thành kim được, bà cụ ngước lên mỉm cười hiền từ và giải thích bà đang mài nó để làm thành một chiếc kim khâu vá.",
-                    "dialogue": "Cậu Bé: \"Bà ơi, bà đang làm gì thế ạ? Thỏi sắt to thế này làm sao thành kim được?\" Bà Cụ: \"Ta mài thỏi sắt này để làm thành một chiếc kim khâu vá đấy cháu ạ.\"",
+                    "situation": "Trên đường làng ven bờ suối róc rách, trời nắng nhẹ, cậu bé đi chơi về thì tò mò dừng bước khi thấy một bà cụ tóc bạc đang cặm cụi mài một thỏi sắt lớn vào tảng đá ven bờ suối.",
+                    "dialogue": "Dẫn chuyện: \"Một hôm đi chơi qua bờ suối, cậu thấy một bà cụ đang miệt mài mài một thỏi sắt lớn vào tảng đá.\"",
                     "duration": 8,
                     "characters_involved": ["Cậu Bé", "Bà Cụ"],
-                    "prompt": "Cinematic 4K Hollywood film, intimate medium shot beside a large rock by a clear stream in ancient Vietnam under gentle sunlight. A 10-year-old boy in a rough light brown cloth shirt clasps his hands and bows respectfully to ask a question, while a 75-year-old old woman with silver hair in a bun, wearing a dark brown robe, looks up from grinding a large iron bar on a stone and smiles kindly. Clear stream water, green leaves and soft sunlight, detailed facial expressions, iron bar and stone texture, slow push-in camera, photorealistic, warm cinematic lighting, 4K Ultra HD."
+                    "prompt": "Cinematic 4K Hollywood film, wide and medium tracking shot of a village road beside a clear stream in ancient Vietnam under gentle sunlight. A 10-year-old boy stops curiously and tilts his head, watching a 75-year-old woman with silver hair bun in dark brown robe sitting diligently grinding a big iron bar on a stone by the water. Off-screen narrator voiceover: \"Một hôm đi chơi qua bờ suối, cậu thấy một bà cụ đang miệt mài mài một thỏi sắt lớn vào tảng đá.\" Critical acting constraint: The narrator is off-screen. Characters on screen DO NOT SPEAK, DO NOT MOVE LIPS, mouths naturally closed with zero lip movement, boy looks curious, grandmother grinds iron diligently, 4K Ultra HD."
                 },
                 {
                     "scene_index": 4,
-                    "situation": "Sáng hôm sau, cậu bé ngồi ngay ngắn chăm chú đọc sách trong góc học tập, ánh mắt sáng lên đầy quyết tâm, bên cạnh là chiếc kim khâu sáng bóng mà bà cụ đã mài xong, minh chứng cho bài học có công mài sắt, có ngày nên kim.",
-                    "dialogue": "Dẫn chuyện: \"Nghe bà cụ nói, cậu bé chợt hiểu ra: có công mài sắt, có ngày nên kim.\" Cậu Bé: \"Cháu hiểu rồi ạ! Từ nay cháu sẽ chăm học, kiên trì như bà mài sắt vậy!\"",
-                    "duration": 10,
+                    "situation": "Cậu bé tiến lại gần tảng đá ven suối, chắp tay cúi đầu chào lễ phép rồi cất tiếng hỏi bà cụ với ánh mắt ngạc nhiên.",
+                    "dialogue": "Cậu Bé: \"Bà ơi, bà đang làm gì thế ạ? Thỏi sắt to thế này làm sao mà mài thành kim được ạ?\"",
+                    "duration": 7,
                     "characters_involved": ["Cậu Bé", "Bà Cụ"],
-                    "prompt": "Cinematic 4K Hollywood film, warm medium shot of a poor study corner inside an old thatched hut in ancient Vietnam at early morning, days later. A 10-year-old boy with short black hair, wearing a rough light brown cloth shirt, sits upright and reads attentively with a determined smile, a shiny sewing needle placed beside his book as proof of the lesson. A 75-year-old old woman with silver hair in a bun, wearing a dark brown robe, stands nearby smiling kindly and nodding encouragement. Soft golden morning light through bamboo walls, detailed book pages and needle glint, hopeful atmosphere, slow crane-up camera, photorealistic, warm cinematic lighting, 4K Ultra HD."
+                    "prompt": "Cinematic 4K Hollywood film, intimate medium shot beside a large rock by the stream under sunlight. A 10-year-old boy in rough light brown shirt clasps his hands, bows respectfully and speaks with wide, curious eyes. Spoken character dialogue: \"Bà ơi, bà đang làm gì thế ạ? Thỏi sắt to thế này làm sao mà mài thành kim được ạ?\" with natural synchronized lip-sync and clear boy voice. The old woman listens with gentle smile and closed mouth. 4K Ultra HD."
+                },
+                {
+                    "scene_index": 5,
+                    "situation": "Bà cụ dừng tay mài, ngước lên nhìn cậu bé với ánh mắt hiền từ đầy tình thương và giải thích bài học kiên trì.",
+                    "dialogue": "Bà Cụ: \"Mỗi ngày mài một tí thì thỏi sắt to cũng sẽ thành kim khâu thôi cháu ạ.\"",
+                    "duration": 8,
+                    "characters_involved": ["Cậu Bé", "Bà Cụ"],
+                    "prompt": "Cinematic 4K Hollywood film, warm medium close-up of the 75-year-old Vietnamese grandmother with silver hair bun in dark brown robe holding the iron bar. She looks up with kind wrinkles and speaks gently with deep wisdom. Spoken character dialogue: \"Mỗi ngày mài một tí thì thỏi sắt to cũng sẽ thành kim khâu thôi cháu ạ.\" with natural synchronized lip-sync and clear gentle elder voice. The boy listens quietly with closed mouth. 4K Ultra HD."
+                },
+                {
+                    "scene_index": 6,
+                    "situation": "Cậu bé bừng sáng ánh mắt, ngộ ra chân lý, cúi gập người cảm ơn bà cụ rồi phấn khởi hứa sẽ chăm chỉ học hành.",
+                    "dialogue": "Cậu Bé: \"Cháu hiểu rồi ạ! Cháu cảm ơn bà! Từ nay cháu sẽ chăm học, kiên trì như bà mài sắt vậy!\"",
+                    "duration": 7,
+                    "characters_involved": ["Cậu Bé", "Bà Cụ"],
+                    "prompt": "Cinematic 4K Hollywood film, bright medium shot of the 10-year-old boy by the sunlit stream, smiling brightly with enlightened eyes, bowing deeply in gratitude and speaking enthusiastically. Spoken character dialogue: \"Cháu hiểu rồi ạ! Cháu cảm ơn bà! Từ nay cháu sẽ chăm học, kiên trì như bà mài sắt vậy!\" with natural synchronized lip-sync and expressive happy face. The grandmother smiles warmly in background with mouth closed. 4K Ultra HD."
+                },
+                {
+                    "scene_index": 7,
+                    "situation": "Những ngày sau đó, trong góc học tập thân quen, cậu bé ngồi ngay ngắn chăm chú đọc sách dưới ánh nắng sớm mai, bên cạnh là chiếc kim khâu sáng bóng như một minh chứng cho sự kiên trì.",
+                    "dialogue": "Dẫn chuyện: \"Từ đó, cậu bé chăm chỉ học hành, không còn lười biếng nữa và đã trở thành người thành tài, đúng như câu tục ngữ: có công mài sắt, có ngày nên kim.\"",
+                    "duration": 8,
+                    "characters_involved": ["Cậu Bé"],
+                    "prompt": "Cinematic 4K Hollywood film, inspiring medium shot of the study corner inside the thatched house at sunrise. The 10-year-old boy sits upright, attentively reading an ancient book with a determined, happy smile. Next to the book is a gleaming steel sewing needle reflecting golden morning rays. Off-screen narrator voiceover: \"Từ đó, cậu bé chăm chỉ học hành, không còn lười biếng nữa và đã trở thành người thành tài, đúng như câu tục ngữ: có công mài sắt, có ngày nên kim.\" Critical acting constraint: The narrator is off-screen. Characters on screen DO NOT SPEAK, DO NOT MOVE LIPS, mouths remain naturally closed with zero lip movement, peaceful focused expression, slow crane-up, 4K Ultra HD."
                 }
             ]
         }, style_preset)
@@ -1261,19 +1351,24 @@ CỐT TRUYỆN / Ý TƯỞNG:
 PHONG CÁCH QUAY PHIM: {style_preset}
 
 YÊU CẦU ĐẶC BIỆT:
-1. NGUYÊN TẮC: 1 LỜI THOẠI = 1 PHÂN CẢNH RIÊNG:
+1. NGUYÊN TẮC VÀNG: 1 LỜI THOẠI = 1 PHÂN CẢNH RIÊNG BIỆT (TÁCH BIỆT HOÀN TOÀN DẪN CHUYỆN VÀ THOẠI NHÂN VẬT):
    - Cứ mỗi lời thoại của một nhân vật (hoặc mỗi đoạn thuyết minh / dẫn chuyện) phải tạo thành ĐÚNG 1 PHÂN CẢNH riêng biệt.
-   - Khi nhân vật A nói -> 1 cảnh riêng tập trung vào A đang nói với biểu cảm và khẩu hình.
+   - TUYỆT ĐỐI KHÔNG GỘP lời dẫn chuyện và lời thoại nhân vật trong cùng 1 phân cảnh!
+   - Khi nhân vật A nói -> 1 cảnh riêng tập trung vào A đang nói với biểu cảm và cử động môi đồng bộ (lip-sync).
    - Khi nhân vật B nói -> 1 cảnh tiếp theo chuyển sang B đáp lại.
-   - Không gộp nhiều câu thoại khác nhau vào 1 cảnh. Không giới hạn số lượng phân cảnh (không sợ nhiều cảnh).
+   - Khi có người dẫn chuyện (Voice-over) -> 1 cảnh riêng biệt dành cho người dẫn chuyện.
+   - Không giới hạn số lượng phân cảnh (không sợ nhiều cảnh).
 2. THỜI LƯỢNG MỖI PHÂN CẢNH (5 đến 20 GIÂY TÙY Ý):
-   - Phân tích ngữ cảnh và độ dài câu thoại để chọn số giây chính xác: từ 5 đến 20 giây (chọn số giây phù hợp: 5s, 6s, 8s, 10s, 12s, 15s, 18s, 20s).
+   - Phân tích ngữ cảnh và độ dài câu thoại để chọn số giây chính xác: từ 5 đến 20 giây (5s, 6s, 8s, 10s, 12s, 15s, 18s, 20s).
    - Câu thoại ngắn: 5 - 8 giây.
    - Câu thoại vừa: 8 - 12 giây.
    - Câu thoại dài, giải thích hoặc cao trào: 12 - 20 giây.
-3. LỜI THOẠI & PROMPT QUAY PHIM:
-   - 'dialogue': Ghi rõ Tên Nhân Vật: "Câu thoại..." (bắt buộc phải có câu thoại).
-   - 'prompt': Prompt chi tiết chuẩn điện ảnh 4K tiếng Anh, LUÔN bao gồm câu thoại và khẩu hình: Spoken dialogue: "..." with synchronized natural lip movement, clear character voice, matching emotions.
+3. QUY ĐỊNH BẮT BUỘC VỀ LỜI DẪN CHUYỆN VS THOẠI NHÂN VẬT TRONG 'prompt' (CHỐNG LỖI MẤP MÁY MÔI KHI DẪN CHUYỆN):
+   - NẾU LÀ CẢNH DẪN CHUYỆN / THUYẾT MINH (dialogue bắt đầu bằng 'Dẫn chuyện:', 'Người dẫn chuyện:', 'Thuyết minh:'):
+     'prompt' BẮT BUỘC PHẢI DÙNG CẤU TRÚC: Off-screen narrator voiceover: "...". Critical acting constraint: The narrator is off-screen. Characters on screen DO NOT SPEAK, DO NOT MOVE THEIR LIPS, zero lip-sync, mouths remain naturally closed, characters only perform silent natural acting, physical movements and facial reactions.
+     TUYỆT ĐỐI KHÔNG DÙNG từ 'spoken dialogue' hay 'lip-sync' cho cảnh dẫn chuyện để tránh nhân vật bị mấp máy môi!
+   - NẾU LÀ CẢNH NHÂN VẬT NÓI (dialogue của nhân vật):
+     'prompt' DÙNG CẤU TRÚC: Spoken character dialogue: "..." with natural synchronized lip movements, audible voice and matching facial expressions. Other characters in the scene keep mouths closed and listen silently.
 4. TRÍCH XUẤT NHÂN VẬT:
    - Trích xuất TẤT CẢ các nhân vật có trong câu chuyện. Với mỗi nhân vật, mô tả chi tiết ngoại hình, độ tuổi, trang phục để tạo ảnh tham chiếu.
 
