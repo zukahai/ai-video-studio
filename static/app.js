@@ -1146,6 +1146,7 @@ function showToast(message, type = 'info') {
 window.addEventListener('paste', handleGlobalPaste);
 
 function handleGlobalPaste(event) {
+  if (event._charPasteHandled || state.currentTab === 'movie') return;
   const items = (event.clipboardData || event.originalEvent?.clipboardData)?.items;
   if (!items) return;
 
@@ -3015,6 +3016,7 @@ async function handleCharacterPaste(e, charId) {
   if (files.length > 0) {
     e._charPasteHandled = true;
     e.preventDefault();
+    e.stopPropagation();
     showToast('📋 Đang tải ảnh vừa dán lên...');
     await uploadFilesForCharacter(files, charId);
   }
