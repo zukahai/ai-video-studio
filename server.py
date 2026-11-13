@@ -1547,6 +1547,28 @@ def _fallback_movie_breakdown(script: str, style_preset: str = "Điện ảnh HD
     }
 
 
+def _try_parse_movie_json_from_text(text: str) -> Optional[dict]:
+    """Extract and parse a movie breakdown JSON object containing characters/scenes from assistant text."""
+    if not text or not text.strip():
+        return None
+    if "{" not in text or "}" not in text:
+        return None
+    if '"characters"' not in text and '"scenes"' not in text:
+        return None
+    clean_text = re.sub(r'^```(?:json)?\s*', '', text.strip(), flags=re.MULTILINE)
+    clean_text = re.sub(r'```\s*$', '', clean_text, flags=re.MULTILINE).strip()
+    m = re.search(r'\{[\s\S]*\}', clean_text)
+    if not m:
+        return None
+    try:
+        candidate = json.loads(m.group(0))
+        if isinstance(candidate, dict) and ("characters" in candidate or "scenes" in candidate):
+            return candidate
+    except Exception:
+        pass
+    return None
+
+
 @app.post("/api/movie/breakdown")
 async def breakdown_movie(data: MovieBreakdownModel):
     script = data.script.strip()
@@ -1660,7 +1682,7 @@ YÊU CẦU ĐẶC BIỆT:
             prompt=director_prompt,
             images=[],
             session_id=None,
-            stream_timeout=20.0,
+            stream_timeout=45.0,
         )
 
         session_id = None
@@ -1669,9 +1691,24 @@ YÊU CẦU ĐẶC BIỆT:
             session_id = extracted_ids[-1]
 
         parsed_result = None
-        deadline = time.monotonic() + 60.0
-        while time.monotonic() < deadline:
-            hist = await client.history(session_id=session_id, limit=20)
+        # Check if stream events already contain the complete JSON response
+        stream_chunks: list[str] = []
+        for ev in events:
+            if not isinstance(ev, dict):
+                continue
+            txt = ev.get("display_text") or (ev.get("payload") or {}).get("content") or ev.get("delta") or ev.get("text") or ""
+            if isinstance(txt, str) and txt:
+                stream_chunks.append(txt)
+                parsed_result = _try_parse_movie_json_from_text(txt)
+                if parsed_result:
+                    break
+        if not parsed_result and stream_chunks:
+            parsed_result = _try_parse_movie_json_from_text("".join(stream_chunks))
+
+        deadline = time.monotonic() + 150.0
+        max_deadline = time.monotonic() + 210.0
+        while not parsed_result and time.monotonic() < deadline:
+            hist = await client.history(session_id=session_id, limit=30)
             chat_events = (hist.get("result") or {}).get("chat_events") or []
             for ev in reversed(chat_events):
                 if not isinstance(ev, dict):
@@ -1681,20 +1718,13 @@ YÊU CẦU ĐẶC BIỆT:
                     continue
                 if ev.get("event_name") == "message.assistant":
                     text = ev.get("display_text") or (ev.get("payload") or {}).get("content") or ""
-                    # Check if text contains a candidate JSON
-                    if text.strip() and "{" in text and "}" in text and ('"characters"' in text or '"scenes"' in text):
-                        clean_text = re.sub(r'^```(?:json)?\s*', '', text.strip(), flags=re.MULTILINE)
-                        clean_text = re.sub(r'```\s*$', '', clean_text, flags=re.MULTILINE).strip()
-                        m = re.search(r'\{[\s\S]*\}', clean_text)
-                        if m:
-                            try:
-                                candidate = json.loads(m.group(0))
-                                if isinstance(candidate, dict) and ("characters" in candidate or "scenes" in candidate):
-                                    parsed_result = candidate
-                                    break
-                            except Exception:
-                                # Still streaming response, continue waiting
-                                pass
+                    parsed_result = _try_parse_movie_json_from_text(text)
+                    if parsed_result:
+                        break
+                    # If MuseAI is actively streaming partial JSON, give it extra grace time
+                    if text.strip() and "{" in text and ('"characters"' in text or '"scenes"' in text):
+                        if deadline - time.monotonic() < 15.0 and deadline < max_deadline:
+                            deadline = min(max_deadline, time.monotonic() + 30.0)
             if parsed_result:
                 break
             await asyncio.sleep(1.5)
@@ -1706,16 +1736,19 @@ YÊU CẦU ĐẶC BIỆT:
                 "data": formatted,
                 "source": "ai_director"
             }
-    except Exception as exc:
-        logger.warning(f"AI director breakdown fallback triggered: {exc}")
 
-    # Smart Fallback director
-    fallback_data = _fallback_movie_breakdown(script, style_preset, target_scenes_num or "auto")
-    return {
-        "status": "success",
-        "data": fallback_data,
-        "source": "smart_director"
-    }
+        raise HTTPException(
+            status_code=504,
+            detail="MuseAI chưa trả về kịch bản JSON hoàn chỉnh trong thời gian chờ (150s). Vui lòng kiểm tra trạng thái MuseAI và bấm Phân Tích Kịch Bản lại."
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning(f"AI director breakdown error: {exc}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Lỗi phân tích kịch bản từ MuseAI: {exc}"
+        )
 
 
 @app.post("/api/movie/generate_character_portrait")
