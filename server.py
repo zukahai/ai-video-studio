@@ -76,6 +76,7 @@ class VideoGenerateModel(BaseModel):
     session_id: Optional[str] = None
     scene_index: int = 1
     style_preset: Optional[str] = None
+    character_voices: Optional[dict[str, str]] = None
     timeout: float = 600.0
 
 
@@ -250,6 +251,20 @@ def clean_narration_prefixes_in_prompt(prompt: str) -> str:
     )
 
 
+def _lookup_character_voice(speaker_name: Optional[str], character_voices: Optional[dict[str, str]]) -> str:
+    """Find a matching voice prompt for speaker_name (case-insensitive)."""
+    if not speaker_name or not character_voices:
+        return ""
+    s_norm = speaker_name.strip().lower()
+    for k, v in character_voices.items():
+        if not v or not str(v).strip():
+            continue
+        k_norm = str(k).strip().lower()
+        if k_norm == s_norm or s_norm in k_norm or k_norm in s_norm:
+            return str(v).strip()
+    return ""
+
+
 def build_hidden_video_prompt(
     user_prompt: str,
     aspect_ratio: str,
@@ -259,6 +274,7 @@ def build_hidden_video_prompt(
     style_preset: Optional[str] = None,
     dialogue: Optional[str] = None,
     has_reference_images: bool = False,
+    character_voices: Optional[dict[str, str]] = None,
 ) -> str:
     ratio_desc = RATIO_DESCRIPTIONS.get(aspect_ratio, f"tỉ lệ khung hình {aspect_ratio}")
     style_part = f" Phong cách chủ đạo: {style_preset}." if style_preset else ""
@@ -278,20 +294,39 @@ def build_hidden_video_prompt(
 
         _, narr_spoken = extract_speaker_and_spoken_text(diag_clean)
         narr_text = narr_spoken if narr_spoken else "Thuyết minh dẫn chuyện"
+        narr_voice = (
+            _lookup_character_voice("Người dẫn chuyện", character_voices)
+            or _lookup_character_voice("Dẫn chuyện", character_voices)
+            or _lookup_character_voice("Narrator", character_voices)
+            or "Giọng người dẫn chuyện trầm ấm, truyền cảm, phát âm tiếng Việt rõ ràng, nhịp độ vừa phải và đồng nhất cùng một chất giọng xuyên suốt bộ phim (Consistent warm, clear, expressive Vietnamese narrator voice throughout the entire film)"
+        )
         dialogue_part = (
             f"\n[QUY TẮC BẮT BUỘC: GIỌNG DẪN CHUYỆN / NARRATOR VOICEOVER - KHÔNG MẤP MÁY MÔI]:\n"
+            f"- Hồ sơ giọng đọc dẫn chuyện (Consistent Narrator Voice Profile): {narr_voice}.\n"
             f"- Âm thanh giọng đọc thuyết minh dẫn chuyện ngoài khung hình (Off-screen Narrator Voiceover Audio — CHỈ ĐỌC ĐÚNG NỘI DUNG TRONG NGOẶC KÉP, TUYỆT ĐỐI KHÔNG ĐỌC CHỮ 'Người dẫn chuyện' hay 'Dẫn chuyện'): \"{narr_text}\".\n"
             f"- YÊU CẦU ĐẶC BIỆT BẮT BUỘC VỀ DIỄN XUẤT: Đây là GIỌNG ĐỌC DẪN CHUYỆN NGOÀI HÌNH ẢNH (Off-screen voiceover narration). "
             f"TẤT CẢ NHÂN VẬT TRÊN MÀN ẢNH TUYỆT ĐỐI KHÔNG NÓI, KHÔNG MẤP MÁY MÔI, KHÔNG CỬ ĐỘNG KHẨU HÌNH, MIỆNG PHẢI NGẬM TỰ NHIÊN "
-            f"(CRITICAL ACTING INSTRUCTION: The narration is off-screen. Speak ONLY the exact quoted narration text \"{narr_text}\" without saying any label like 'Narrator' or 'Người dẫn chuyện'. On-screen characters DO NOT SPEAK, DO NOT MOVE THEIR LIPS, MOUTHS MUST REMAIN NATURALLY CLOSED WITH ZERO LIP-SYNC. Characters only perform silent natural acting, physical movements, thoughtful facial reactions and peaceful expressions while the off-screen narrator speaks)."
+            f"(CRITICAL ACTING INSTRUCTION: The narration is off-screen. Speak ONLY the exact quoted narration text \"{narr_text}\" using the consistent narrator voice profile above, without saying any label like 'Narrator' or 'Người dẫn chuyện'. On-screen characters DO NOT SPEAK, DO NOT MOVE THEIR LIPS, MOUTHS MUST REMAIN NATURALLY CLOSED WITH ZERO LIP-SYNC. Characters only perform silent natural acting, physical movements, thoughtful facial reactions and peaceful expressions while the off-screen narrator speaks)."
         )
     elif diag_clean:
         speaker_name, spoken_line = extract_speaker_and_spoken_text(diag_clean)
         spoken_only = spoken_line or diag_clean
         speaker_label = f"Nhân vật {speaker_name}" if speaker_name else "Nhân vật trong cảnh"
         speaker_en = speaker_name if speaker_name else "the speaking character"
+        matched_voice = _lookup_character_voice(speaker_name, character_voices)
+        voice_consistency_block = ""
+        if matched_voice:
+            voice_consistency_block = (
+                f"- ĐỒNG BỘ GIỌNG NÓI NHÂN VẬT (MANDATORY VOICE IDENTITY FOR {speaker_en}): {matched_voice}. "
+                f"(STRICTLY maintain this exact vocal timbre, age, gender, pitch, accent, and speaking cadence consistently across all scenes).\n"
+            )
+        elif character_voices:
+            all_voices = "; ".join(f"{k}: {v}" for k, v in character_voices.items() if v)
+            if all_voices:
+                voice_consistency_block = f"- ĐỒNG BỘ GIỌNG NÓI CÁC NHÂN VẬT TRONG CẢNH: {all_voices}.\n"
         dialogue_part = (
-            f"\n[LỜI THOẠI NHÂN VẬT & ĐỒNG BỘ KHẨU HÌNH (LIP-SYNC)]:\n"
+            f"\n[LỜI THOẠI NHÂN VẬT & ĐỒNG BỘ GIỌNG NÓI / KHẨU HÌNH (VOICE & LIP-SYNC)]:\n"
+            f"{voice_consistency_block}"
             f"- {speaker_label} nói câu thoại (CHỈ ĐỌC ĐÚNG LỜI THOẠI TRONG NGOẶC KÉP, KHÔNG ĐỌC TÊN NHÂN VẬT): \"{spoken_only}\".\n"
             f"- Yêu cầu diễn xuất & âm thanh: Chỉ {speaker_label} mới cử động khẩu hình môi và phát âm giọng nói đồng bộ "
             f"(Spoken character dialogue by {speaker_en} with natural synchronized lip-sync and clear audible voice, speaking ONLY these exact words without saying the character's name prefix: \"{spoken_only}\"). "
@@ -891,6 +926,7 @@ async def generate_video(data: VideoGenerateModel):
             style_preset=data.style_preset,
             dialogue=data.dialogue,
             has_reference_images=bool(resolved_images),
+            character_voices=data.character_voices,
         )
 
         # Use existing session_id if continuing a video sequence
@@ -1212,11 +1248,15 @@ def _format_movie_result(parsed: dict, style_preset: str = "Điện ảnh HD Hol
         c_name = char.get("name") or f"Nhân vật #{idx+1}"
         c_desc = char.get("description") or f"Nhân vật {c_name} chuẩn phong cách {style_preset} sắc nét 4K."
         c_color = char.get("color") or MOVIE_CHARACTER_COLORS[idx % len(MOVIE_CHARACTER_COLORS)]
+        c_voice = (char.get("voice_prompt") or "").strip() or (
+            f"Giọng nói đặc trưng phù hợp với {c_name} ({c_desc[:70]}), giữ nguyên âm sắc, cao độ, độ tuổi và nhịp nói đồng nhất qua mọi phân cảnh."
+        )
         c_images = char.get("images") if isinstance(char.get("images"), list) else []
         formatted_chars.append({
             "id": c_id,
             "name": c_name,
             "description": c_desc,
+            "voice_prompt": c_voice,
             "color": c_color,
             "images": c_images
         })
@@ -1651,8 +1691,9 @@ YÊU CẦU ĐẶC BIỆT:
      TUYỆT ĐỐI KHÔNG DÙNG từ 'spoken dialogue' hay 'lip-sync' cho cảnh dẫn chuyện để tránh nhân vật bị mấp máy môi!
    - NẾU LÀ CẢNH NHÂN VẬT NÓI (dialogue của nhân vật):
      'prompt' DÙNG CẤU TRÚC: Spoken character dialogue: "..." with natural synchronized lip movements, audible voice and matching facial expressions. Other characters in the scene keep mouths closed and listen silently.
-4. TRÍCH XUẤT NHÂN VẬT:
+4. TRÍCH XUẤT NHÂN VẬT & HỒ SƠ GIỌNG NÓI ĐỒNG BỘ:
    - Trích xuất TẤT CẢ các nhân vật có trong câu chuyện. Với mỗi nhân vật, mô tả chi tiết ngoại hình, độ tuổi, trang phục để tạo ảnh tham chiếu.
+   - BẮT BUỘC tạo thêm trường "voice_prompt" cho MỖI nhân vật (mô tả cụ thể giới tính, độ tuổi giọng, âm sắc trầm/bổng, nhịp nói, cảm xúc đặc trưng bằng cả tiếng Việt và tiếng Anh ngắn gọn) để giọng nói của nhân vật đó đồng nhất 100% qua mọi phân cảnh!
 
 ĐỊNH DẠNG ĐẦU RA BẮT BUỘC: DUY NHẤT một khối JSON hợp lệ (không kèm lời chào hay giải thích ngoài JSON):
 {{
@@ -1663,6 +1704,7 @@ YÊU CẦU ĐẶC BIỆT:
       "id": "char_1",
       "name": "Tên nhân vật",
       "description": "Mô tả chi tiết ngoại hình, trang phục",
+      "voice_prompt": "Giọng nam/nữ..., độ tuổi..., âm sắc..., nhịp nói... (English voice profile)",
       "color": "#ef4444"
     }}
   ],

@@ -2863,6 +2863,14 @@ function renderMovieCharacters() {
         <textarea rows="4" oninput="updateCharacterDesc('${char.id}', this.value)" placeholder="Chi tiết ngoại hình, độ tuổi, khuôn mặt, áo quần..." class="w-full bg-surface-950/80 border border-surface-600 focus:border-cyan-400 rounded-lg p-2 text-xs text-slate-200 focus:outline-none resize-y leading-relaxed">${escapeHtml(char.description || '')}</textarea>
       </div>
 
+      <div>
+        <label class="text-[10px] font-semibold text-[#9cdcfe] mb-1 flex items-center space-x-1">
+          <i data-lucide="mic" class="w-3 h-3"></i>
+          <span>Giọng nói đặc trưng (đồng bộ xuyên suốt phim):</span>
+        </label>
+        <input type="text" value="${escapeHtml(char.voice_prompt || '')}" oninput="updateCharacterVoice('${char.id}', this.value)" placeholder="VD: Giọng bé trai 10 tuổi trong trẻo, lanh lợi, nói nhanh vừa phải..." class="w-full bg-surface-950/80 border border-surface-600 focus:border-cyan-400 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none">
+      </div>
+
       <!-- Reference Images & Paste Zone -->
       <div class="space-y-1.5">
         <div class="flex items-center justify-between text-[10px] text-slate-400">
@@ -2902,6 +2910,7 @@ function addNewCharacter() {
     id: `char_${Date.now()}`,
     name: `Nhân vật #${idx}`,
     description: `Trang phục và phong thái chuẩn điện ảnh ${movieState.stylePreset}.`,
+    voice_prompt: '',
     color: newColor,
     images: [],
   });
@@ -2938,6 +2947,14 @@ function updateCharacterDesc(charId, newDesc) {
   const char = movieState.characters.find(c => c.id === charId);
   if (char) {
     char.description = newDesc;
+    saveMovieStateCache();
+  }
+}
+
+function updateCharacterVoice(charId, newVoice) {
+  const char = movieState.characters.find(c => c.id === charId);
+  if (char) {
+    char.voice_prompt = newVoice;
     saveMovieStateCache();
   }
 }
@@ -3107,6 +3124,29 @@ async function autoGenerateMissingCharacterPortraits(charsList) {
   } finally {
     _isAutoDrawingCharacters = false;
   }
+}
+
+function getInvolvedCharacterVoices(scene) {
+  const voices = {};
+  const charNames = (scene.characters_involved || []).map(s => (s || '').trim().toLowerCase());
+  const diagLower = (scene.dialogue || '').toLowerCase();
+  const sitLower = (scene.situation || '').toLowerCase();
+
+  movieState.characters.forEach(char => {
+    const vp = (char.voice_prompt || '').trim();
+    if (!vp) return;
+    const cName = (char.name || '').trim().toLowerCase();
+    if (!cName) return;
+    const isMatched =
+      charNames.includes(cName) ||
+      charNames.some(cn => cn.includes(cName) || cName.includes(cn)) ||
+      diagLower.includes(cName) ||
+      sitLower.includes(cName);
+    if (isMatched) {
+      voices[char.name] = vp;
+    }
+  });
+  return voices;
 }
 
 // Helper: Collect primary reference images for a scene's involved characters (capped to max 3 images to prevent Noise framing overflow)
@@ -3634,6 +3674,7 @@ async function startAutoMovieGeneration() {
         session_id: movieState.sessionId,
         scene_index: scene.scene_index,
         style_preset: movieState.stylePreset,
+        character_voices: getInvolvedCharacterVoices(scene),
         timeout: 600.0,
       };
 
@@ -3730,6 +3771,7 @@ async function generateSingleMovieScene(idx) {
       session_id: movieState.sessionId,
       scene_index: scene.scene_index,
       style_preset: movieState.stylePreset,
+      character_voices: getInvolvedCharacterVoices(scene),
       timeout: 600.0,
     };
 
