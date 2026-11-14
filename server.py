@@ -13,6 +13,8 @@ import unicodedata
 from pathlib import Path
 from typing import Any, Optional
 
+import httpx
+
 logger = logging.getLogger("server")
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
