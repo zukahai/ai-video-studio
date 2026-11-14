@@ -1943,14 +1943,17 @@ function renderDashboardMovies() {
       ? `<p class="text-[11px] text-slate-400 leading-relaxed line-clamp-2">${escapeHtml(p.logline)}</p>`
       : '';
 
+    const ar = String(p.aspectRatio || '16:9').trim();
+    const arBoxClass = ar === '9:16' ? 'aspect-[9/16]' : (ar === '1:1' ? 'aspect-square' : 'aspect-video');
+
     return `
       <div onclick="openMovieFromDashboard('${escapeHtml(p.id)}')" class="glass-card rounded-2xl overflow-hidden shadow-lg group hover:border-sky-400/40 transition cursor-pointer flex flex-col">
-        <div class="aspect-video bg-black/60 flex items-center justify-center overflow-hidden relative shrink-0">
+        <div class="${arBoxClass} bg-black/60 flex items-center justify-center overflow-hidden relative shrink-0">
           ${thumbHtml}
           <button type="button" onclick="event.stopPropagation(); openMovieCoverModal('${escapeHtml(p.id)}')" title="Chọn hoặc tạo ảnh đại diện phim" class="absolute top-2 left-2 p-1.5 rounded-lg bg-black/70 hover:bg-black/90 border border-white/15 text-slate-200 hover:text-amber-300 opacity-85 group-hover:opacity-100 transition cursor-pointer">
             <i data-lucide="image" class="w-3.5 h-3.5"></i>
           </button>
-          <span class="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded bg-black/75 border border-white/10 text-slate-200 font-semibold">${escapeHtml(p.aspectRatio || '16:9')}</span>
+          <span class="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded bg-black/75 border border-white/10 text-slate-200 font-semibold">${escapeHtml(ar)}</span>
         </div>
         <div class="p-3.5 flex-1 flex flex-col justify-between gap-2.5">
           <div class="space-y-1.5">
@@ -4625,6 +4628,14 @@ async function openMovieCoverModal(projectId) {
   const picksEl = document.getElementById('movie-cover-char-picks');
 
   if (titleEl) titleEl.innerText = `Ảnh Đại Diện: ${proj.title || 'Phim'}`;
+  const previewBox = document.getElementById('movie-cover-preview-box');
+  if (previewBox) {
+    const ar = String(proj.aspectRatio || '16:9').trim();
+    const boxSize = ar === '9:16'
+      ? 'aspect-[9/16] max-h-[46vh] mx-auto'
+      : (ar === '1:1' ? 'aspect-square max-h-[46vh] mx-auto' : 'aspect-video w-full');
+    previewBox.className = `${boxSize} rounded-xl bg-[#141414] border border-[#333333] overflow-hidden flex items-center justify-center relative`;
+  }
   const currentCover = proj.cover_image_url || '';
   if (previewEl && emptyEl) {
     if (currentCover) {
