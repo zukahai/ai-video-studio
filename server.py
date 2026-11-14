@@ -2357,6 +2357,141 @@ async def get_gallery():
     }
 
 
+CHARACTER_LIBRARY_FILE = STATE_DIR / "character_library.json"
+
+
+def _load_character_library() -> list[dict]:
+    if CHARACTER_LIBRARY_FILE.exists():
+        try:
+            data = json.loads(CHARACTER_LIBRARY_FILE.read_text(encoding="utf-8"))
+            if isinstance(data, list):
+                return data
+        except Exception as exc:
+            logger.warning(f"Failed to read character_library.json: {exc}")
+    return []
+
+
+def _save_character_library(items: list[dict]) -> list[dict]:
+    CHARACTER_LIBRARY_FILE.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+    return items
+
+
+class CharacterLibraryUpsertModel(BaseModel):
+    id: str = ""
+    source_key: str = ""
+    display_name: str = ""
+    name: str = ""
+    movie_title: str = ""
+    description: str = ""
+    voice_prompt: str = ""
+    color: str = "#06b6d4"
+    images: list[dict[str, Any]] = []
+    custom_renamed: Optional[bool] = None
+
+
+@app.get("/api/characters")
+async def list_character_library():
+    items = _load_character_library()
+    return {"status": "success", "characters": items}
+
+
+@app.post("/api/characters")
+async def upsert_character_library_item(data: CharacterLibraryUpsertModel):
+    items = _load_character_library()
+    now_iso = time.strftime("%Y-%m-%dT%H:%M:%S")
+    payload = data.model_dump()
+    name = (payload.get("name") or "").strip()
+    movie_title = (payload.get("movie_title") or "").strip()
+    default_display = f"{name} - {movie_title}" if (name and movie_title) else (name or payload.get("display_name") or "Nhân vật mới")
+    incoming_display = (payload.get("display_name") or "").strip() or default_display
+
+    existing_idx = -1
+    if payload.get("id"):
+        existing_idx = next((i for i, x in enumerate(items) if x.get("id") == payload["id"]), -1)
+    if existing_idx < 0 and payload.get("source_key"):
+        existing_idx = next((i for i, x in enumerate(items) if x.get("source_key") == payload["source_key"]), -1)
+
+    if existing_idx >= 0:
+        cur = items[existing_idx]
+        is_custom_renamed = bool(cur.get("custom_renamed"))
+        if payload.get("custom_renamed") is True:
+            is_custom_renamed = True
+        cur["name"] = name or cur.get("name", "")
+        cur["movie_title"] = movie_title or cur.get("movie_title", "")
+        if not is_custom_renamed:
+            cur["display_name"] = incoming_display
+        elif payload.get("custom_renamed") is True and incoming_display:
+            cur["display_name"] = incoming_display
+        cur["custom_renamed"] = is_custom_renamed
+        if payload.get("description") is not None:
+            cur["description"] = payload["description"]
+        if payload.get("voice_prompt") is not None:
+            cur["voice_prompt"] = payload["voice_prompt"]
+        if payload.get("color"):
+            cur["color"] = payload["color"]
+        if isinstance(payload.get("images"), list):
+            cur["images"] = payload["images"]
+        cur["updated_at"] = now_iso
+        items[existing_idx] = cur
+        _save_character_library(items)
+        return {"status": "success", "character": cur, "created": False}
+
+    new_item = {
+        "id": payload.get("id") or f"libchar_{uuid.uuid4().hex[:10]}",
+        "source_key": payload.get("source_key") or "",
+        "display_name": incoming_display,
+        "name": name,
+        "movie_title": movie_title,
+        "description": payload.get("description") or "",
+        "voice_prompt": payload.get("voice_prompt") or "",
+        "color": payload.get("color") or "#06b6d4",
+        "images": payload.get("images") or [],
+        "custom_renamed": bool(payload.get("custom_renamed")),
+        "created_at": now_iso,
+        "updated_at": now_iso,
+    }
+    items.insert(0, new_item)
+    _save_character_library(items)
+    return {"status": "success", "character": new_item, "created": True}
+
+
+@app.put("/api/characters/{char_id}")
+async def update_character_library_item(char_id: str, data: CharacterLibraryUpsertModel):
+    items = _load_character_library()
+    idx = next((i for i, x in enumerate(items) if x.get("id") == char_id), -1)
+    if idx < 0:
+        raise HTTPException(status_code=404, detail="Không tìm thấy nhân vật trong kho.")
+    cur = items[idx]
+    payload = data.model_dump()
+    if payload.get("display_name") and payload["display_name"].strip() != cur.get("display_name"):
+        cur["display_name"] = payload["display_name"].strip()
+        cur["custom_renamed"] = True
+    if payload.get("name") is not None:
+        cur["name"] = payload["name"].strip()
+    if payload.get("movie_title") is not None:
+        cur["movie_title"] = payload["movie_title"].strip()
+    cur["description"] = payload.get("description", cur.get("description", ""))
+    cur["voice_prompt"] = payload.get("voice_prompt", cur.get("voice_prompt", ""))
+    if payload.get("color"):
+        cur["color"] = payload["color"]
+    if isinstance(payload.get("images"), list):
+        cur["images"] = payload["images"]
+    cur["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+    items[idx] = cur
+    _save_character_library(items)
+    return {"status": "success", "character": cur}
+
+
+@app.delete("/api/characters/{char_id}")
+async def delete_character_library_item(char_id: str):
+    items = _load_character_library()
+    new_items = [x for x in items if x.get("id") != char_id]
+    if len(new_items) == len(items):
+        raise HTTPException(status_code=404, detail="Không tìm thấy nhân vật trong kho.")
+    _save_character_library(new_items)
+    return {"status": "success"}
+
+
 TELEGRAM_SETTINGS_FILE = STATE_DIR / "telegram_settings.json"
 
 

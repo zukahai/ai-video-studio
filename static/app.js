@@ -42,6 +42,7 @@ const TAB_TITLES = {
   chat: 'Trợ lý Đạo diễn & Biên kịch H-AI',
   gallery: 'Thư viện Tác phẩm H-AI',
   telegram: 'Thông báo Telegram Bot',
+  characters: 'Kho & Quản lý Nhân vật',
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -78,6 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
   restoreMovieStateCache();
   loadMovieProjectsList();
   loadDashboardAndGallery();
+  loadCharacterLibrary();
 });
 
 window.addEventListener('popstate', () => {
@@ -407,6 +409,9 @@ function switchTab(tabId, syncUrl = true) {
   }
   if (tabId === 'telegram') {
     loadTelegramSettings();
+  }
+  if (tabId === 'characters') {
+    loadCharacterLibrary();
   }
   if (tabId === 'movie') {
     renderMovieCharacters();
@@ -2696,6 +2701,7 @@ async function analyzeAndBreakdownScript() {
 
     saveMovieStateCache();
     saveCurrentMovieProject(false);
+    syncMovieCharactersToLibrary(movieState.characters);
     renderMovieCharacters();
     renderMovieScenes();
     renderCharacterLegend();
@@ -2942,10 +2948,15 @@ function renderMovieCharacters() {
             <i data-lucide="image-plus" class="w-4 h-4 text-cyan-400 shrink-0"></i>
             <span class="text-[11px] text-slate-300">Bấm chọn ảnh hoặc bấm <kbd class="px-1 py-0.5 rounded bg-surface-800 text-[10px] text-cyan-300 font-mono">Ctrl+V</kbd> dán</span>
           </div>
-          <button type="button" onclick="generateAll3CharacterPortraits('${char.id}')" id="btn-gen-char-${char.id}" ${isGeneratingPortraits ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-md bg-[#0078d4] hover:bg-[#1f8ad2] disabled:opacity-50 text-white text-[10px] font-semibold flex items-center space-x-1 shrink-0 transition cursor-pointer">
-            <i data-lucide="${isGeneratingPortraits ? 'loader-2' : 'sparkles'}" class="w-3.5 h-3.5 ${isGeneratingPortraits ? 'animate-spin' : ''}"></i>
-            <span>${isGeneratingPortraits ? (char._genStatusText || 'Đang vẽ...') : (imgCount >= 3 ? 'AI Vẽ Lại 3 Ảnh' : 'AI Tạo 3 Ảnh')}</span>
-          </button>
+          <div class="flex items-center space-x-1.5 shrink-0">
+            <button type="button" onclick="openCharLibraryPickerModal('${char.id}')" title="Thêm ảnh từ nhân vật đã tạo (Kho nhân vật)" class="w-7 h-7 rounded-md bg-[#2d2d2d] hover:bg-[#37373d] text-[#4ec9b0] hover:text-white border border-[#3c3c3c] flex items-center justify-center transition cursor-pointer">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+            </button>
+            <button type="button" onclick="generateAll3CharacterPortraits('${char.id}')" id="btn-gen-char-${char.id}" ${isGeneratingPortraits ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-md bg-[#0078d4] hover:bg-[#1f8ad2] disabled:opacity-50 text-white text-[10px] font-semibold flex items-center space-x-1 shrink-0 transition cursor-pointer">
+              <i data-lucide="${isGeneratingPortraits ? 'loader-2' : 'sparkles'}" class="w-3.5 h-3.5 ${isGeneratingPortraits ? 'animate-spin' : ''}"></i>
+              <span>${isGeneratingPortraits ? (char._genStatusText || 'Đang vẽ...') : (imgCount >= 3 ? 'AI Vẽ Lại 3 Ảnh' : 'AI Tạo 3 Ảnh')}</span>
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -3098,6 +3109,8 @@ async function uploadFilesForCharacter(files, charId) {
   }
   saveMovieStateCache();
   renderMovieCharacters();
+  const updatedChar = movieState.characters.find(c => c.id === charId);
+  if (updatedChar) syncMovieCharactersToLibrary([updatedChar]);
 }
 
 async function deleteCharacterImage(charId, imgIdx, e) {
@@ -3175,6 +3188,7 @@ async function generateAll3CharacterPortraits(charId) {
     delete char._isGenerating;
     delete char._genStatusText;
     renderMovieCharacters();
+    syncMovieCharactersToLibrary([char]);
   }
 }
 
@@ -4522,4 +4536,442 @@ async function sendTelegramNotification(eventKey, message) {
   } catch (err) {
     console.warn('Telegram notify error:', err);
   }
+}
+
+// ==========================================
+// 12. CHARACTER LIBRARY & SELECT2 PICKER
+// ==========================================
+const characterLibraryState = {
+  items: [],
+  filterId: '',
+  pickerTargetCharId: null,
+};
+
+async function loadCharacterLibrary() {
+  try {
+    const res = await fetch('/api/characters');
+    if (!res.ok) return;
+    const data = await res.json();
+    characterLibraryState.items = Array.isArray(data.characters) ? data.characters : [];
+    const badge = document.getElementById('sidebar-characters-count');
+    if (badge) badge.textContent = String(characterLibraryState.items.length);
+    initCharacterLibraryFilterSelect2();
+    renderCharacterLibrary();
+  } catch (err) {
+    console.warn('Không thể tải kho nhân vật:', err);
+  }
+}
+
+async function syncMovieCharactersToLibrary(charsToSync = null) {
+  if (isEmptyMovieDraft()) return;
+  const list = Array.isArray(charsToSync) ? charsToSync : (movieState.characters || []);
+  const movieTitle = (movieState.title || '').trim();
+  const movieId = movieState.id || 'draft';
+
+  let changed = false;
+  for (const ch of list) {
+    const charName = (ch.name || '').trim();
+    if (!charName) continue;
+    const sourceKey = `${movieId}::${ch.id}`;
+    const displayName = movieTitle ? `${charName} - ${movieTitle}` : charName;
+    try {
+      const res = await fetch('/api/characters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_key: sourceKey,
+          display_name: displayName,
+          name: charName,
+          movie_title: movieTitle,
+          description: ch.description || '',
+          voice_prompt: ch.voice_prompt || '',
+          color: ch.color || '#06b6d4',
+          images: Array.isArray(ch.images) ? ch.images : [],
+        }),
+      });
+      if (res.ok) changed = true;
+    } catch (err) {
+      console.warn('Sync character to library failed:', err);
+    }
+  }
+  if (changed) {
+    await loadCharacterLibrary();
+  }
+}
+
+function formatSelect2CharacterOption(option) {
+  if (!option.id) return option.text;
+  const libItem = characterLibraryState.items.find(x => x.id === option.id);
+  if (!libItem) return option.text;
+  const thumbUrl = (libItem.images && libItem.images[0] && libItem.images[0].url) ? libItem.images[0].url : '';
+  const imgCount = (libItem.images || []).length;
+  const thumbHtml = thumbUrl
+    ? `<img src="${escapeHtml(thumbUrl)}" class="w-7 h-7 rounded object-cover shrink-0 border border-[#3c3c3c]">`
+    : `<span class="w-7 h-7 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0" style="background:${escapeHtml(libItem.color || '#0078d4')}">${escapeHtml((libItem.name || '?')[0].toUpperCase())}</span>`;
+  return $(`
+    <div class="flex items-center space-x-2.5 py-0.5">
+      ${thumbHtml}
+      <div class="min-w-0 flex-1">
+        <div class="text-xs font-semibold text-white truncate">${escapeHtml(libItem.display_name || libItem.name)}</div>
+        <div class="text-[10px] text-slate-400 truncate">${imgCount} ảnh tham chiếu${libItem.voice_prompt ? ' • Có giọng nói' : ''}</div>
+      </div>
+    </div>
+  `);
+}
+
+function initCharacterLibraryFilterSelect2() {
+  const el = document.getElementById('char-library-filter-select2');
+  if (!el || !window.jQuery || !jQuery.fn.select2) return;
+  const $el = jQuery(el);
+  if ($el.hasClass('select2-hidden-accessible')) {
+    $el.select2('destroy');
+  }
+  $el.empty();
+  $el.append(new Option('Tất cả nhân vật trong kho', '', true, characterLibraryState.filterId === ''));
+  for (const item of characterLibraryState.items) {
+    const label = item.display_name || item.name || 'Nhân vật';
+    $el.append(new Option(label, item.id, false, characterLibraryState.filterId === item.id));
+  }
+  $el.select2({
+    width: '100%',
+    placeholder: 'Tìm nhanh nhân vật...',
+    allowClear: true,
+    templateResult: formatSelect2CharacterOption,
+  });
+  $el.off('change.charlib').on('change.charlib', function () {
+    characterLibraryState.filterId = jQuery(this).val() || '';
+    renderCharacterLibrary();
+  });
+}
+
+function renderCharacterLibrary() {
+  const grid = document.getElementById('char-library-grid');
+  if (!grid) return;
+
+  const list = characterLibraryState.filterId
+    ? characterLibraryState.items.filter(x => x.id === characterLibraryState.filterId)
+    : characterLibraryState.items;
+
+  if (list.length === 0) {
+    grid.innerHTML = `
+      <div class="col-span-full py-12 text-center glass-card rounded-xl text-slate-400 text-xs space-y-2">
+        <i data-lucide="users" class="w-10 h-10 mx-auto text-slate-600"></i>
+        <p>Kho nhân vật đang trống. Khi bạn tạo phim mới, các nhân vật sẽ tự động được lưu tại đây dưới dạng <strong>"Tên nhân vật - Tên phim"</strong>.</p>
+      </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  grid.innerHTML = list.map(item => {
+    const imgs = Array.isArray(item.images) ? item.images : [];
+    const thumbsHtml = imgs.length > 0
+      ? `<div class="flex flex-wrap gap-2">
+          ${imgs.map((img, idx) => `
+            <div class="relative group w-16 h-16 rounded-lg overflow-hidden border border-[#3c3c3c] bg-[#181818]">
+              <img src="${escapeHtml(img.url)}" class="w-full h-full object-cover cursor-pointer" onclick="openImagePreviewModal('${escapeHtml(img.url)}', '${escapeHtml(item.display_name || item.name)}')">
+              <button type="button" onclick="deleteLibraryCharImage('${item.id}', ${idx})" title="Xóa ảnh" class="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/75 hover:bg-rose-600 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] transition cursor-pointer">×</button>
+            </div>
+          `).join('')}
+        </div>`
+      : `<div class="text-[11px] text-slate-500 italic">Chưa có ảnh tham chiếu nào.</div>`;
+
+    return `
+      <div class="glass-card rounded-xl p-4 space-y-3" id="lib-char-card-${item.id}">
+        <div class="flex items-center justify-between gap-2 pb-2 border-b border-[#333333]">
+          <div class="flex items-center space-x-2 flex-1 min-w-0">
+            <input type="color" id="lib-color-${item.id}" value="${escapeHtml(item.color || '#06b6d4')}" class="w-6 h-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0">
+            <input type="text" id="lib-display-${item.id}" value="${escapeHtml(item.display_name || item.name || '')}" placeholder="Tên hiển thị (VD: Son Goku - Tên phim)" class="flex-1 bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded px-2.5 py-1.5 text-xs font-bold text-white focus:outline-none">
+          </div>
+          <div class="flex items-center space-x-1 shrink-0">
+            <button type="button" onclick="saveLibraryCharacterCard('${item.id}')" class="px-2.5 py-1.5 rounded bg-[#0078d4] hover:bg-[#1f8ad2] text-white text-[11px] font-semibold flex items-center space-x-1 cursor-pointer">
+              <i data-lucide="save" class="w-3 h-3"></i>
+              <span>Lưu</span>
+            </button>
+            <button type="button" onclick="deleteLibraryCharacterCard('${item.id}')" title="Xóa khỏi kho" class="p-1.5 rounded hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 cursor-pointer">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-[10px] text-slate-400 mb-1">Tên nhân vật gốc:</label>
+            <input type="text" id="lib-name-${item.id}" value="${escapeHtml(item.name || '')}" class="w-full bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-[10px] text-slate-400 mb-1">Phim nguồn:</label>
+            <input type="text" id="lib-movie-${item.id}" value="${escapeHtml(item.movie_title || '')}" class="w-full bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[10px] text-slate-400 mb-1">Mô tả ngoại hình & phục trang:</label>
+          <textarea id="lib-desc-${item.id}" rows="3" class="w-full bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded p-2 text-xs text-slate-200 focus:outline-none resize-y">${escapeHtml(item.description || '')}</textarea>
+        </div>
+
+        <div>
+          <label class="block text-[10px] text-[#9cdcfe] mb-1">Giọng nói đặc trưng:</label>
+          <input type="text" id="lib-voice-${item.id}" value="${escapeHtml(item.voice_prompt || '')}" class="w-full bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none">
+        </div>
+
+        <div class="space-y-2">
+          <div class="flex items-center justify-between text-[10px] text-slate-400">
+            <span>Ảnh tham chiếu (${imgs.length} ảnh):</span>
+            <div class="flex items-center space-x-2">
+              <input type="file" id="lib-file-${item.id}" accept="image/*" multiple class="hidden" onchange="handleLibraryCharUpload(event, '${item.id}')">
+              <button type="button" onclick="document.getElementById('lib-file-${item.id}').click()" class="px-2 py-1 rounded bg-[#2d2d2d] hover:bg-[#37373d] text-slate-200 border border-[#3c3c3c] cursor-pointer">+ Tải ảnh</button>
+              <button type="button" onclick="generateAll3LibraryCharPortraits('${item.id}')" class="px-2 py-1 rounded bg-[#0078d4] hover:bg-[#1f8ad2] text-white font-semibold cursor-pointer">AI Tạo 3 Ảnh</button>
+            </div>
+          </div>
+          ${thumbsHtml}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+async function createNewLibraryCharacter() {
+  const res = await fetch('/api/characters', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      display_name: 'Nhân vật mới',
+      name: 'Nhân vật mới',
+      movie_title: '',
+      description: '',
+      voice_prompt: '',
+      color: '#4ec9b0',
+      images: [],
+      custom_renamed: true,
+    }),
+  });
+  if (res.ok) {
+    characterLibraryState.filterId = '';
+    await loadCharacterLibrary();
+    showToast('Đã tạo nhân vật mới trong kho!');
+  }
+}
+
+async function saveLibraryCharacterCard(libId) {
+  const item = characterLibraryState.items.find(x => x.id === libId);
+  if (!item) return;
+  const payload = {
+    display_name: (document.getElementById(`lib-display-${libId}`)?.value || '').trim(),
+    name: (document.getElementById(`lib-name-${libId}`)?.value || '').trim(),
+    movie_title: (document.getElementById(`lib-movie-${libId}`)?.value || '').trim(),
+    description: document.getElementById(`lib-desc-${libId}`)?.value || '',
+    voice_prompt: document.getElementById(`lib-voice-${libId}`)?.value || '',
+    color: document.getElementById(`lib-color-${libId}`)?.value || '#06b6d4',
+    images: item.images || [],
+  };
+  const res = await fetch(`/api/characters/${libId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (res.ok) {
+    await loadCharacterLibrary();
+    showToast('Đã lưu thông tin nhân vật!');
+  } else {
+    await customAlert('Không thể lưu nhân vật.', 'Lỗi', 'error');
+  }
+}
+
+async function deleteLibraryCharacterCard(libId) {
+  const item = characterLibraryState.items.find(x => x.id === libId);
+  const ok = await customConfirm(
+    `Bạn có chắc muốn xóa "${item?.display_name || 'nhân vật này'}" khỏi Kho nhân vật?`,
+    'Xóa nhân vật khỏi kho',
+    'Xóa',
+    'Huỷ',
+    true
+  );
+  if (!ok) return;
+  const res = await fetch(`/api/characters/${libId}`, { method: 'DELETE' });
+  if (res.ok) {
+    if (characterLibraryState.filterId === libId) characterLibraryState.filterId = '';
+    await loadCharacterLibrary();
+    showToast('Đã xóa nhân vật khỏi kho.');
+  }
+}
+
+async function handleLibraryCharUpload(e, libId) {
+  const item = characterLibraryState.items.find(x => x.id === libId);
+  const files = Array.from(e.target.files || []);
+  if (!item || !files.length) return;
+  if (!Array.isArray(item.images)) item.images = [];
+
+  for (const file of files) {
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: form });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        item.images.push({ id: data.id, local_path: data.local_path, url: data.url, name: file.name });
+      }
+    } catch (err) {
+      console.warn('Upload error:', err);
+    }
+  }
+  await saveLibraryCharacterCard(libId);
+}
+
+async function deleteLibraryCharImage(libId, imgIdx) {
+  const item = characterLibraryState.items.find(x => x.id === libId);
+  if (!item || !Array.isArray(item.images)) return;
+  item.images.splice(imgIdx, 1);
+  await saveLibraryCharacterCard(libId);
+}
+
+async function generateAll3LibraryCharPortraits(libId) {
+  const item = characterLibraryState.items.find(x => x.id === libId);
+  if (!item) return;
+  const desc = document.getElementById(`lib-desc-${libId}`)?.value || item.description || '';
+  const name = document.getElementById(`lib-name-${libId}`)?.value || item.name || 'Nhân vật';
+  if (!Array.isArray(item.images)) item.images = [];
+
+  const angles = [
+    { index: 1, name: 'Ảnh 1: Cận Cảnh Mặt' },
+    { index: 2, name: 'Ảnh 2: Bán Thân 3/4' },
+    { index: 3, name: 'Ảnh 3: Toàn Thân Đứng' },
+  ];
+  showToast(`Đang AI vẽ 3 ảnh chuẩn cho "${name}"...`);
+  try {
+    for (const ang of angles) {
+      const res = await fetch('/api/movie/generate_character_portrait', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          character_id: item.id,
+          character_name: name,
+          character_description: desc,
+          style_preset: movieState.stylePreset || 'cinematic',
+          angle_index: ang.index,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || `Không thể tạo ${ang.name}`);
+      if (data.image) {
+        item.images = item.images.filter(x => !(x.name && x.name.includes(`Ảnh ${ang.index}:`)));
+        item.images.push(data.image);
+      }
+    }
+    await saveLibraryCharacterCard(libId);
+  } catch (err) {
+    await customAlert(`Lỗi tạo ảnh cho "${name}": ` + err.message, 'Lỗi', 'error');
+  }
+}
+
+async function openCharLibraryPickerModal(movieCharId) {
+  characterLibraryState.pickerTargetCharId = movieCharId;
+  await loadCharacterLibrary();
+
+  const modal = document.getElementById('char-library-picker-modal');
+  const selectEl = document.getElementById('char-picker-select2');
+  if (!modal || !selectEl) return;
+
+  modal.classList.remove('hidden');
+
+  if (window.jQuery && jQuery.fn.select2) {
+    const $sel = jQuery(selectEl);
+    if ($sel.hasClass('select2-hidden-accessible')) {
+      $sel.select2('destroy');
+    }
+    $sel.empty();
+    $sel.append(new Option('-- Chọn nhân vật đã tạo --', '', true, true));
+    for (const item of characterLibraryState.items) {
+      const label = item.display_name || item.name || 'Nhân vật';
+      $sel.append(new Option(label, item.id, false, false));
+    }
+    $sel.select2({
+      width: '100%',
+      dropdownParent: jQuery('#char-library-picker-modal'),
+      placeholder: 'Gõ tên nhân vật hoặc tên phim để tìm...',
+      templateResult: formatSelect2CharacterOption,
+      templateSelection: formatSelect2CharacterOption,
+    });
+    $sel.off('change.picker').on('change.picker', function () {
+      renderCharPickerPreview(jQuery(this).val() || '');
+    });
+  }
+
+  renderCharPickerPreview('');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeCharLibraryPickerModal() {
+  const modal = document.getElementById('char-library-picker-modal');
+  if (modal) modal.classList.add('hidden');
+  characterLibraryState.pickerTargetCharId = null;
+}
+
+function renderCharPickerPreview(libId) {
+  const preview = document.getElementById('char-picker-preview');
+  if (!preview) return;
+  const item = characterLibraryState.items.find(x => x.id === libId);
+  if (!item) {
+    preview.innerHTML = '<span class="text-slate-400">Chọn một nhân vật ở trên để xem các ảnh tham chiếu.</span>';
+    return;
+  }
+  const imgs = Array.isArray(item.images) ? item.images : [];
+  if (imgs.length === 0) {
+    preview.innerHTML = `<div class="text-amber-300">Nhân vật <strong>${escapeHtml(item.display_name || item.name)}</strong> hiện chưa có ảnh nào.</div>`;
+    return;
+  }
+  preview.innerHTML = `
+    <div class="space-y-2">
+      <div class="font-semibold text-white">${escapeHtml(item.display_name || item.name)} (${imgs.length} ảnh)</div>
+      <div class="flex flex-wrap gap-2">
+        ${imgs.map(img => `
+          <div class="w-16 h-16 rounded-lg overflow-hidden border border-[#3c3c3c] bg-black/40">
+            <img src="${escapeHtml(img.url)}" class="w-full h-full object-cover" title="${escapeHtml(img.name || '')}">
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+async function applySelectedLibraryCharacterImages() {
+  const targetId = characterLibraryState.pickerTargetCharId;
+  const selectEl = document.getElementById('char-picker-select2');
+  const libId = selectEl ? (window.jQuery ? jQuery(selectEl).val() : selectEl.value) : '';
+  const syncMeta = document.getElementById('char-picker-sync-meta')?.checked;
+
+  const movieChar = movieState.characters.find(c => c.id === targetId);
+  const libItem = characterLibraryState.items.find(x => x.id === libId);
+  if (!movieChar || !libItem) {
+    await customAlert('Vui lòng chọn một nhân vật từ danh sách.', 'Chưa chọn nhân vật', 'warning');
+    return;
+  }
+
+  const libImages = Array.isArray(libItem.images) ? libItem.images : [];
+  if (libImages.length === 0) {
+    await customAlert('Nhân vật này chưa có ảnh nào trong kho.', 'Không có ảnh', 'warning');
+    return;
+  }
+
+  if (!Array.isArray(movieChar.images)) movieChar.images = [];
+  let added = 0;
+  for (const img of libImages) {
+    if (img.url && !movieChar.images.some(existing => existing.url === img.url)) {
+      movieChar.images.push({ ...img });
+      added++;
+    }
+  }
+
+  if (syncMeta) {
+    if (!movieChar.description && libItem.description) movieChar.description = libItem.description;
+    if (!movieChar.voice_prompt && libItem.voice_prompt) movieChar.voice_prompt = libItem.voice_prompt;
+  }
+
+  saveMovieStateCache();
+  renderMovieCharacters();
+  renderMovieScenes();
+  closeCharLibraryPickerModal();
+  showToast(`Đã thêm ${added} ảnh từ "${libItem.display_name || libItem.name}" vào "${movieChar.name}"!`, 'success');
 }

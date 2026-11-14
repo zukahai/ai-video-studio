@@ -89,7 +89,61 @@
     input[type=number] {
       -moz-appearance: textfield;
     }
+    /* Select2 VS Code Dark Modern theme */
+    .select2-container--default .select2-selection--single {
+      background-color: #1e1e1e;
+      border: 1px solid #3c3c3c;
+      border-radius: 0.5rem;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      color: #e2e8f0;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+      color: #e2e8f0;
+      font-size: 12px;
+      padding-left: 10px;
+      padding-right: 28px;
+      line-height: 38px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__placeholder {
+      color: #94a3b8;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+      height: 38px;
+      right: 6px;
+    }
+    .select2-dropdown {
+      background-color: #252526;
+      border: 1px solid #3c3c3c;
+      color: #e2e8f0;
+      z-index: 9999;
+    }
+    .select2-container--default .select2-search--dropdown .select2-search__field {
+      background-color: #1e1e1e;
+      border: 1px solid #3c3c3c;
+      color: #ffffff;
+      border-radius: 0.375rem;
+      padding: 6px 10px;
+      font-size: 12px;
+      outline: none;
+    }
+    .select2-container--default .select2-results__option {
+      padding: 8px 10px;
+      font-size: 12px;
+      color: #e2e8f0;
+    }
+    .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+      background-color: #0078d4;
+      color: #ffffff;
+    }
+    .select2-container--default .select2-results__option--selected {
+      background-color: #04395e;
+    }
   </style>
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 </head>
 <body class="text-slate-100 min-h-screen flex overflow-hidden selection:bg-sky-500 selection:text-white">
 
@@ -128,6 +182,14 @@
         <button onclick="switchTab('movie')" id="tab-btn-movie" class="tab-btn w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
           <i data-lucide="film" class="w-4 h-4 text-[#38bdf8]"></i>
           <span>Tạo Phim AI</span>
+        </button>
+
+        <button onclick="switchTab('characters')" id="tab-btn-characters" class="tab-btn w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
+          <div class="flex items-center space-x-2.5">
+            <i data-lucide="users" class="w-4 h-4 text-[#4ec9b0]"></i>
+            <span>Quản lý Nhân vật</span>
+          </div>
+          <span id="sidebar-characters-count" class="text-[10px] px-2 py-0.5 rounded-full bg-[#2d2d2d] text-[#cccccc] border border-[#3c3c3c]">0</span>
         </button>
 
         <button onclick="switchTab('image')" id="tab-btn-image" class="tab-btn w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
@@ -1396,7 +1458,70 @@
         </div>
       </div>
 
+      <!-- TAB: QUẢN LÝ NHÂN VẬT -->
+      <div id="view-characters" class="tab-view hidden max-w-6xl mx-auto space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="font-bold text-lg text-white flex items-center space-x-2">
+              <i data-lucide="users" class="w-5 h-5 text-[#4ec9b0]"></i>
+              <span>Kho & Quản lý Nhân vật</span>
+            </h2>
+            <p class="text-xs text-slate-400">Nhân vật mới khi làm phim được tự động lưu dạng "Tên nhân vật - Tên phim". Bạn có thể đổi tên, chỉnh sửa và tái sử dụng ở bất kỳ phim nào.</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <div class="w-64">
+              <select id="char-library-filter-select2" class="w-full"></select>
+            </div>
+            <button type="button" onclick="createNewLibraryCharacter()" class="px-4 py-2 bg-[#0078d4] hover:bg-[#1f8ad2] text-white rounded-md text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer whitespace-nowrap">
+              <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+              <span>Tạo nhân vật mới</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="char-library-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
     </main>
+  </div>
+
+  <!-- SELECT2 CHARACTER PICKER MODAL (từ nút + trong Tạo Phim AI) -->
+  <div id="char-library-picker-modal" class="fixed inset-0 z-[85] bg-black/75 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-[#252526] border border-[#3c3c3c] rounded-xl max-w-lg w-full p-5 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-2.5 border-b border-[#333333]">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="users" class="w-4 h-4 text-[#4ec9b0]"></i>
+          <h3 class="font-bold text-sm text-white">Thêm ảnh từ Nhân vật đã tạo</h3>
+        </div>
+        <button type="button" onclick="closeCharLibraryPickerModal()" class="text-slate-400 hover:text-white cursor-pointer">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-2">
+        <label class="block text-xs font-medium text-slate-300">Chọn nhân vật trong kho (tìm theo tên nhân vật hoặc tên phim):</label>
+        <select id="char-picker-select2" class="w-full"></select>
+      </div>
+
+      <div id="char-picker-preview" class="rounded-lg bg-[#1e1e1e] border border-[#333333] p-3 text-xs text-slate-400">
+        Chọn một nhân vật ở trên để xem các ảnh tham chiếu.
+      </div>
+
+      <label class="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer select-none">
+        <input type="checkbox" id="char-picker-sync-meta" checked class="w-4 h-4 accent-[#0078d4] cursor-pointer">
+        <span>Đồng bộ thêm Mô tả ngoại hình &amp; Giọng nói (nếu đang trống)</span>
+      </label>
+
+      <div class="flex items-center justify-end space-x-2 pt-2 border-t border-[#333333]">
+        <button type="button" onclick="closeCharLibraryPickerModal()" class="px-3.5 py-2 rounded-md bg-[#2d2d2d] hover:bg-[#37373d] text-slate-300 hover:text-white border border-[#3c3c3c] text-xs font-medium cursor-pointer">Huỷ</button>
+        <button type="button" onclick="applySelectedLibraryCharacterImages()" id="btn-apply-char-picker" class="px-4 py-2 rounded-md bg-[#0078d4] hover:bg-[#1f8ad2] text-white text-xs font-semibold flex items-center space-x-1.5 cursor-pointer">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+          <span>Thêm ảnh vào nhân vật</span>
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- AUTH OTP MODAL -->
@@ -1453,7 +1578,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261114_04"></script>
+  <script src="/static/app.js?v=20261114_05"></script>
   <script>
     lucide.createIcons();
   </script>
