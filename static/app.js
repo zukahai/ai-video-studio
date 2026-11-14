@@ -2618,7 +2618,11 @@ async function analyzeAndBreakdownScript() {
   const originalText = btnText ? btnText.innerText : 'Phân Tích Kịch Bản';
 
   try {
-    if (btn) btn.disabled = true;
+    if (btn) {
+      btn.disabled = true;
+      btn.classList.remove('bg-[#0078d4]', 'hover:bg-[#1f8ad2]', 'cursor-pointer');
+      btn.classList.add('bg-rose-600', 'cursor-not-allowed', 'opacity-90');
+    }
     if (btnText) btnText.innerText = 'Đang phân tích kịch bản & nhân vật...';
 
     const style = document.getElementById('movie-style-select')?.value || 'Điện ảnh HD Hollywood';
@@ -2718,7 +2722,11 @@ async function analyzeAndBreakdownScript() {
   } catch (err) {
     await customAlert('Lỗi phân tích kịch bản: ' + err.message, 'Lỗi phân tích', 'error');
   } finally {
-    if (btn) btn.disabled = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove('bg-rose-600', 'cursor-not-allowed', 'opacity-90');
+      btn.classList.add('bg-[#0078d4]', 'hover:bg-[#1f8ad2]', 'cursor-pointer');
+    }
     if (btnText) btnText.innerText = originalText;
     lucide.createIcons();
   }
