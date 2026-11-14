@@ -4221,8 +4221,99 @@ async function loadTelegramSettings() {
       ...(s.events || {}),
     };
     renderTelegramSettingsUI();
+    if (telegramState.bot_token) {
+      fetchTelegramBotInfo(false);
+    } else {
+      renderTelegramBotInfo(null);
+    }
   } catch (err) {
     console.warn('Không thể tải cài đặt Telegram:', err);
+  }
+}
+
+function renderTelegramBotInfo(bot, errorMsg = '') {
+  const box = document.getElementById('tele-bot-info-box');
+  const guideLink = document.getElementById('tele-guide-bot-link');
+
+  if (guideLink) {
+    if (bot && bot.username) {
+      guideLink.innerHTML = `(<a href="${escapeHtml(bot.link)}" target="_blank" rel="noopener noreferrer" class="underline text-[#38bdf8] hover:text-white font-semibold">@${escapeHtml(bot.username)}</a>)`;
+    } else {
+      guideLink.textContent = '(tạo ở mục 1)';
+    }
+  }
+
+  if (!box) return;
+  if (errorMsg) {
+    box.className = 'rounded-lg px-3.5 py-2.5 text-xs border bg-red-500/10 border-red-500/30 text-red-300';
+    box.innerHTML = `<strong>Token không hợp lệ:</strong> ${escapeHtml(errorMsg)}`;
+    return;
+  }
+  if (!bot || !bot.username) {
+    box.className = 'hidden';
+    box.innerHTML = '';
+    return;
+  }
+
+  box.className = 'rounded-lg px-3.5 py-2.5 text-xs border bg-emerald-500/10 border-emerald-500/30 text-slate-200 flex flex-wrap items-center justify-between gap-2';
+  box.innerHTML = `
+    <div class="space-y-0.5">
+      <div>
+        <span class="text-emerald-400 font-semibold">✓ Bot hợp lệ:</span>
+        <strong class="text-white">${escapeHtml(bot.first_name || bot.username)}</strong>
+        <span class="font-mono text-[#38bdf8]">(@${escapeHtml(bot.username)})</span>
+      </div>
+      <div class="text-[11px] text-amber-300/90">
+        Bấm vào link bot bên cạnh rồi nhấn nút <strong>Start</strong> (<code>/start</code>) trên Telegram để bot có thể gửi tin nhắn cho bạn.
+      </div>
+    </div>
+    <a href="${escapeHtml(bot.link)}" target="_blank" rel="noopener noreferrer"
+       class="px-3 py-1.5 rounded-md bg-[#0078d4] hover:bg-[#1f8ad2] text-white text-xs font-semibold flex items-center space-x-1.5 transition shrink-0">
+      <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+      <span>Mở @${escapeHtml(bot.username)} &amp; Bấm Start</span>
+    </a>
+  `;
+  if (window.lucide) lucide.createIcons();
+}
+
+async function fetchTelegramBotInfo(showErrorAlert = false) {
+  const tokenInput = document.getElementById('tele-bot-token');
+  const token = tokenInput ? tokenInput.value.trim() : telegramState.bot_token;
+  if (!token) {
+    renderTelegramBotInfo(null);
+    if (showErrorAlert) {
+      await customAlert('Vui lòng nhập Bot Token trước khi kiểm tra.', 'Thiếu Bot Token', 'warning');
+    }
+    return;
+  }
+
+  const btn = document.getElementById('btn-check-tele-bot');
+  const origHtml = btn ? btn.innerHTML : '';
+  try {
+    if (btn && showErrorAlert) {
+      btn.disabled = true;
+      btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Đang kiểm tra...</span>';
+      if (window.lucide) lucide.createIcons();
+    }
+    const res = await fetch('/api/telegram/bot-info', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bot_token: token }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Không lấy được thông tin Bot.');
+    renderTelegramBotInfo(data.bot);
+  } catch (err) {
+    renderTelegramBotInfo(null, err.message);
+    if (showErrorAlert) {
+      await customAlert('Không kiểm tra được Bot: ' + err.message, 'Lỗi Token', 'error');
+    }
+  } finally {
+    if (btn && showErrorAlert) {
+      btn.disabled = false;
+      btn.innerHTML = origHtml;
+      if (window.lucide) lucide.createIcons();
+    }
   }
 }
 
@@ -4359,6 +4450,9 @@ async function saveTelegramSettings() {
     if (!res.ok) throw new Error(data.detail || 'Không thể lưu cấu hình Telegram.');
 
     renderTelegramRecipients();
+    if (payload.bot_token) {
+      fetchTelegramBotInfo(false);
+    }
     await customAlert('Đã lưu cấu hình thông báo Telegram thành công!', 'Đã lưu', 'success');
   } catch (err) {
     await customAlert('Lỗi lưu cấu hình Telegram: ' + err.message, 'Lỗi', 'error');

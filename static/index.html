@@ -1264,11 +1264,16 @@
             <span class="text-[11px] text-slate-400">Lấy từ @BotFather trên Telegram</span>
           </div>
           <div class="flex items-center space-x-2">
-            <input type="password" id="tele-bot-token" placeholder="VD: 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz..." class="flex-1 bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded-md px-3.5 py-2.5 text-xs text-slate-100 font-mono focus:outline-none">
+            <input type="password" id="tele-bot-token" onchange="fetchTelegramBotInfo(false)" placeholder="VD: 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz..." class="flex-1 bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded-md px-3.5 py-2.5 text-xs text-slate-100 font-mono focus:outline-none">
             <button type="button" onclick="toggleTelegramTokenVisibility()" title="Hiện / Ẩn Token" class="px-3 py-2.5 bg-[#2d2d2d] hover:bg-[#37373d] text-slate-300 hover:text-white border border-[#3c3c3c] rounded-md text-xs transition cursor-pointer">
               <i data-lucide="eye" id="tele-token-eye-icon" class="w-4 h-4"></i>
             </button>
+            <button type="button" onclick="fetchTelegramBotInfo(true)" id="btn-check-tele-bot" title="Lấy username & link Bot từ Token" class="px-3 py-2.5 bg-[#2d2d2d] hover:bg-[#37373d] text-[#38bdf8] hover:text-white border border-[#3c3c3c] rounded-md text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer whitespace-nowrap">
+              <i data-lucide="bot" class="w-3.5 h-3.5"></i>
+              <span>Kiểm tra Bot</span>
+            </button>
           </div>
+          <div id="tele-bot-info-box" class="hidden rounded-lg px-3.5 py-2.5 text-xs border"></div>
         </div>
 
         <!-- Card 2: Recipients List (STT, ID, Ghi chú) -->
@@ -1310,7 +1315,7 @@
               <div class="space-y-1">
                 <div class="font-semibold text-white">1. Lấy ID cá nhân (Chat riêng với Bot):</div>
                 <p>• Mở Telegram, tìm <code class="px-1 py-0.5 rounded bg-[#2d2d2d] text-[#38bdf8]">@userinfobot</code> hoặc <code class="px-1 py-0.5 rounded bg-[#2d2d2d] text-[#38bdf8]">@RawDataBot</code> rồi bấm <strong>Start</strong> để xem dòng <code class="px-1 py-0.5 rounded bg-[#2d2d2d]">Id</code> (VD: <code class="text-emerald-400">123456789</code>).</p>
-                <p class="text-amber-300/90">• <strong>Quan trọng:</strong> Mở chính Bot của bạn (tạo ở mục 1) và bấm <strong>Start</strong> (<code class="px-1 py-0.5 rounded bg-[#2d2d2d]">/start</code>) ít nhất 1 lần thì Bot mới gửi được tin nhắn cho bạn.</p>
+                <p class="text-amber-300/90">• <strong>Quan trọng:</strong> Mở chính Bot của bạn <span id="tele-guide-bot-link">(tạo ở mục 1)</span> và bấm <strong>Start</strong> (<code class="px-1 py-0.5 rounded bg-[#2d2d2d]">/start</code>) ít nhất 1 lần thì Bot mới gửi được tin nhắn cho bạn.</p>
               </div>
               <div class="space-y-1">
                 <div class="font-semibold text-white">2. Lấy ID Nhóm (Group) / Kênh (Channel):</div>
@@ -1448,7 +1453,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261114_03"></script>
+  <script src="/static/app.js?v=20261114_04"></script>
   <script>
     lucide.createIcons();
   </script>

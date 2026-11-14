@@ -2446,6 +2446,43 @@ class TelegramNotifyModel(BaseModel):
     message: str
 
 
+class TelegramBotInfoRequest(BaseModel):
+    bot_token: str = ""
+
+
+@app.post("/api/telegram/bot-info")
+async def get_telegram_bot_info(data: Optional[TelegramBotInfoRequest] = None):
+    token = (data.bot_token if data else "").strip()
+    if not token:
+        token = (_load_telegram_settings().get("bot_token") or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="Vui lòng nhập Bot Token Telegram.")
+
+    url = f"https://api.telegram.org/bot{token}/getMe"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url)
+            body = resp.json()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Không thể kết nối Telegram API: {exc}")
+
+    if not body.get("ok"):
+        desc = body.get("description") or "Bot Token không hợp lệ."
+        raise HTTPException(status_code=400, detail=desc)
+
+    result = body.get("result") or {}
+    username = result.get("username") or ""
+    return {
+        "status": "success",
+        "bot": {
+            "id": result.get("id"),
+            "first_name": result.get("first_name") or "",
+            "username": username,
+            "link": f"https://t.me/{username}" if username else "",
+        },
+    }
+
+
 @app.get("/api/telegram/settings")
 async def get_telegram_settings():
     return {"status": "success", "settings": _load_telegram_settings()}
