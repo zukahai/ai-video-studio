@@ -1101,13 +1101,20 @@
                     <span class="text-[11px] font-semibold text-slate-300 hidden md:inline">Tự động sản xuất khi tạo xong ảnh</span>
                   </label>
 
+                  <div class="flex items-center space-x-1.5" title="Chọn phân cảnh bắt đầu tạo">
+                    <span class="text-[11px] text-slate-400 hidden sm:inline">Bắt đầu:</span>
+                    <select id="movie-start-scene-select" onchange="onMovieStartSceneChange(this.value)" class="bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded-md px-2 py-1.5 text-xs text-white font-semibold focus:outline-none cursor-pointer">
+                      <option value="0">#1</option>
+                    </select>
+                  </div>
+
                   <button type="button" onclick="openCinemaTheater()" class="px-3.5 py-1.5 rounded-md bg-[#2d2d2d] hover:bg-[#37373d] text-[#cccccc] hover:text-white border border-[#3c3c3c] text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer">
                     <i data-lucide="monitor-play" class="w-3.5 h-3.5 text-[#38bdf8]"></i>
                     <span>Rạp Chiếu Phim</span>
                   </button>
-                  <button type="button" onclick="startAutoMovieGeneration()" class="px-4 py-1.5 rounded-md bg-[#0078d4] hover:bg-[#1f8ad2] text-white text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer shadow-none border border-transparent">
-                    <i data-lucide="clapperboard" class="w-3.5 h-3.5"></i>
-                    <span>Sản Xuất Phim Tự Động</span>
+                  <button type="button" id="btn-auto-produce-movie" onclick="toggleAutoMovieGeneration()" class="px-4 py-1.5 rounded-md bg-[#0078d4] hover:bg-[#1f8ad2] text-white text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer shadow-none border border-transparent">
+                    <i data-lucide="clapperboard" id="btn-auto-produce-movie-icon" class="w-3.5 h-3.5"></i>
+                    <span id="btn-auto-produce-movie-text">Sản Xuất Phim Tự Động</span>
                   </button>
                 </div>
               </div>
@@ -1606,7 +1613,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261114_05"></script>
+  <script src="/static/app.js?v=20261114_06"></script>
   <script>
     lucide.createIcons();
   </script>

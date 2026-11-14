@@ -3336,6 +3336,7 @@ function renderMovieScenes() {
   if (countBadge) countBadge.innerText = `${totalScenes} cảnh`;
   if (durText) durText.innerText = `${totalDuration}s`;
   if (renderedText) renderedText.innerText = `${renderedCount}/${totalScenes} cảnh`;
+  syncMovieStartSceneSelect();
 
   if (totalScenes === 0) {
     container.innerHTML = `
@@ -3738,6 +3739,7 @@ async function _requestMovieSceneVideo(scene, idx) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
+    signal: movieState.abortController ? movieState.abortController.signal : undefined,
   });
 
   const data = await res.json();
@@ -3759,6 +3761,59 @@ async function _requestMovieSceneVideo(scene, idx) {
   throw new Error('Không nhận được video phân cảnh.');
 }
 
+function onMovieStartSceneChange(val) {
+  const idx = parseInt(val, 10);
+  movieState.startSceneIndex = Number.isNaN(idx) ? 0 : Math.max(0, idx);
+}
+
+function syncMovieStartSceneSelect() {
+  const sel = document.getElementById('movie-start-scene-select');
+  if (!sel) return;
+  const scenes = movieState.scenes || [];
+  if (scenes.length === 0) {
+    sel.innerHTML = '<option value="0">#1</option>';
+    sel.value = '0';
+    movieState.startSceneIndex = 0;
+    sel.disabled = Boolean(movieState.isGenerating);
+    return;
+  }
+  const cur = Math.max(0, Math.min(movieState.startSceneIndex || 0, scenes.length - 1));
+  movieState.startSceneIndex = cur;
+  sel.innerHTML = scenes.map((sc, idx) => {
+    const num = sc.scene_index || (idx + 1);
+    const doneMark = sc.video_url ? ' ✓' : '';
+    return `<option value="${idx}">#${num}${doneMark}</option>`;
+  }).join('');
+  sel.value = String(cur);
+  sel.disabled = Boolean(movieState.isGenerating);
+}
+
+function updateAutoProduceButtonUI(isGenerating) {
+  const btn = document.getElementById('btn-auto-produce-movie');
+  const icon = document.getElementById('btn-auto-produce-movie-icon');
+  const text = document.getElementById('btn-auto-produce-movie-text');
+  if (btn) {
+    if (isGenerating) {
+      btn.classList.remove('bg-[#0078d4]', 'hover:bg-[#1f8ad2]');
+      btn.classList.add('bg-rose-600', 'hover:bg-rose-700');
+    } else {
+      btn.classList.remove('bg-rose-600', 'hover:bg-rose-700');
+      btn.classList.add('bg-[#0078d4]', 'hover:bg-[#1f8ad2]');
+    }
+  }
+  if (icon) icon.setAttribute('data-lucide', isGenerating ? 'pause' : 'clapperboard');
+  if (text) text.innerText = isGenerating ? 'Tạm dừng' : 'Sản Xuất Phim Tự Động';
+  if (window.lucide) lucide.createIcons();
+}
+
+function toggleAutoMovieGeneration() {
+  if (movieState.isGenerating) {
+    stopAutoMovieGeneration();
+  } else {
+    startAutoMovieGeneration();
+  }
+}
+
 async function startAutoMovieGeneration() {
   if (movieState.scenes.length === 0) {
     await customAlert('Chưa có phân cảnh nào. Vui lòng bấm [Phân Tích Kịch Bản] trước.', 'Chưa có phân cảnh');
@@ -3771,20 +3826,35 @@ async function startAutoMovieGeneration() {
   }
 
   if (movieState.isGenerating) {
-    await customAlert('Hệ thống đang sản xuất phim, vui lòng chờ trong giây lát...', 'Đang sản xuất');
+    stopAutoMovieGeneration();
     return;
   }
 
-  const unrenderedScenes = movieState.scenes.filter(s => !s.video_url);
+  const total = movieState.scenes.length;
+  const selEl = document.getElementById('movie-start-scene-select');
+  const startIdx = Math.max(0, Math.min(parseInt(selEl ? selEl.value : (movieState.startSceneIndex || 0), 10) || 0, total - 1));
+  movieState.startSceneIndex = startIdx;
+
+  const unrenderedScenes = movieState.scenes.slice(startIdx).filter(s => !s.video_url);
   if (unrenderedScenes.length === 0) {
-    const confirmRe = await customConfirm('Tất cả phân cảnh đã hoàn thành video. Bạn có muốn quay lại từ đầu không?', 'Sản xuất lại phim', 'Quay lại từ đầu', 'Huỷ');
+    const startNum = movieState.scenes[startIdx]?.scene_index || (startIdx + 1);
+    const confirmRe = await customConfirm(
+      `Các phân cảnh từ #${startNum} trở đi đã hoàn thành video. Bạn có muốn quay lại từ Cảnh #${startNum} không?`,
+      'Sản xuất lại phim',
+      `Quay lại từ #${startNum}`,
+      'Huỷ'
+    );
     if (!confirmRe) return;
-    movieState.scenes.forEach(s => { s.video_url = null; s.status = 'idle'; });
-    movieState.sessionId = null;
+    for (let k = startIdx; k < total; k++) {
+      movieState.scenes[k].video_url = null;
+      movieState.scenes[k].status = 'idle';
+    }
+    if (startIdx === 0) movieState.sessionId = null;
   }
 
   movieState.isGenerating = true;
   movieState.shouldStop = false;
+  movieState.abortController = new AbortController();
 
   const banner = document.getElementById('movie-progress-banner');
   const bar = document.getElementById('movie-progress-bar');
@@ -3797,6 +3867,8 @@ async function startAutoMovieGeneration() {
   if (banner) banner.classList.remove('hidden');
   if (btnStart) btnStart.disabled = true;
   if (btnStartText) btnStartText.innerText = 'Đang Sản Xuất Phim...';
+  updateAutoProduceButtonUI(true);
+  syncMovieStartSceneSelect();
 
   let totalSeconds = 0;
   if (movieTimerInterval) clearInterval(movieTimerInterval);
@@ -3805,20 +3877,17 @@ async function startAutoMovieGeneration() {
     if (timerEl) timerEl.innerText = `⏱ ${totalSeconds}s`;
   }, 1000);
 
-  const total = movieState.scenes.length;
-
-  for (let i = 0; i < total; i++) {
-    if (movieState.shouldStop) {
-      await customAlert('Đã dừng tiến trình sản xuất phim.', 'Đã dừng');
-      break;
-    }
+  for (let i = startIdx; i < total; i++) {
+    if (movieState.shouldStop) break;
 
     const scene = movieState.scenes[i];
     if (scene.video_url) continue; // already generated
 
     movieState.currentGeneratingIndex = i;
+    movieState.startSceneIndex = i;
     scene.status = 'generating';
     renderMovieScenes();
+    syncMovieStartSceneSelect();
 
     if (titleEl) titleEl.innerText = `Đang sản xuất Cảnh ${i + 1}/${total}: "${escapeHtml(scene.situation).substring(0, 35)}..."`;
     if (descEl) descEl.innerText = `Áp dụng công nghệ nối tiếp giữ nhân vật · Khung hình ${movieState.aspectRatio} · ${scene.duration || 8}s`;
@@ -3840,6 +3909,7 @@ async function startAutoMovieGeneration() {
         }
         showToast(`🔄 Cảnh #${scene.scene_index} bị lỗi, đang đổi prompt khác (lần ${attempt + 1}/${maxAttempts})...`, 'info');
         await new Promise(r => setTimeout(r, 2000));
+        if (movieState.shouldStop) break;
       }
 
       try {
@@ -3847,12 +3917,27 @@ async function startAutoMovieGeneration() {
         sceneSucceeded = true;
         break;
       } catch (err) {
+        if (err && (err.name === 'AbortError' || movieState.shouldStop)) {
+          scene.status = 'idle';
+          saveMovieStateCache();
+          renderMovieScenes();
+          break;
+        }
         lastErrMsg = err.message || 'Lỗi không xác định';
         console.error(`Lỗi tạo cảnh #${scene.scene_index} (lần ${attempt + 1}):`, err);
       }
     }
 
-    if (!sceneSucceeded && !movieState.shouldStop) {
+    if (movieState.shouldStop) {
+      if (!sceneSucceeded && scene.status === 'generating') {
+        scene.status = 'idle';
+        saveMovieStateCache();
+        renderMovieScenes();
+      }
+      break;
+    }
+
+    if (!sceneSucceeded) {
       scene.status = 'error';
       saveMovieStateCache();
       renderMovieScenes();
@@ -3903,14 +3988,24 @@ async function startAutoMovieGeneration() {
 
   // Finish
   clearInterval(movieTimerInterval);
+  const wasPaused = Boolean(movieState.shouldStop);
   movieState.isGenerating = false;
+  movieState.abortController = null;
   if (btnStart) btnStart.disabled = false;
   if (btnStartText) btnStartText.innerText = 'Bắt Đầu Tạo Phim Tự Động';
-  if (bar) bar.style.width = '100%';
+  updateAutoProduceButtonUI(false);
+  syncMovieStartSceneSelect();
+  if (bar) bar.style.width = wasPaused ? bar.style.width : '100%';
 
   setTimeout(() => {
     if (banner) banner.classList.add('hidden');
   }, 2500);
+
+  if (wasPaused) {
+    const pausedNum = movieState.scenes[movieState.startSceneIndex]?.scene_index || (movieState.startSceneIndex + 1);
+    showToast(`⏸️ Đã tạm dừng sản xuất tại Cảnh #${pausedNum}.`, 'info');
+    return;
+  }
 
   const completedCount = movieState.scenes.filter(s => s.video_url).length;
   if (completedCount > 0) {
@@ -3929,6 +4024,13 @@ async function startAutoMovieGeneration() {
 
 function stopAutoMovieGeneration() {
   movieState.shouldStop = true;
+  const text = document.getElementById('btn-auto-produce-movie-text');
+  if (text) text.innerText = 'Đang tạm dừng...';
+  if (movieState.abortController) {
+    try {
+      movieState.abortController.abort();
+    } catch (_) {}
+  }
 }
 
 // Generate single scene manually
