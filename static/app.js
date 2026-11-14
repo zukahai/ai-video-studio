@@ -430,6 +430,8 @@ function switchTab(tabId, syncUrl = true) {
       }
     });
     loadMovieProjectsList();
+  } else {
+    updateMoviePageTitle();
   }
   lucide.createIcons();
 
@@ -3341,6 +3343,7 @@ function renderMovieScenes() {
   if (durText) durText.innerText = `${totalDuration}s`;
   if (renderedText) renderedText.innerText = `${renderedCount}/${totalScenes} cảnh`;
   syncMovieStartSceneSelect();
+  updateMoviePageTitle();
 
   if (totalScenes === 0) {
     container.innerHTML = `
@@ -3862,6 +3865,8 @@ async function startAutoMovieGeneration() {
   movieState.isGenerating = true;
   movieState.shouldStop = false;
   movieState.abortController = new AbortController();
+  unlockCompletionAudio();
+  updateMoviePageTitle();
 
   const banner = document.getElementById('movie-progress-banner');
   const bar = document.getElementById('movie-progress-bar');
@@ -4015,7 +4020,9 @@ async function startAutoMovieGeneration() {
   }
 
   const completedCount = movieState.scenes.filter(s => s.video_url).length;
+  updateMoviePageTitle();
   if (completedCount > 0) {
+    playCompletionChime();
     sendTelegramNotification('movie_done', `🎬 [H-AI Studio] Đã hoàn thành sản xuất phim "${movieState.title}": ${completedCount}/${total} phân cảnh thành công!`);
     const playNow = await customConfirm(
       `🎉 Chúc mừng! Đã hoàn thành ${completedCount}/${total} phân cảnh phim!\nBạn có muốn mở Rạp Chiếu Phim để xem liên tục toàn bộ bộ phim ngay không?`,
@@ -4862,6 +4869,61 @@ function toggleLibraryCharacterEdit(libId) {
   if (!characterLibraryState.editingMap) characterLibraryState.editingMap = {};
   characterLibraryState.editingMap[libId] = !characterLibraryState.editingMap[libId];
   renderCharacterLibrary();
+}
+
+const DEFAULT_DOC_TITLE = 'H-AI Studio — Nền tảng Sáng tạo Video, Ảnh & Trợ lý AI';
+
+function updateMoviePageTitle() {
+  const total = (movieState.scenes || []).length;
+  const done = (movieState.scenes || []).filter(s => s.video_url).length;
+  if (movieState.isGenerating && total > 0) {
+    const movieName = (movieState.title || 'Tạo Phim AI').trim();
+    document.title = `(${done}/${total}) Đang tạo - ${movieName} | H-AI Studio`;
+  } else if (state.currentTab === 'movie' && total > 0) {
+    const movieName = (movieState.title || 'Tạo Phim AI').trim();
+    document.title = `(${done}/${total}) ${movieName} | H-AI Studio`;
+  } else {
+    document.title = DEFAULT_DOC_TITLE;
+  }
+}
+
+function unlockCompletionAudio() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    if (!window._haiAudioCtx) window._haiAudioCtx = new AudioCtx();
+    if (window._haiAudioCtx.state === 'suspended') {
+      window._haiAudioCtx.resume().catch(() => {});
+    }
+  } catch (_) {}
+}
+
+function playCompletionChime() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    if (!window._haiAudioCtx) window._haiAudioCtx = new AudioCtx();
+    const ctx = window._haiAudioCtx;
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+
+    const now = ctx.currentTime;
+    const notes = [1046.5, 1318.51, 1567.98]; // C6 - E6 - G6 "ting ting" chime
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.14);
+      gain.gain.setValueAtTime(0.001, now + idx * 0.14);
+      gain.gain.exponentialRampToValueAtTime(0.22, now + idx * 0.14 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.14 + 0.55);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + idx * 0.14);
+      osc.stop(now + idx * 0.14 + 0.6);
+    });
+  } catch (err) {
+    console.warn('Không phát được âm thanh hoàn thành:', err);
+  }
 }
 
 async function createNewLibraryCharacter() {
