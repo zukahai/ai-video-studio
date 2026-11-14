@@ -1917,22 +1917,40 @@ function renderDashboardMovies() {
            <i data-lucide="clapperboard" class="w-8 h-8"></i>
          </div>`;
 
+    const charsList = Array.isArray(p.characters_summary) ? p.characters_summary : [];
+    const totalChars = p.character_count || charsList.length;
+    const visibleChars = charsList.slice(0, 3);
+    const extraChars = Math.max(0, totalChars - visibleChars.length);
+    const charsHtml = visibleChars.length > 0
+      ? `<div class="flex flex-wrap items-center gap-1 pt-0.5">
+           ${visibleChars.map(name => `<span class="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/10 text-slate-300">${escapeHtml(name)}</span>`).join('')}
+           ${extraChars > 0 ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-400/25 text-sky-300 font-semibold">+${extraChars}</span>` : ''}
+         </div>`
+      : '';
+    const loglineHtml = p.logline
+      ? `<p class="text-[11px] text-slate-400 leading-relaxed line-clamp-2">${escapeHtml(p.logline)}</p>`
+      : '';
+
     return `
-      <div onclick="openMovieFromDashboard('${escapeHtml(p.id)}')" class="glass-card rounded-2xl overflow-hidden shadow-lg group hover:border-sky-400/40 transition cursor-pointer flex flex-col justify-between">
-        <div class="aspect-video bg-black/60 flex items-center justify-center overflow-hidden relative">
+      <div onclick="openMovieFromDashboard('${escapeHtml(p.id)}')" class="glass-card rounded-2xl overflow-hidden shadow-lg group hover:border-sky-400/40 transition cursor-pointer flex flex-col">
+        <div class="aspect-video bg-black/60 flex items-center justify-center overflow-hidden relative shrink-0">
           ${thumbHtml}
           <span class="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded bg-black/75 border border-white/10 text-slate-200 font-semibold">${escapeHtml(p.aspectRatio || '16:9')}</span>
         </div>
-        <div class="p-3.5 space-y-2">
-          <div class="font-bold text-xs text-white truncate" title="${escapeHtml(p.title || 'Phim chưa đặt tên')}">${escapeHtml(p.title || 'Phim chưa đặt tên')}</div>
-          <div class="flex items-center justify-between text-[11px]">
+        <div class="p-3.5 flex-1 flex flex-col justify-between gap-2.5">
+          <div class="space-y-1.5">
+            <div class="font-bold text-[13px] text-white leading-snug break-words">${escapeHtml(p.title || 'Phim chưa đặt tên')}</div>
+            ${loglineHtml}
+            ${charsHtml}
+          </div>
+          <div class="flex items-center justify-between pt-2 border-t border-white/[0.06] text-[11px]">
             <span class="${isCompleted ? 'text-emerald-400' : 'text-sky-400'} font-semibold">${rendered}/${totalScenes} cảnh</span>
             ${p.merged_video_url
-              ? `<button type="button" onclick="event.stopPropagation(); openMergedMoviePlayer('${escapeHtml(p.merged_video_url)}', '${escapeHtml(p.title || 'Phim')}')" class="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center space-x-1 transition cursor-pointer">
-                   <i data-lucide="play-circle" class="w-3 h-3"></i>
+              ? `<button type="button" onclick="event.stopPropagation(); openMergedMoviePlayer('${escapeHtml(p.merged_video_url)}', '${escapeHtml(p.title || 'Phim')}')" class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold shadow-md shadow-emerald-500/25 flex items-center space-x-1.5 transition cursor-pointer">
+                   <i data-lucide="play" class="w-3 h-3 fill-current"></i>
                    <span>Xem phim</span>
                  </button>`
-              : `<span class="text-slate-400 group-hover:text-white transition">Mở phim →</span>`
+              : `<span class="text-slate-400 group-hover:text-white transition font-medium">Mở phim →</span>`
             }
           </div>
         </div>
