@@ -1921,13 +1921,19 @@ function renderDashboardMovies() {
       <div onclick="openMovieFromDashboard('${escapeHtml(p.id)}')" class="glass-card rounded-2xl overflow-hidden shadow-lg group hover:border-sky-400/40 transition cursor-pointer flex flex-col justify-between">
         <div class="aspect-video bg-black/60 flex items-center justify-center overflow-hidden relative">
           ${thumbHtml}
-          <span class="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded bg-black/75 border border-white/10 text-slate-200 font-semibold">${escapeHtml(p.aspect_ratio || '16:9')}</span>
+          <span class="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded bg-black/75 border border-white/10 text-slate-200 font-semibold">${escapeHtml(p.aspectRatio || '16:9')}</span>
         </div>
-        <div class="p-3.5 space-y-1.5">
+        <div class="p-3.5 space-y-2">
           <div class="font-bold text-xs text-white truncate" title="${escapeHtml(p.title || 'Phim chưa đặt tên')}">${escapeHtml(p.title || 'Phim chưa đặt tên')}</div>
           <div class="flex items-center justify-between text-[11px]">
             <span class="${isCompleted ? 'text-emerald-400' : 'text-sky-400'} font-semibold">${rendered}/${totalScenes} cảnh</span>
-            <span class="text-slate-400 group-hover:text-white transition">Mở phim →</span>
+            ${p.merged_video_url
+              ? `<button type="button" onclick="event.stopPropagation(); openMergedMoviePlayer('${escapeHtml(p.merged_video_url)}', '${escapeHtml(p.title || 'Phim')}')" class="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center space-x-1 transition cursor-pointer">
+                   <i data-lucide="play-circle" class="w-3 h-3"></i>
+                   <span>Xem phim</span>
+                 </button>`
+              : `<span class="text-slate-400 group-hover:text-white transition">Mở phim →</span>`
+            }
           </div>
         </div>
       </div>
@@ -2402,8 +2408,10 @@ async function switchMovieProject(projectId, updateUrl = true) {
     movieState.characters = Array.isArray(p.characters) ? p.characters : [];
     movieState.scenes = Array.isArray(p.scenes) ? p.scenes : [];
     movieState.sessionId = p.sessionId || null;
+    movieState.merged_video_url = p.merged_video_url || null;
     movieState.createdAt = p.createdAt || Date.now();
     movieState.updatedAt = p.updatedAt || Date.now();
+    updateWatchMergedMovieBtn();
 
     // Update form elements
     const scriptInput = document.getElementById('movie-script-input');
@@ -2473,6 +2481,7 @@ async function saveCurrentMovieProject(showToast = true) {
       characters: movieState.characters || [],
       scenes: movieState.scenes || [],
       sessionId: movieState.sessionId || null,
+      merged_video_url: movieState.merged_video_url || null,
       createdAt: movieState.createdAt || Date.now(),
       updatedAt: Date.now(),
     };
@@ -4485,6 +4494,16 @@ async function mergeAndDownloadMovie(triggerBtn = null) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Không thể ghép video.');
 
+    if (data.url) {
+      movieState.merged_video_url = data.url;
+      updateWatchMergedMovieBtn();
+      saveMovieStateCache();
+      const proj = (movieProjectsState.list || []).find(p => p.id === movieState.id);
+      if (proj) proj.merged_video_url = data.url;
+      renderDashboardMovies();
+      saveCurrentMovieProject(false).catch(() => {});
+    }
+
     triggerDownload(data.url, data.filename || `H-AI_FullMovie_${Date.now()}.mp4`);
     sendTelegramNotification('merge_done', `🎞️ [H-AI Studio] Đã ghép xong phim "${movieState.title || 'Movie'}" (${readyScenes.length} phân cảnh) thành file MP4!`);
     await customAlert(`🎬 Ghép thành công ${readyScenes.length} phân cảnh thành 1 bộ phim hoàn chỉnh!\nTrình duyệt đang tự động tải file MP4 về máy.`, 'Ghép phim hoàn tất', 'success');
@@ -4497,6 +4516,43 @@ async function mergeAndDownloadMovie(triggerBtn = null) {
       lucide.createIcons();
     }
   }
+}
+
+function updateWatchMergedMovieBtn() {
+  const btn = document.getElementById('btn-watch-merged-movie');
+  if (!btn) return;
+  if (movieState.merged_video_url) {
+    btn.classList.remove('hidden');
+  } else {
+    btn.classList.add('hidden');
+  }
+}
+
+function openMergedMoviePlayer(url, title = 'Xem Phim Đã Ghép') {
+  if (!url) return;
+  const modal = document.getElementById('merged-movie-player-modal');
+  const video = document.getElementById('merged-movie-player-video');
+  const titleEl = document.getElementById('merged-movie-player-title');
+  const dlEl = document.getElementById('merged-movie-player-download');
+  if (titleEl) titleEl.innerText = title || 'Xem Phim Đã Ghép';
+  if (dlEl) dlEl.href = url;
+  if (video) {
+    video.src = url;
+    video.play().catch(() => {});
+  }
+  if (modal) modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeMergedMoviePlayer() {
+  const modal = document.getElementById('merged-movie-player-modal');
+  const video = document.getElementById('merged-movie-player-video');
+  if (video) {
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+  }
+  if (modal) modal.classList.add('hidden');
 }
 
 // ==========================================

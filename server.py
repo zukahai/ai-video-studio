@@ -2100,6 +2100,7 @@ class MovieProjectModel(BaseModel):
     characters: Optional[list] = []
     scenes: Optional[list] = []
     sessionId: Optional[str] = None
+    merged_video_url: Optional[str] = None
     createdAt: Optional[float] = None
     updatedAt: Optional[float] = None
 
@@ -2387,6 +2388,7 @@ async def list_movie_projects():
                 "scene_count": len(scenes),
                 "rendered_count": rendered_count,
                 "thumbnail_url": thumbnail_url,
+                "merged_video_url": data.get("merged_video_url") or None,
                 "createdAt": data.get("createdAt") or file.stat().st_ctime * 1000,
                 "updatedAt": data.get("updatedAt") or file.stat().st_mtime * 1000,
             })
