@@ -2385,6 +2385,15 @@ async def list_movie_projects():
                 "targetScenes": data.get("targetScenes") or len(scenes),
                 "character_count": len(chars),
                 "characters_summary": [c.get("name") for c in chars if c.get("name")][:5],
+                "characters_detail": [
+                    {
+                        "name": c.get("name"),
+                        "color": c.get("color") or "",
+                        "avatar_url": ((c.get("images") or [{}])[0].get("url") if c.get("images") else None),
+                    }
+                    for c in chars
+                    if c.get("name")
+                ][:5],
                 "scene_count": len(scenes),
                 "rendered_count": rendered_count,
                 "thumbnail_url": thumbnail_url,

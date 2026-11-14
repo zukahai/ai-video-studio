@@ -1917,14 +1917,26 @@ function renderDashboardMovies() {
            <i data-lucide="clapperboard" class="w-8 h-8"></i>
          </div>`;
 
-    const charsList = Array.isArray(p.characters_summary) ? p.characters_summary : [];
-    const totalChars = p.character_count || charsList.length;
-    const visibleChars = charsList.slice(0, 3);
+    const charPalette = ['#38bdf8', '#a78bfa', '#34d399', '#fbbf24', '#f472b6', '#fb7185', '#2dd4bf'];
+    const rawDetail = Array.isArray(p.characters_detail) && p.characters_detail.length > 0
+      ? p.characters_detail
+      : (Array.isArray(p.characters_summary) ? p.characters_summary.map(n => ({ name: n, color: '', avatar_url: null })) : []);
+    const totalChars = p.character_count || rawDetail.length;
+    const visibleChars = rawDetail.slice(0, 4);
     const extraChars = Math.max(0, totalChars - visibleChars.length);
     const charsHtml = visibleChars.length > 0
-      ? `<div class="flex flex-wrap items-center gap-1 pt-0.5">
-           ${visibleChars.map(name => `<span class="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/10 text-slate-300">${escapeHtml(name)}</span>`).join('')}
-           ${extraChars > 0 ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-400/25 text-sky-300 font-semibold">+${extraChars}</span>` : ''}
+      ? `<div class="flex flex-wrap items-center gap-1.5 pt-0.5">
+           ${visibleChars.map((ch, idx) => {
+             const hex = (ch.color && /^#[0-9a-fA-F]{6}$/.test(ch.color)) ? ch.color : charPalette[idx % charPalette.length];
+             const avatar = ch.avatar_url
+               ? `<img src="${escapeHtml(ch.avatar_url)}" loading="lazy" decoding="async" alt="${escapeHtml(ch.name)}" onerror="this.style.display='none'" class="w-4 h-4 rounded-full object-cover shrink-0 border border-white/25">`
+               : `<span class="w-2 h-2 rounded-full shrink-0" style="background:${hex}"></span>`;
+             return `<span class="inline-flex items-center space-x-1 text-[10px] font-medium pl-1 pr-2 py-0.5 rounded-full" style="background:${hex}1f; border:1px solid ${hex}55; color:${hex}">
+               ${avatar}
+               <span class="truncate max-w-[95px]">${escapeHtml(ch.name)}</span>
+             </span>`;
+           }).join('')}
+           ${extraChars > 0 ? `<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-sky-500/15 border border-sky-400/25 text-sky-300 font-semibold">+${extraChars}</span>` : ''}
          </div>`
       : '';
     const loglineHtml = p.logline
