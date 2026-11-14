@@ -433,6 +433,9 @@ function switchTab(tabId, syncUrl = true) {
   } else {
     updateMoviePageTitle();
   }
+  if (tabId === 'gallery') {
+    renderGalleryGrid();
+  }
   lucide.createIcons();
 
   if (syncUrl) {
@@ -1739,7 +1742,9 @@ async function loadDashboardAndGallery() {
     }
 
     renderDashboardRecent();
-    renderGalleryGrid();
+    if (state.currentTab === 'gallery') {
+      renderGalleryGrid();
+    }
   } catch (err) {
     console.error('Lỗi tải dữ liệu:', err);
   }
@@ -1886,7 +1891,10 @@ function renderDashboardRecent() {
   renderDashboardLazy(true);
 }
 
-function renderGalleryGrid() {
+let _galleryRenderedCount = 0;
+const GALLERY_PAGE_SIZE = 36;
+
+function renderGalleryGrid(reset = true) {
   const grid = document.getElementById('gallery-grid');
   if (!grid) return;
 
@@ -1905,11 +1913,39 @@ function renderGalleryGrid() {
     return;
   }
 
-  grid.innerHTML = '';
-  items.forEach(item => {
+  if (reset) {
+    _galleryRenderedCount = 0;
+    grid.innerHTML = '';
+  } else {
+    const oldBtn = document.getElementById('gallery-load-more-wrap');
+    if (oldBtn) oldBtn.remove();
+  }
+
+  const nextCount = Math.min(items.length, _galleryRenderedCount + GALLERY_PAGE_SIZE);
+  const chunk = items.slice(_galleryRenderedCount, nextCount);
+  chunk.forEach(item => {
     grid.appendChild(createMediaCard(item));
   });
+  _galleryRenderedCount = nextCount;
+
+  if (_galleryRenderedCount < items.length) {
+    const moreWrap = document.createElement('div');
+    moreWrap.id = 'gallery-load-more-wrap';
+    moreWrap.className = 'col-span-full flex justify-center pt-4';
+    moreWrap.innerHTML = `
+      <button type="button" onclick="renderGalleryGrid(false)" class="px-5 py-2 rounded-xl bg-surface-800 hover:bg-surface-700 text-xs font-semibold text-slate-200 border border-white/10 transition cursor-pointer">
+        Tải thêm (${_galleryRenderedCount}/${items.length})
+      </button>
+    `;
+    grid.appendChild(moreWrap);
+  }
   lucide.createIcons();
+}
+
+function playMediaCardVideo(btn, url) {
+  const container = btn?.parentElement;
+  if (!container) return;
+  container.innerHTML = `<video src="${escapeHtml(url)}" class="w-full h-full object-contain bg-black" controls autoplay playsinline></video>`;
 }
 
 function createMediaCard(item) {
@@ -1917,11 +1953,16 @@ function createMediaCard(item) {
   card.className = 'glass-card rounded-2xl overflow-hidden shadow-lg group hover:border-sky-400/40 transition flex flex-col justify-between';
 
   const mediaHtml = item.type === 'video'
-    ? `<div class="aspect-video bg-black flex items-center justify-center relative">
-         <video src="${item.url}" class="w-full h-full object-cover" controls playsinline></video>
+    ? `<div class="aspect-video bg-black flex items-center justify-center relative overflow-hidden">
+         <img src="/api/video/thumbnail?url=${encodeURIComponent(item.url)}" loading="lazy" decoding="async" alt="${escapeHtml(item.name || 'Video')}" onerror="this.style.display='none'" class="w-full h-full object-cover">
+         <button type="button" onclick="playMediaCardVideo(this, '${escapeHtml(item.url)}')" title="Phát video" class="absolute inset-0 flex items-center justify-center bg-black/25 hover:bg-black/40 transition cursor-pointer group/play">
+           <span class="w-11 h-11 rounded-full bg-black/70 border border-white/25 flex items-center justify-center text-white group-hover/play:scale-110 transition shadow-lg">
+             <i data-lucide="play" class="w-5 h-5 fill-current ml-0.5"></i>
+           </span>
+         </button>
        </div>`
     : `<div class="aspect-video bg-black/50 flex items-center justify-center overflow-hidden">
-         <img src="${item.url}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+         <img src="${item.url}" loading="lazy" decoding="async" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
        </div>`;
 
   card.innerHTML = `
