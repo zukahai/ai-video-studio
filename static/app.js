@@ -4326,14 +4326,14 @@ function renderTheaterPlaylistStrip() {
 
 // ==================== MERGE & DOWNLOAD MOVIE ====================
 // User requirement: "merger các phân cảnh thành video và tải xuống"
-async function mergeAndDownloadMovie() {
+async function mergeAndDownloadMovie(triggerBtn = null) {
   const readyScenes = movieState.scenes.filter(s => s.video_url);
   if (readyScenes.length === 0) {
     await customAlert('Không có phân cảnh nào đã hoàn thành video để ghép.', 'Chưa có video');
     return;
   }
 
-  const btn = document.getElementById('btn-merge-movie');
+  const btn = triggerBtn || document.getElementById('btn-merge-movie');
   const originalText = btn ? btn.innerHTML : 'Ghép & Tải MP4';
 
   if (readyScenes.length === 1) {

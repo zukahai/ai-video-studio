@@ -1647,7 +1647,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261114_15"></script>
+  <script src="/static/app.js?v=20261114_16"></script>
   <script>
     lucide.createIcons();
   </script>
@@ -1677,6 +1677,10 @@
           </button>
           <button onclick="theaterNextScene()" type="button" title="Cảnh kế tiếp" class="p-2 rounded-lg bg-surface-800 hover:bg-surface-700 text-slate-300 hover:text-white transition cursor-pointer">
             <i data-lucide="skip-forward" class="w-4 h-4"></i>
+          </button>
+          <button onclick="mergeAndDownloadMovie(this)" id="btn-theater-merge-download" type="button" title="Ghép tất cả phân cảnh và tải xuống MP4" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center space-x-1.5 transition cursor-pointer">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Ghép & Tải xuống</span>
           </button>
           <button onclick="closeCinemaTheater()" type="button" title="Đóng rạp phim" class="p-2 ml-2 rounded-lg bg-surface-800 hover:bg-surface-700 text-slate-400 hover:text-white transition cursor-pointer">
             <i data-lucide="x" class="w-5 h-5"></i>
