@@ -3344,6 +3344,7 @@ function renderMovieScenes() {
   if (renderedText) renderedText.innerText = `${renderedCount}/${totalScenes} cảnh`;
   syncMovieStartSceneSelect();
   updateMoviePageTitle();
+  renderMovieProgressScenesStrip();
 
   if (totalScenes === 0) {
     container.innerHTML = `
@@ -4987,6 +4988,133 @@ function playCompletionChime() {
   } catch (err) {
     console.warn('Không phát được âm thanh hoàn thành:', err);
   }
+}
+
+let _quickSceneIndex = null;
+
+function renderMovieProgressScenesStrip() {
+  const strip = document.getElementById('movie-progress-scenes-strip');
+  if (!strip) return;
+  const scenes = movieState.scenes || [];
+  if (scenes.length === 0) {
+    strip.innerHTML = '';
+    return;
+  }
+
+  strip.innerHTML = scenes.map((sc, idx) => {
+    const num = sc.scene_index || (idx + 1);
+    const hasVideo = Boolean(sc.video_url);
+    const isGen = sc.status === 'generating';
+    const isErr = sc.status === 'error';
+
+    let borderClass = 'border-[#3c3c3c] bg-[#1e1e1e] hover:border-[#0078d4]';
+    let badgeHtml = `<span class="text-[10px] text-slate-400">Chờ</span>`;
+    if (hasVideo) {
+      borderClass = 'border-emerald-500/50 bg-emerald-950/20 hover:border-emerald-400';
+      badgeHtml = `<span class="text-[10px] text-emerald-400 font-semibold">▶ Phát</span>`;
+    } else if (isGen) {
+      borderClass = 'border-cyan-400 bg-cyan-950/30 animate-pulse';
+      badgeHtml = `<span class="text-[10px] text-cyan-300 font-semibold">Đang quay...</span>`;
+    } else if (isErr) {
+      borderClass = 'border-rose-500/60 bg-rose-950/25 hover:border-rose-400';
+      badgeHtml = `<span class="text-[10px] text-rose-400 font-semibold">Lỗi</span>`;
+    }
+
+    const previewThumb = hasVideo
+      ? `<video src="${escapeHtml(sc.video_url)}#t=0.1" muted preload="metadata" class="w-full h-14 object-cover rounded bg-black"></video>`
+      : `<div class="w-full h-14 rounded bg-[#181818] flex items-center justify-center text-[11px] font-bold text-slate-500">#${num}</div>`;
+
+    return `
+      <button type="button" onclick="openQuickSceneInspector(${idx})" title="Bấm để xem, sửa prompt hoặc tạo lại Cảnh #${num}"
+        class="w-28 shrink-0 rounded-lg border p-1.5 text-left transition cursor-pointer space-y-1 ${borderClass}">
+        ${previewThumb}
+        <div class="flex items-center justify-between px-0.5">
+          <span class="text-[10px] font-bold text-white">#${num}</span>
+          ${badgeHtml}
+        </div>
+      </button>
+    `;
+  }).join('');
+}
+
+function openQuickSceneInspector(idx) {
+  const sc = (movieState.scenes || [])[idx];
+  if (!sc) return;
+  _quickSceneIndex = idx;
+
+  const modal = document.getElementById('movie-scene-quick-modal');
+  const titleEl = document.getElementById('quick-scene-title');
+  const statusEl = document.getElementById('quick-scene-status');
+  const videoEl = document.getElementById('quick-scene-video');
+  const noVideoEl = document.getElementById('quick-scene-no-video');
+  const promptEl = document.getElementById('quick-scene-prompt');
+
+  if (titleEl) titleEl.innerText = `Phân cảnh #${sc.scene_index || (idx + 1)} (${sc.duration || 8}s)`;
+  if (statusEl) {
+    statusEl.innerText = sc.video_url ? 'Đã quay xong' : (sc.status === 'generating' ? 'Đang quay' : (sc.status === 'error' ? 'Bị lỗi' : 'Chưa quay'));
+  }
+  if (promptEl) promptEl.value = sc.prompt || sc.situation || '';
+
+  if (videoEl && noVideoEl) {
+    if (sc.video_url) {
+      videoEl.src = sc.video_url;
+      videoEl.classList.remove('hidden');
+      noVideoEl.classList.add('hidden');
+      videoEl.play().catch(() => {});
+    } else {
+      videoEl.pause();
+      videoEl.removeAttribute('src');
+      videoEl.classList.add('hidden');
+      noVideoEl.classList.remove('hidden');
+    }
+  }
+
+  if (modal) modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeQuickSceneInspector() {
+  const modal = document.getElementById('movie-scene-quick-modal');
+  const videoEl = document.getElementById('quick-scene-video');
+  if (videoEl) {
+    videoEl.pause();
+    videoEl.removeAttribute('src');
+  }
+  if (modal) modal.classList.add('hidden');
+  _quickSceneIndex = null;
+}
+
+function saveQuickScenePromptOnly() {
+  if (_quickSceneIndex === null) return;
+  const sc = (movieState.scenes || [])[_quickSceneIndex];
+  const promptEl = document.getElementById('quick-scene-prompt');
+  if (!sc || !promptEl) return;
+  sc.prompt = promptEl.value.trim();
+  saveMovieStateCache();
+  renderMovieScenes();
+  showToast(`Đã lưu prompt cho Cảnh #${sc.scene_index || (_quickSceneIndex + 1)}.`, 'success');
+}
+
+async function regenerateQuickSceneWithConfirm() {
+  if (_quickSceneIndex === null) return;
+  const idx = _quickSceneIndex;
+  const sc = (movieState.scenes || [])[idx];
+  const promptEl = document.getElementById('quick-scene-prompt');
+  if (!sc || !promptEl) return;
+
+  const num = sc.scene_index || (idx + 1);
+  const ok = await customConfirm(
+    `Bạn có chắc chắn muốn cập nhật prompt và tạo lại video cho Cảnh #${num} không?`,
+    'Xác nhận tạo lại phân cảnh',
+    'Tạo lại ngay',
+    'Huỷ'
+  );
+  if (!ok) return;
+
+  sc.prompt = promptEl.value.trim();
+  saveMovieStateCache();
+  closeQuickSceneInspector();
+  await generateSingleMovieScene(idx);
 }
 
 async function createNewLibraryCharacter() {
