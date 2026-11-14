@@ -4766,92 +4766,94 @@ function renderCharacterLibrary() {
 
   grid.innerHTML = list.map(item => {
     const imgs = Array.isArray(item.images) ? item.images : [];
-    const heroImg = imgs[0]?.url || '';
-    const heroHtml = heroImg
-      ? `<div class="relative group w-full h-80 rounded-xl overflow-hidden border border-[#3c3c3c] bg-[#181818] cursor-pointer" onclick="openImagePreviewModal('${escapeHtml(heroImg)}', '${escapeHtml(item.display_name || item.name)}')">
-           <img src="${escapeHtml(heroImg)}" class="w-full h-full object-cover object-top group-hover:scale-105 transition duration-300">
-           <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-3 flex items-end justify-between">
-             <div class="min-w-0">
-               <div class="text-sm font-bold text-white truncate">${escapeHtml(item.display_name || item.name || 'Nhân vật')}</div>
-               <div class="text-[11px] text-slate-300 truncate">${escapeHtml(item.movie_title || 'Kho nhân vật')}</div>
-             </div>
-             <span class="px-2 py-0.5 rounded-full bg-black/60 border border-white/15 text-[10px] text-slate-200 shrink-0">${imgs.length} ảnh</span>
-           </div>
-         </div>`
-      : `<div class="w-full h-80 rounded-xl border border-dashed border-[#3c3c3c] bg-[#181818] flex flex-col items-center justify-center space-y-2 text-slate-500">
-           <div class="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold text-white/90" style="background:${escapeHtml(item.color || '#0078d4')}">${escapeHtml((item.name || '?')[0].toUpperCase())}</div>
-           <div class="text-xs font-medium text-slate-400">Chưa có ảnh đại diện</div>
-           <button type="button" onclick="generateAll3LibraryCharPortraits('${item.id}')" class="px-3 py-1.5 rounded-md bg-[#0078d4] hover:bg-[#1f8ad2] text-white text-[11px] font-semibold cursor-pointer">AI Tạo 3 Ảnh Ngay</button>
-         </div>`;
+    const isEditing = Boolean(characterLibraryState.editingMap && characterLibraryState.editingMap[item.id]);
 
     const thumbsHtml = imgs.length > 0
       ? `<div class="grid grid-cols-3 gap-2.5">
           ${imgs.map((img, idx) => `
-            <div class="relative group aspect-square rounded-xl overflow-hidden border-2 ${idx === 0 ? 'border-[#0078d4]' : 'border-[#3c3c3c]'} bg-[#181818]">
+            <div class="relative group aspect-square rounded-xl overflow-hidden border border-[#3c3c3c] bg-[#181818]">
               <img src="${escapeHtml(img.url)}" class="w-full h-full object-cover object-top cursor-pointer group-hover:scale-105 transition duration-200" onclick="openImagePreviewModal('${escapeHtml(img.url)}', '${escapeHtml(item.display_name || item.name)}')">
               <button type="button" onclick="deleteLibraryCharImage('${item.id}', ${idx})" title="Xóa ảnh" class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/80 hover:bg-rose-600 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs font-bold transition cursor-pointer">×</button>
             </div>
           `).join('')}
         </div>`
-      : `<div class="text-[11px] text-slate-500 italic">Chưa có ảnh tham chiếu nào.</div>`;
+      : `<div class="py-8 rounded-xl border border-dashed border-[#3c3c3c] bg-[#181818] text-center text-xs text-slate-400 space-y-2">
+           <div>Chưa có ảnh tham chiếu nào.</div>
+           <button type="button" onclick="generateAll3LibraryCharPortraits('${item.id}')" class="px-3 py-1.5 rounded-md bg-[#0078d4] hover:bg-[#1f8ad2] text-white text-[11px] font-semibold cursor-pointer">AI Tạo 3 Ảnh Ngay</button>
+         </div>`;
 
     return `
       <div class="glass-card rounded-xl p-4 space-y-3" id="lib-char-card-${item.id}">
-        ${heroHtml}
-
-        <div class="flex items-center justify-between gap-2 pb-2 border-b border-[#333333]">
-          <div class="flex items-center space-x-2 flex-1 min-w-0">
-            <input type="color" id="lib-color-${item.id}" value="${escapeHtml(item.color || '#06b6d4')}" class="w-6 h-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0">
-            <input type="text" id="lib-display-${item.id}" value="${escapeHtml(item.display_name || item.name || '')}" placeholder="Tên hiển thị (VD: Son Goku - Tên phim)" class="flex-1 bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded px-2.5 py-1.5 text-xs font-bold text-white focus:outline-none">
+        <div class="flex items-start justify-between gap-3 pb-2.5 border-b border-[#333333]">
+          <div class="flex items-center space-x-2.5 flex-1 min-w-0">
+            <span class="w-3.5 h-3.5 rounded-full shrink-0 border border-white/25" style="background:${escapeHtml(item.color || '#06b6d4')}"></span>
+            <div class="min-w-0 flex-1">
+              <div class="text-base font-bold text-white leading-snug break-words">${escapeHtml(item.display_name || item.name || 'Nhân vật')}</div>
+              ${item.movie_title ? `<div class="text-[11px] text-slate-400 truncate mt-0.5">${escapeHtml(item.movie_title)} • ${imgs.length} ảnh</div>` : `<div class="text-[11px] text-slate-400 mt-0.5">${imgs.length} ảnh tham chiếu</div>`}
+            </div>
           </div>
           <div class="flex items-center space-x-1 shrink-0">
-            <button type="button" onclick="saveLibraryCharacterCard('${item.id}')" class="px-2.5 py-1.5 rounded bg-[#0078d4] hover:bg-[#1f8ad2] text-white text-[11px] font-semibold flex items-center space-x-1 cursor-pointer">
-              <i data-lucide="save" class="w-3 h-3"></i>
-              <span>Lưu</span>
+            <button type="button" onclick="toggleLibraryCharacterEdit('${item.id}')" title="Chỉnh sửa nhân vật" class="p-1.5 rounded-md ${isEditing ? 'bg-[#0078d4] text-white' : 'bg-[#2d2d2d] hover:bg-[#37373d] text-[#38bdf8] hover:text-white border border-[#3c3c3c]'} transition cursor-pointer">
+              <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
             </button>
-            <button type="button" onclick="deleteLibraryCharacterCard('${item.id}')" title="Xóa khỏi kho" class="p-1.5 rounded hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 cursor-pointer">
+            <button type="button" onclick="deleteLibraryCharacterCard('${item.id}')" title="Xóa khỏi kho" class="p-1.5 rounded-md hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition cursor-pointer">
               <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
             </button>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="block text-[10px] text-slate-400 mb-1">Tên nhân vật gốc:</label>
-            <input type="text" id="lib-name-${item.id}" value="${escapeHtml(item.name || '')}" class="w-full bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none">
+        ${thumbsHtml}
+
+        <div id="lib-edit-panel-${item.id}" class="${isEditing ? '' : 'hidden'} pt-3 border-t border-[#333333] space-y-3">
+          <div class="flex items-center space-x-2">
+            <input type="color" id="lib-color-${item.id}" value="${escapeHtml(item.color || '#06b6d4')}" class="w-7 h-7 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0">
+            <input type="text" id="lib-display-${item.id}" value="${escapeHtml(item.display_name || item.name || '')}" placeholder="Tên hiển thị (VD: Son Goku - Tên phim)" class="flex-1 bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded px-2.5 py-1.5 text-xs font-bold text-white focus:outline-none">
           </div>
-          <div>
-            <label class="block text-[10px] text-slate-400 mb-1">Phim nguồn:</label>
-            <input type="text" id="lib-movie-${item.id}" value="${escapeHtml(item.movie_title || '')}" class="w-full bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none">
-          </div>
-        </div>
 
-        <div>
-          <label class="block text-[10px] text-slate-400 mb-1">Mô tả ngoại hình & phục trang:</label>
-          <textarea id="lib-desc-${item.id}" rows="3" class="w-full bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded p-2 text-xs text-slate-200 focus:outline-none resize-y">${escapeHtml(item.description || '')}</textarea>
-        </div>
-
-        <div>
-          <label class="block text-[10px] text-[#9cdcfe] mb-1">Giọng nói đặc trưng:</label>
-          <input type="text" id="lib-voice-${item.id}" value="${escapeHtml(item.voice_prompt || '')}" class="w-full bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none">
-        </div>
-
-        <div class="space-y-2">
-          <div class="flex items-center justify-between text-[10px] text-slate-400">
-            <span>Ảnh tham chiếu (${imgs.length} ảnh):</span>
-            <div class="flex items-center space-x-2">
-              <input type="file" id="lib-file-${item.id}" accept="image/*" multiple class="hidden" onchange="handleLibraryCharUpload(event, '${item.id}')">
-              <button type="button" onclick="document.getElementById('lib-file-${item.id}').click()" class="px-2 py-1 rounded bg-[#2d2d2d] hover:bg-[#37373d] text-slate-200 border border-[#3c3c3c] cursor-pointer">+ Tải ảnh</button>
-              <button type="button" onclick="generateAll3LibraryCharPortraits('${item.id}')" class="px-2 py-1 rounded bg-[#0078d4] hover:bg-[#1f8ad2] text-white font-semibold cursor-pointer">AI Tạo 3 Ảnh</button>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-1">Tên nhân vật gốc:</label>
+              <input type="text" id="lib-name-${item.id}" value="${escapeHtml(item.name || '')}" class="w-full bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-1">Phim nguồn:</label>
+              <input type="text" id="lib-movie-${item.id}" value="${escapeHtml(item.movie_title || '')}" class="w-full bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none">
             </div>
           </div>
-          ${thumbsHtml}
+
+          <div>
+            <label class="block text-[10px] text-slate-400 mb-1">Mô tả ngoại hình & phục trang:</label>
+            <textarea id="lib-desc-${item.id}" rows="3" class="w-full bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded p-2 text-xs text-slate-200 focus:outline-none resize-y">${escapeHtml(item.description || '')}</textarea>
+          </div>
+
+          <div>
+            <label class="block text-[10px] text-[#9cdcfe] mb-1">Giọng nói đặc trưng:</label>
+            <input type="text" id="lib-voice-${item.id}" value="${escapeHtml(item.voice_prompt || '')}" class="w-full bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none">
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+            <div class="flex items-center space-x-2">
+              <input type="file" id="lib-file-${item.id}" accept="image/*" multiple class="hidden" onchange="handleLibraryCharUpload(event, '${item.id}')">
+              <button type="button" onclick="document.getElementById('lib-file-${item.id}').click()" class="px-2.5 py-1.5 rounded bg-[#2d2d2d] hover:bg-[#37373d] text-slate-200 border border-[#3c3c3c] text-[11px] cursor-pointer">+ Tải ảnh</button>
+              <button type="button" onclick="generateAll3LibraryCharPortraits('${item.id}')" class="px-2.5 py-1.5 rounded bg-[#2d2d2d] hover:bg-[#37373d] text-[#38bdf8] border border-[#3c3c3c] text-[11px] font-semibold cursor-pointer">AI Tạo 3 Ảnh</button>
+            </div>
+            <button type="button" onclick="saveLibraryCharacterCard('${item.id}')" class="px-3 py-1.5 rounded bg-[#0078d4] hover:bg-[#1f8ad2] text-white text-xs font-semibold flex items-center space-x-1 cursor-pointer">
+              <i data-lucide="save" class="w-3.5 h-3.5"></i>
+              <span>Lưu thay đổi</span>
+            </button>
+          </div>
         </div>
       </div>
     `;
   }).join('');
 
   if (window.lucide) lucide.createIcons();
+}
+
+function toggleLibraryCharacterEdit(libId) {
+  if (!characterLibraryState.editingMap) characterLibraryState.editingMap = {};
+  characterLibraryState.editingMap[libId] = !characterLibraryState.editingMap[libId];
+  renderCharacterLibrary();
 }
 
 async function createNewLibraryCharacter() {
