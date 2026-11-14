@@ -1609,7 +1609,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261114_13"></script>
+  <script src="/static/app.js?v=20261114_14"></script>
   <script>
     lucide.createIcons();
   </script>
@@ -1648,7 +1648,8 @@
 
       <!-- Main Video Screen with Subtitle Overlay -->
       <div class="relative flex-1 bg-black flex items-center justify-center overflow-hidden min-h-[360px]">
-        <video id="theater-video-player" playsinline class="w-full h-full max-h-[58vh] object-contain"></video>
+        <video id="theater-video-player" playsinline preload="auto" class="w-full h-full max-h-[58vh] object-contain"></video>
+        <video id="theater-video-buffer" playsinline preload="auto" class="w-full h-full max-h-[58vh] object-contain hidden"></video>
 
         <!-- Subtitle & Situation Banner -->
         <div id="theater-subtitle-box" class="absolute bottom-4 left-6 right-6 pointer-events-none text-center">

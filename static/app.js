@@ -4141,14 +4141,50 @@ async function openCinemaTheater() {
   theaterPlayScene(0);
 }
 
+function getTheaterPlayers() {
+  const playerA = document.getElementById('theater-video-player');
+  const playerB = document.getElementById('theater-video-buffer');
+  const useB = movieState.theaterActiveSlot === 'B' && playerB;
+  return {
+    active: useB ? playerB : playerA,
+    standby: useB ? playerA : playerB,
+    playerA,
+    playerB,
+  };
+}
+
 function closeCinemaTheater() {
   const modal = document.getElementById('movie-theater-modal');
-  const player = document.getElementById('theater-video-player');
-  if (player) {
-    player.pause();
-    player.src = '';
-  }
+  const { playerA, playerB } = getTheaterPlayers();
+  [playerA, playerB].forEach(p => {
+    if (!p) return;
+    p.onended = null;
+    p.pause();
+    p.removeAttribute('src');
+    delete p.dataset.loadedUrl;
+    p.load();
+  });
+  movieState.theaterActiveSlot = 'A';
+  if (playerA) playerA.classList.remove('hidden');
+  if (playerB) playerB.classList.add('hidden');
   if (modal) modal.classList.add('hidden');
+}
+
+function preloadNextTheaterScene(readyScenes, nextIndex) {
+  const { standby } = getTheaterPlayers();
+  const nextScene = readyScenes[nextIndex];
+  if (!standby || !nextScene || !nextScene.video_url) return;
+  if (standby.dataset.loadedUrl !== nextScene.video_url) {
+    standby.onended = null;
+    standby.pause();
+    standby.src = nextScene.video_url;
+    standby.dataset.loadedUrl = nextScene.video_url;
+    standby.load();
+  }
+  const afterNext = readyScenes[nextIndex + 1];
+  if (afterNext && afterNext.video_url) {
+    fetch(afterNext.video_url, { cache: 'force-cache' }).catch(() => {});
+  }
 }
 
 function theaterPlayScene(readyIndex) {
@@ -4158,7 +4194,7 @@ function theaterPlayScene(readyIndex) {
   movieState.theaterCurrentIndex = readyIndex;
   const currentScene = readyScenes[readyIndex];
 
-  const player = document.getElementById('theater-video-player');
+  let { active, standby } = getTheaterPlayers();
   const indicator = document.getElementById('theater-scene-indicator');
   const dialogueEl = document.getElementById('theater-subtitle-dialogue');
   const situationEl = document.getElementById('theater-subtitle-situation');
@@ -4173,18 +4209,45 @@ function theaterPlayScene(readyIndex) {
     situationEl.innerText = currentScene.situation || '';
   }
 
-  if (player) {
-    player.src = currentScene.video_url;
-    player.play().catch(() => {});
+  let nextActive = active;
+  if (standby && standby.dataset.loadedUrl === currentScene.video_url) {
+    // Instant double-buffer swap (preloaded & decoded)
+    if (standby.currentTime > 0.05) standby.currentTime = 0;
+    standby.classList.remove('hidden');
+    standby.play().catch(() => {});
+    if (active) {
+      active.onended = null;
+      active.pause();
+      active.classList.add('hidden');
+    }
+    movieState.theaterActiveSlot = (movieState.theaterActiveSlot === 'B') ? 'A' : 'B';
+    nextActive = standby;
+  } else if (active) {
+    active.onended = null;
+    active.classList.remove('hidden');
+    if (standby) standby.classList.add('hidden');
+    active.src = currentScene.video_url;
+    active.dataset.loadedUrl = currentScene.video_url;
+    active.load();
+    active.play().catch(() => {});
+    nextActive = active;
+  }
 
-    // Seamless automatic transition to next scene when current scene ends
-    player.onended = () => {
+  if (nextActive) {
+    nextActive.onended = () => {
       theaterNextScene();
     };
   }
 
+  // Preload the upcoming scene into the standby buffer immediately
+  preloadNextTheaterScene(readyScenes, readyIndex + 1);
+
+  const playIcon = document.getElementById('theater-play-icon');
+  const playText = document.getElementById('theater-play-text');
+  if (playText) playText.innerText = 'Tạm dừng';
+  if (playIcon) playIcon.setAttribute('data-lucide', 'pause');
+
   renderTheaterPlaylistStrip();
-  lucide.createIcons();
 }
 
 async function theaterNextScene() {
@@ -4212,13 +4275,13 @@ function theaterPrevScene() {
 }
 
 function theaterTogglePlay() {
-  const player = document.getElementById('theater-video-player');
+  const { active: player } = getTheaterPlayers();
   const icon = document.getElementById('theater-play-icon');
   const text = document.getElementById('theater-play-text');
   if (!player) return;
 
   if (player.paused) {
-    player.play();
+    player.play().catch(() => {});
     if (text) text.innerText = 'Tạm dừng';
     if (icon) icon.setAttribute('data-lucide', 'pause');
   } else {
