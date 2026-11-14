@@ -388,7 +388,7 @@ def build_hidden_video_prompt(
             "(CRITICAL CONTINUATION: The FIRST attached image is the exact last frame of the previous scene. Start this clip smoothly continuing from that exact frame, matching lighting, environment, camera angle, and character pose).\n"
         )
     if has_reference_images:
-        ref_images_part = (
+        ref_images_part += (
             f"\n[YÊU CẦU ĐỒNG NHẤT NHÂN VẬT TỐI CAO TỪ ẢNH THAM CHIẾU - CRITICAL CHARACTER CONSISTENCY]:\n"
             f"- Cảnh quay này có đính kèm các hình ảnh tham chiếu nhân vật (Character Reference Images). "
             f"AI PHẢI GIỮ NGUYÊN 100% CÁC ĐẶC TRƯNG TẠO HÌNH CỦA NHÂN VẬT: khuôn mặt, đường nét ngũ quan, màu mắt, kiểu tóc, "
@@ -995,6 +995,11 @@ async def generate_video(data: VideoGenerateModel):
 
         # Use existing session_id if continuing a video sequence
         target_session_id = data.session_id if (data.is_continuation and data.session_id) else None
+
+        logger.info(
+            f"[VideoGenerate] scene={data.scene_index} cont={data.is_continuation} "
+            f"images={len(resolved_images)} prompt={data.prompt[:100]!r}"
+        )
 
         result = await client.generate_video(
             prompt=enhanced_prompt,
