@@ -2339,12 +2339,38 @@ function updateMovieActiveDisplay() {
   const titleEl = document.getElementById('current-movie-title-display');
   const badgeEl = document.getElementById('current-movie-badge');
   const loglineEl = document.getElementById('current-movie-logline-display');
+  const posterImgEl = document.getElementById('current-movie-poster-img');
+  const posterFallbackEl = document.getElementById('current-movie-poster-fallback');
 
   if (titleEl) titleEl.innerText = movieState.title || 'Kịch bản Phim Mới';
   if (loglineEl) loglineEl.innerText = movieState.logline || (movieState.script ? movieState.script.slice(0, 100) + '...' : 'Chưa có tóm tắt cốt truyện');
   if (badgeEl) {
     const rendered = movieState.scenes.filter(s => s.video_url || s.status === 'done').length;
     badgeEl.innerText = `${rendered}/${movieState.scenes.length} cảnh • ${movieState.characters.length} nhân vật`;
+  }
+
+  if (posterImgEl && posterFallbackEl) {
+    let posterSrc = movieState.cover_image_url || '';
+    if (!posterSrc) {
+      const charWithImg = (movieState.characters || []).find(c => c.images && c.images[0] && c.images[0].url);
+      if (charWithImg) {
+        posterSrc = charWithImg.images[0].url;
+      } else {
+        const sceneWithVid = (movieState.scenes || []).find(s => s.video_url);
+        if (sceneWithVid) {
+          posterSrc = `/api/video/thumbnail?url=${encodeURIComponent(sceneWithVid.video_url)}`;
+        }
+      }
+    }
+    if (posterSrc) {
+      posterImgEl.src = posterSrc;
+      posterImgEl.classList.remove('hidden');
+      posterFallbackEl.classList.add('hidden');
+    } else {
+      posterImgEl.removeAttribute('src');
+      posterImgEl.classList.add('hidden');
+      posterFallbackEl.classList.remove('hidden');
+    }
   }
 }
 
@@ -4715,6 +4741,7 @@ async function applyMovieCoverUrl(projectId, url) {
 
     renderDashboardMovies();
     renderMovieProjectsRibbon();
+    updateMovieActiveDisplay();
     if (!savedUrl) {
       loadMovieProjectsList();
     }

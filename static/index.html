@@ -917,10 +917,14 @@
           <div class="flex flex-wrap items-center justify-between gap-3">
             
             <!-- Left: Active Movie Info -->
-            <div class="flex items-center space-x-3 min-w-0">
-              <div class="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center text-cyan-400 shrink-0 shadow-sm">
-                <i data-lucide="folder-kanban" class="w-4 h-4"></i>
-              </div>
+            <div class="flex items-center space-x-3.5 min-w-0">
+              <button type="button" onclick="openMovieCoverModal(movieState.id)" title="Bấm để xem hoặc đổi poster phim" class="w-28 aspect-video rounded-xl bg-[#181818] border border-cyan-400/30 hover:border-amber-400/70 flex items-center justify-center text-cyan-400 shrink-0 shadow-md overflow-hidden relative group cursor-pointer transition">
+                <img id="current-movie-poster-img" src="" alt="Poster phim" class="hidden w-full h-full object-cover">
+                <span id="current-movie-poster-fallback" class="flex items-center justify-center">
+                  <i data-lucide="clapperboard" class="w-5 h-5"></i>
+                </span>
+                <span class="absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-[10px] font-semibold text-white">Đổi poster</span>
+              </button>
               <div class="min-w-0">
                 <div class="flex items-center space-x-2 flex-wrap">
                   <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Bộ phim đang mở:</span>
@@ -1811,7 +1815,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261114_31"></script>
+  <script src="/static/app.js?v=20261114_32"></script>
   <script>
     lucide.createIcons();
   </script>
