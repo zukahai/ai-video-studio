@@ -1226,12 +1226,17 @@ async function generateVideo() {
   try {
     const currentSceneNumber = state.isContinuation ? state.storyboard.length + 1 : 1;
 
+    const prevStoryboardUrl = (state.isContinuation && state.storyboard.length > 0)
+      ? (state.storyboard[state.storyboard.length - 1].url || null)
+      : null;
+
     const payload = {
       prompt: prompt,
       image_paths: state.videoImages.length > 0 ? state.videoImages.map(img => img.local_path) : (state.videoImageFile ? [state.videoImageFile] : []),
       aspect_ratio: state.videoRatio,
       duration: state.videoDuration || 5,
-      is_continuation: state.isContinuation && state.videoSessionId !== null,
+      is_continuation: state.isContinuation && (state.videoSessionId !== null || prevStoryboardUrl !== null),
+      previous_video_url: prevStoryboardUrl,
       session_id: state.videoSessionId,
       scene_index: currentSceneNumber,
       style_preset: state.videoStyle,
@@ -3634,6 +3639,33 @@ document.addEventListener('click', (e) => {
 // User requirement: "có nút cho phép tạo phim tự động, sẽ tạo tự động theo từng phân cảnh trong kịch bản theo hình thức nối tiếp (để giữ lại các đặc trưng nhân vật)"
 let movieTimerInterval = null;
 
+function getPreviousMovieSceneVideoUrl(idx) {
+  for (let p = idx - 1; p >= 0; p--) {
+    if (movieState.scenes[p] && movieState.scenes[p].video_url) {
+      return movieState.scenes[p].video_url;
+    }
+  }
+  return null;
+}
+
+function buildAlternativeScenePrompt(scene, retryIndex, lastError = '') {
+  const style = movieState.stylePreset || 'Điện ảnh HD Hollywood';
+  const rawSit = (scene.situation || scene.prompt || 'A calm cinematic character moment').trim();
+  const sanitized = rawSit
+    .replace(/\b(blood|bleeding|kill|murder|weapon|gun|sword|knife|punch|hit|fight|battle|explosion|dead|death|wound|injured|violence|violent)\b/gi, 'dramatic tension')
+    .replace(/\b(máu|giết|chém|đánh|đấm|bạo lực|súng|dao|kiếm|chết|tử vong|thương tích|nổ)\b/gi, 'kịch tính')
+    .replace(/\b(4K|8K|Ultra HD)\b/gi, 'HD')
+    .trim();
+  const charList = Array.isArray(scene.characters_involved) && scene.characters_involved.length > 0
+    ? scene.characters_involved.join(', ')
+    : 'the main characters';
+
+  if (retryIndex === 1) {
+    return `Cinematic ${style} medium shot featuring ${charList}. Safe family-friendly visual storytelling, smooth natural camera motion, warm balanced lighting: ${sanitized}. Expressive acting, clean composition.`;
+  }
+  return `Gentle cinematic wide-to-medium shot of ${charList} in a peaceful natural setting, soft lighting, smooth slow camera pan, depicting: ${sanitized.slice(0, 140)}.`;
+}
+
 async function startAutoMovieGeneration() {
   if (movieState.scenes.length === 0) {
     await customAlert('Chưa có phân cảnh nào. Vui lòng bấm [Phân Tích Kịch Bản] trước.', 'Chưa có phân cảnh');
@@ -3699,60 +3731,79 @@ async function startAutoMovieGeneration() {
     if (descEl) descEl.innerText = `Áp dụng công nghệ nối tiếp giữ nhân vật · Khung hình ${movieState.aspectRatio} · ${scene.duration || 8}s`;
     if (bar) bar.style.width = `${Math.round(((i) / total) * 100)}%`;
 
-    try {
-      // Gather character reference images for this scene
-      const involvedImages = getInvolvedCharacterImages(scene).map(x => x.path);
+    const prevVideoUrl = getPreviousMovieSceneVideoUrl(i);
+    const isContinuation = (i > 0 && (movieState.sessionId !== null || prevVideoUrl !== null));
+    const maxAttempts = 3;
+    let sceneSucceeded = false;
+    let lastErrMsg = '';
 
-      const isContinuation = (i > 0 && movieState.sessionId !== null);
-      const payload = {
-        prompt: scene.prompt || scene.situation,
-        dialogue: scene.dialogue || '',
-        image_paths: involvedImages,
-        aspect_ratio: movieState.aspectRatio,
-        duration: parseInt(scene.duration, 10) || 8,
-        is_continuation: isContinuation,
-        session_id: movieState.sessionId,
-        scene_index: scene.scene_index,
-        style_preset: movieState.stylePreset,
-        character_voices: getInvolvedCharacterVoices(scene),
-        enable_narration: isMovieNarrationEnabled(),
-        timeout: 600.0,
-      };
-
-      const res = await fetch('/api/video/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Không thể tạo phân cảnh.');
-
-      if (data.session_id) {
-        movieState.sessionId = data.session_id;
-      }
-
-      if (data.videos && data.videos.length > 0) {
-        scene.video_url = data.videos[0];
-        scene.status = 'done';
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (movieState.shouldStop) break;
+      if (attempt > 0) {
+        const altPrompt = buildAlternativeScenePrompt(scene, attempt, lastErrMsg);
+        scene.prompt = altPrompt;
         saveMovieStateCache();
         renderMovieScenes();
-        checkAuthStatus(true).catch(() => {});
-      } else {
-        throw new Error('Không nhận được video phân cảnh.');
+        if (descEl) {
+          descEl.innerText = `⚠️ Cảnh #${scene.scene_index} gặp lỗi, tự động đổi sang prompt mới (lần thử ${attempt + 1}/${maxAttempts}) và tiếp tục tạo...`;
+        }
+        showToast(`🔄 Cảnh #${scene.scene_index} bị lỗi, đang đổi prompt khác (lần ${attempt + 1}/${maxAttempts})...`, 'info');
+        await new Promise(r => setTimeout(r, 2000));
       }
-    } catch (err) {
-      console.error(`Lỗi tạo cảnh #${scene.scene_index}:`, err);
+
+      try {
+        const involvedImages = getInvolvedCharacterImages(scene).map(x => x.path);
+        const payload = {
+          prompt: scene.prompt || scene.situation,
+          dialogue: scene.dialogue || '',
+          image_paths: involvedImages,
+          aspect_ratio: movieState.aspectRatio,
+          duration: parseInt(scene.duration, 10) || 8,
+          is_continuation: isContinuation,
+          previous_video_url: prevVideoUrl,
+          session_id: movieState.sessionId,
+          scene_index: scene.scene_index,
+          style_preset: movieState.stylePreset,
+          character_voices: getInvolvedCharacterVoices(scene),
+          enable_narration: isMovieNarrationEnabled(),
+          timeout: 600.0,
+        };
+
+        const res = await fetch('/api/video/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Không thể tạo phân cảnh.');
+
+        if (data.session_id) {
+          movieState.sessionId = data.session_id;
+        }
+
+        if (data.videos && data.videos.length > 0) {
+          scene.video_url = data.videos[0];
+          scene.status = 'done';
+          saveMovieStateCache();
+          renderMovieScenes();
+          checkAuthStatus(true).catch(() => {});
+          sceneSucceeded = true;
+          break;
+        } else {
+          throw new Error('Không nhận được video phân cảnh.');
+        }
+      } catch (err) {
+        lastErrMsg = err.message || 'Lỗi không xác định';
+        console.error(`Lỗi tạo cảnh #${scene.scene_index} (lần ${attempt + 1}):`, err);
+      }
+    }
+
+    if (!sceneSucceeded && !movieState.shouldStop) {
       scene.status = 'error';
+      saveMovieStateCache();
       renderMovieScenes();
-      const cont = await customConfirm(
-        `Lỗi sản xuất Cảnh #${scene.scene_index}: ${err.message}\nBạn có muốn tiếp tục các cảnh còn lại không?`,
-        'Lỗi phân cảnh',
-        'Tiếp tục cảnh kế',
-        'Dừng lại',
-        true
-      );
-      if (!cont) break;
+      showToast(`⚠️ Cảnh #${scene.scene_index} vẫn lỗi sau ${maxAttempts} lần đổi prompt (${lastErrMsg}). Tiếp tục cảnh kế tiếp...`, 'error');
     }
   }
 
@@ -3800,41 +3851,60 @@ async function generateSingleMovieScene(idx) {
 
   try {
     const involvedImages = getInvolvedCharacterImages(scene).map(x => x.path);
+    const prevVideoUrl = getPreviousMovieSceneVideoUrl(idx);
+    const isContinuation = (idx > 0 && (movieState.sessionId !== null || prevVideoUrl !== null));
 
-    const isContinuation = (idx > 0 && movieState.sessionId !== null);
-    const payload = {
-      prompt: scene.prompt || scene.situation,
-      dialogue: scene.dialogue || '',
-      image_paths: involvedImages,
-      aspect_ratio: movieState.aspectRatio,
-      duration: parseInt(scene.duration, 10) || 8,
-      is_continuation: isContinuation,
-      session_id: movieState.sessionId,
-      scene_index: scene.scene_index,
-      style_preset: movieState.stylePreset,
-      character_voices: getInvolvedCharacterVoices(scene),
-      enable_narration: isMovieNarrationEnabled(),
-      timeout: 600.0,
-    };
+    let lastErr = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) {
+        scene.prompt = buildAlternativeScenePrompt(scene, attempt, lastErr?.message || '');
+        saveMovieStateCache();
+        renderMovieScenes();
+        showToast(`🔄 Cảnh #${scene.scene_index} lỗi, đang tự đổi sang prompt khác và thử lại...`);
+      }
 
-    const res = await fetch('/api/video/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+      try {
+        const payload = {
+          prompt: scene.prompt || scene.situation,
+          dialogue: scene.dialogue || '',
+          image_paths: involvedImages,
+          aspect_ratio: movieState.aspectRatio,
+          duration: parseInt(scene.duration, 10) || 8,
+          is_continuation: isContinuation,
+          previous_video_url: prevVideoUrl,
+          session_id: movieState.sessionId,
+          scene_index: scene.scene_index,
+          style_preset: movieState.stylePreset,
+          character_voices: getInvolvedCharacterVoices(scene),
+          enable_narration: isMovieNarrationEnabled(),
+          timeout: 600.0,
+        };
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Không thể tạo phân cảnh.');
+        const res = await fetch('/api/video/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
 
-    if (data.session_id) movieState.sessionId = data.session_id;
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Không thể tạo phân cảnh.');
 
-    if (data.videos && data.videos.length > 0) {
-      scene.video_url = data.videos[0];
-      scene.status = 'done';
-      saveMovieStateCache();
-      renderMovieScenes();
-      checkAuthStatus(true).catch(() => {});
+        if (data.session_id) movieState.sessionId = data.session_id;
+
+        if (data.videos && data.videos.length > 0) {
+          scene.video_url = data.videos[0];
+          scene.status = 'done';
+          saveMovieStateCache();
+          renderMovieScenes();
+          checkAuthStatus(true).catch(() => {});
+          return;
+        }
+        throw new Error('Không nhận được video phân cảnh.');
+      } catch (err) {
+        lastErr = err;
+      }
     }
+    throw lastErr || new Error('Không thể tạo phân cảnh.');
   } catch (err) {
     await customAlert(`Lỗi quay cảnh #${scene.scene_index}: ` + err.message, 'Lỗi quay cảnh', 'error');
     scene.status = 'idle';

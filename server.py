@@ -73,6 +73,7 @@ class VideoGenerateModel(BaseModel):
     aspect_ratio: str = "16:9"
     duration: Optional[int] = 5
     is_continuation: bool = False
+    previous_video_url: Optional[str] = None
     session_id: Optional[str] = None
     scene_index: int = 1
     style_preset: Optional[str] = None
@@ -267,6 +268,37 @@ def _lookup_character_voice(speaker_name: Optional[str], character_voices: Optio
     return ""
 
 
+def extract_last_frame_from_video(video_path: Path) -> Optional[Path]:
+    """Extract the last frame of a video file using imageio_ffmpeg and return the saved image path."""
+    if not video_path or not video_path.exists():
+        return None
+    try:
+        import imageio_ffmpeg
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        out_path = OUTPUTS_DIR / f"lastframe_{video_path.stem}_{int(time.time() * 1000)}.jpg"
+        for seek_offset in ("-0.15", "-0.5"):
+            proc = subprocess.run(
+                [ffmpeg_exe, "-sseof", seek_offset, "-i", str(video_path), "-frames:v", "1", "-q:v", "2", "-y", str(out_path)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if proc.returncode == 0 and out_path.exists() and out_path.stat().st_size > 0:
+                return out_path
+        # Fallback: extract first/near-end frame without sseof if video is ultra short
+        proc2 = subprocess.run(
+            [ffmpeg_exe, "-i", str(video_path), "-vframes", "1", "-q:v", "2", "-y", str(out_path)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if proc2.returncode == 0 and out_path.exists() and out_path.stat().st_size > 0:
+            return out_path
+    except Exception as exc:
+        logger.warning(f"Failed to extract last frame from {video_path}: {exc}")
+    return None
+
+
 def build_hidden_video_prompt(
     user_prompt: str,
     aspect_ratio: str,
@@ -278,6 +310,7 @@ def build_hidden_video_prompt(
     has_reference_images: bool = False,
     character_voices: Optional[dict[str, str]] = None,
     enable_narration: bool = False,
+    has_last_frame: bool = False,
 ) -> str:
     ratio_desc = RATIO_DESCRIPTIONS.get(aspect_ratio, f"tỉ lệ khung hình {aspect_ratio}")
     style_part = f" Phong cách chủ đạo: {style_preset}." if style_preset else ""
@@ -345,6 +378,13 @@ def build_hidden_video_prompt(
         )
 
     ref_images_part = ""
+    if has_last_frame:
+        ref_images_part += (
+            "\n[KHUNG HÌNH NỐI TIẾP TỪ CẢNH TRƯỚC - PREVIOUS SCENE LAST FRAME]:\n"
+            "- ẢNH ĐẦU TIÊN đính kèm là KHUNG HÌNH CUỐI CÙNG của phân cảnh ngay trước đó. "
+            "BẮT BUỘC mở đầu cảnh quay này nối tiếp mượt mà trực tiếp từ bố cục, vị trí nhân vật, ánh sáng, bối cảnh và chuyển động của khung hình cuối cùng đó "
+            "(CRITICAL CONTINUATION: The FIRST attached image is the exact last frame of the previous scene. Start this clip smoothly continuing from that exact frame, matching lighting, environment, camera angle, and character pose).\n"
+        )
     if has_reference_images:
         ref_images_part = (
             f"\n[YÊU CẦU ĐỒNG NHẤT NHÂN VẬT TỐI CAO TỪ ẢNH THAM CHIẾU - CRITICAL CHARACTER CONSISTENCY]:\n"
@@ -923,6 +963,15 @@ async def generate_video(data: VideoGenerateModel):
             if resolved and resolved not in resolved_images:
                 resolved_images.append(resolved)
 
+        # If continuing from a previous video, extract its last frame and prepend it as the primary visual anchor
+        last_frame_path: Optional[Path] = None
+        if data.previous_video_url:
+            prev_video_path = resolve_media_path(data.previous_video_url)
+            if prev_video_path and prev_video_path.exists():
+                last_frame_path = await asyncio.to_thread(extract_last_frame_from_video, prev_video_path)
+                if last_frame_path and last_frame_path.exists():
+                    resolved_images = [last_frame_path] + [p for p in resolved_images if p != last_frame_path]
+
         # Cap reference images to at most 3 images to prevent Noise WebSocket payload overflow
         if len(resolved_images) > 3:
             resolved_images = resolved_images[:3]
@@ -939,6 +988,7 @@ async def generate_video(data: VideoGenerateModel):
             has_reference_images=bool(resolved_images),
             character_voices=data.character_voices,
             enable_narration=data.enable_narration,
+            has_last_frame=bool(last_frame_path),
         )
 
         # Use existing session_id if continuing a video sequence
