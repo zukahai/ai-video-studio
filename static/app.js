@@ -5009,6 +5009,151 @@ function playCompletionChime() {
 }
 
 let _quickSceneIndex = null;
+const _sceneVideoThumbCache = {};
+const _sceneVideoThumbPending = new Map();
+const _sceneVideoThumbQueue = [];
+let _sceneVideoThumbActive = 0;
+
+function renderSceneVideoThumbHtml(videoUrl, thumbClass, num, extraClass = '') {
+  const cached = _sceneVideoThumbCache[videoUrl];
+  if (cached) {
+    return `<img src="${cached}" alt="Cảnh #${num}" class="${thumbClass} object-cover bg-black ${extraClass}">`;
+  }
+  return `<div class="${thumbClass} relative overflow-hidden bg-[#181818] flex items-center justify-center ${extraClass}">
+    <span class="text-[11px] font-bold text-slate-500">#${num}</span>
+    <img data-video-thumb-src="${escapeHtml(videoUrl)}" alt="Cảnh #${num}" class="hidden absolute inset-0 w-full h-full object-cover">
+  </div>`;
+}
+
+function _applySceneThumbToDom(videoUrl, dataUrl) {
+  document.querySelectorAll('img[data-video-thumb-src]').forEach(img => {
+    if (img.dataset.videoThumbSrc === videoUrl) {
+      img.src = dataUrl;
+      img.classList.remove('hidden');
+      const siblingLabel = img.previousElementSibling;
+      if (siblingLabel && siblingLabel.tagName === 'SPAN') {
+        siblingLabel.classList.add('hidden');
+      }
+      img.removeAttribute('data-video-thumb-src');
+    }
+  });
+}
+
+function _pumpSceneVideoThumbQueue() {
+  while (_sceneVideoThumbActive < 3 && _sceneVideoThumbQueue.length > 0) {
+    const videoUrl = _sceneVideoThumbQueue.shift();
+    if (!videoUrl || _sceneVideoThumbCache[videoUrl]) {
+      _sceneVideoThumbPending.delete(videoUrl);
+      continue;
+    }
+    _sceneVideoThumbActive++;
+    _captureSingleVideoThumb(videoUrl).finally(() => {
+      _sceneVideoThumbActive--;
+      _sceneVideoThumbPending.delete(videoUrl);
+      _pumpSceneVideoThumbQueue();
+    });
+  }
+}
+
+function _captureSingleVideoThumb(videoUrl) {
+  return new Promise(resolve => {
+    const video = document.createElement('video');
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+    let settled = false;
+
+    const cleanup = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      video.onloadeddata = null;
+      video.onseeked = null;
+      video.onerror = null;
+      try {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+      } catch (_) {}
+      resolve();
+    };
+
+    const timer = setTimeout(cleanup, 12000);
+
+    video.onerror = cleanup;
+
+    video.onloadeddata = () => {
+      try {
+        const targetTime = (video.duration && isFinite(video.duration))
+          ? Math.min(0.15, Math.max(0, video.duration * 0.1))
+          : 0.1;
+        if (Math.abs((video.currentTime || 0) - targetTime) > 0.02) {
+          video.currentTime = targetTime;
+        } else {
+          drawFrame();
+        }
+      } catch (_) {
+        drawFrame();
+      }
+    };
+
+    const drawFrame = () => {
+      try {
+        const vw = video.videoWidth || 320;
+        const vh = video.videoHeight || 180;
+        const maxDim = 280;
+        const scale = Math.min(1, maxDim / Math.max(vw, vh));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(vw * scale));
+        canvas.height = Math.max(1, Math.round(vh * scale));
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.78);
+        if (dataUrl && dataUrl.startsWith('data:image')) {
+          _sceneVideoThumbCache[videoUrl] = dataUrl;
+          _applySceneThumbToDom(videoUrl, dataUrl);
+        }
+      } catch (_) {
+        // Fallback: if canvas is tainted, render an inline video tag
+        document.querySelectorAll('img[data-video-thumb-src]').forEach(img => {
+          if (img.dataset.videoThumbSrc === videoUrl && img.parentElement) {
+            const v = document.createElement('video');
+            v.src = videoUrl;
+            v.muted = true;
+            v.playsInline = true;
+            v.preload = 'metadata';
+            v.className = 'absolute inset-0 w-full h-full object-cover';
+            img.parentElement.appendChild(v);
+            img.remove();
+          }
+        });
+      } finally {
+        cleanup();
+      }
+    };
+
+    video.onseeked = drawFrame;
+    video.src = videoUrl;
+  });
+}
+
+function hydrateSceneVideoThumbs(rootEl) {
+  if (!rootEl) return;
+  const imgs = rootEl.querySelectorAll('img[data-video-thumb-src]');
+  imgs.forEach(img => {
+    const url = img.dataset.videoThumbSrc;
+    if (!url) return;
+    if (_sceneVideoThumbCache[url]) {
+      _applySceneThumbToDom(url, _sceneVideoThumbCache[url]);
+      return;
+    }
+    if (!_sceneVideoThumbPending.has(url)) {
+      _sceneVideoThumbPending.set(url, true);
+      _sceneVideoThumbQueue.push(url);
+    }
+  });
+  _pumpSceneVideoThumbQueue();
+}
 
 function getMovieThumbnailAspectMeta(aspectRatio) {
   const ar = String(aspectRatio || '16:9').trim();
@@ -5064,7 +5209,7 @@ function renderMovieProgressScenesStrip() {
     }
 
     const previewThumb = hasVideo
-      ? `<video src="${escapeHtml(sc.video_url)}#t=0.1" muted preload="metadata" class="${arMeta.stripThumbClass} object-cover rounded bg-black"></video>`
+      ? renderSceneVideoThumbHtml(sc.video_url, arMeta.stripThumbClass, num, 'rounded')
       : `<div class="${arMeta.stripThumbClass} rounded bg-[#181818] flex items-center justify-center text-[11px] font-bold text-slate-500">#${num}</div>`;
 
     return `
@@ -5078,6 +5223,7 @@ function renderMovieProgressScenesStrip() {
       </button>
     `;
   }).join('');
+  hydrateSceneVideoThumbs(strip);
 }
 
 function openQuickSceneInspector(idx) {
@@ -5231,7 +5377,7 @@ function renderMovieScenesManagerList() {
     }
 
     const thumb = hasVideo
-      ? `<video src="${escapeHtml(sc.video_url)}#t=0.1" muted preload="metadata" class="${arMeta.mgrThumbClass} object-cover rounded-lg bg-black border border-[#3c3c3c] shrink-0"></video>`
+      ? renderSceneVideoThumbHtml(sc.video_url, arMeta.mgrThumbClass, num, 'rounded-lg border border-[#3c3c3c] shrink-0')
       : `<div class="${arMeta.mgrThumbClass} rounded-lg bg-[#181818] border border-[#3c3c3c] flex items-center justify-center text-xs font-bold text-slate-500 shrink-0">#${num}</div>`;
 
     const summaryText = sc.situation || sc.dialogue || 'Chưa có mô tả tình huống';
@@ -5271,6 +5417,7 @@ function renderMovieScenesManagerList() {
     `;
   }).join('');
 
+  hydrateSceneVideoThumbs(listEl);
   if (window.lucide) lucide.createIcons();
 }
 
