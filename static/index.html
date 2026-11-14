@@ -147,6 +147,11 @@
           </div>
           <span id="sidebar-gallery-count" class="text-[10px] px-2 py-0.5 rounded-full bg-[#2d2d2d] text-[#cccccc] border border-[#3c3c3c]">0</span>
         </button>
+
+        <button onclick="switchTab('telegram')" id="tab-btn-telegram" class="tab-btn w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
+          <i data-lucide="send" class="w-4 h-4 text-[#38bdf8]"></i>
+          <span>Thông báo Tele</span>
+        </button>
       </div>
     </div>
 
@@ -1227,6 +1232,146 @@
         </div>
       </div>
 
+      <!-- ==================== VIEW 5: TELEGRAM NOTIFICATIONS ==================== -->
+      <div id="view-telegram" class="tab-view hidden max-w-5xl mx-auto space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="font-bold text-lg text-white flex items-center space-x-2">
+              <i data-lucide="send" class="w-5 h-5 text-[#38bdf8]"></i>
+              <span>Thông báo Telegram Bot</span>
+            </h2>
+            <p class="text-xs text-slate-400">Cấu hình Bot Token, danh sách người nhận và sự kiện gửi thông báo tự động về Telegram</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button type="button" onclick="testTelegramSettings()" id="btn-test-telegram" class="px-3.5 py-2 bg-[#2d2d2d] hover:bg-[#37373d] text-[#cccccc] hover:text-white border border-[#3c3c3c] rounded-md text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer">
+              <i data-lucide="bell-ring" class="w-3.5 h-3.5 text-[#38bdf8]"></i>
+              <span>Gửi tin nhắn thử</span>
+            </button>
+            <button type="button" onclick="saveTelegramSettings()" id="btn-save-telegram" class="px-4 py-2 bg-[#0078d4] hover:bg-[#1f8ad2] text-white rounded-md text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer">
+              <i data-lucide="save" class="w-3.5 h-3.5"></i>
+              <span>Lưu cấu hình</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Card 1: Bot Token -->
+        <div class="glass-card rounded-xl p-5 space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-[#333333]">
+            <h3 class="font-bold text-sm text-white flex items-center space-x-2">
+              <span class="w-6 h-6 rounded-md bg-[#0078d4]/20 text-[#38bdf8] flex items-center justify-center text-xs font-bold">1</span>
+              <span>Bot Token Telegram</span>
+            </h3>
+            <span class="text-[11px] text-slate-400">Lấy từ @BotFather trên Telegram</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <input type="password" id="tele-bot-token" placeholder="VD: 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz..." class="flex-1 bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded-md px-3.5 py-2.5 text-xs text-slate-100 font-mono focus:outline-none">
+            <button type="button" onclick="toggleTelegramTokenVisibility()" title="Hiện / Ẩn Token" class="px-3 py-2.5 bg-[#2d2d2d] hover:bg-[#37373d] text-slate-300 hover:text-white border border-[#3c3c3c] rounded-md text-xs transition cursor-pointer">
+              <i data-lucide="eye" id="tele-token-eye-icon" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Card 2: Recipients List (STT, ID, Ghi chú) -->
+        <div class="glass-card rounded-xl p-5 space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-[#333333]">
+            <div class="flex items-center space-x-2">
+              <span class="w-6 h-6 rounded-md bg-[#0078d4]/20 text-[#38bdf8] flex items-center justify-center text-xs font-bold">2</span>
+              <h3 class="font-bold text-sm text-white">Danh sách ID cần thông báo</h3>
+              <span id="tele-recipients-count" class="text-[10px] px-2 py-0.5 rounded-full bg-[#2d2d2d] text-[#cccccc] border border-[#3c3c3c]">0 ID</span>
+            </div>
+            <button type="button" onclick="addTelegramRecipientRow()" class="px-3 py-1.5 bg-[#2d2d2d] hover:bg-[#37373d] text-[#38bdf8] hover:text-white border border-[#3c3c3c] rounded-md text-xs font-medium flex items-center space-x-1 transition cursor-pointer">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+              <span>Thêm dòng</span>
+            </button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="text-[11px] text-slate-400 border-b border-[#333333]">
+                  <th class="py-2 px-2 w-14 text-center">STT</th>
+                  <th class="py-2 px-2 w-56">Chat ID / Group ID</th>
+                  <th class="py-2 px-2">Ghi chú</th>
+                  <th class="py-2 px-2 w-14 text-center">Xoá</th>
+                </tr>
+              </thead>
+              <tbody id="tele-recipients-tbody" class="divide-y divide-[#333333]/60">
+                <!-- Rendered by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Card 3: Notification Events Checkboxes -->
+        <div class="glass-card rounded-xl p-5 space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-[#333333]">
+            <h3 class="font-bold text-sm text-white flex items-center space-x-2">
+              <span class="w-6 h-6 rounded-md bg-[#0078d4]/20 text-[#38bdf8] flex items-center justify-center text-xs font-bold">3</span>
+              <span>Chọn sự kiện gửi thông báo</span>
+            </h3>
+            <span class="text-[11px] text-slate-400">Tick vào các mục muốn nhận tin nhắn</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            <label class="flex items-start space-x-3 p-3 rounded-lg bg-[#1e1e1e] border border-[#333333] hover:border-[#3c3c3c] cursor-pointer select-none">
+              <input type="checkbox" id="tele-ev-scene_done" class="mt-0.5 w-4 h-4 accent-[#0078d4] cursor-pointer">
+              <div>
+                <div class="text-xs font-semibold text-white">Thông báo khi xong 1 phân cảnh phim</div>
+                <div class="text-[11px] text-slate-400">Gửi ngay mỗi khi 1 cảnh trong Tạo Phim AI quay xong</div>
+              </div>
+            </label>
+
+            <label class="flex items-start space-x-3 p-3 rounded-lg bg-[#1e1e1e] border border-[#333333] hover:border-[#3c3c3c] cursor-pointer select-none">
+              <input type="checkbox" id="tele-ev-movie_done" class="mt-0.5 w-4 h-4 accent-[#0078d4] cursor-pointer">
+              <div>
+                <div class="text-xs font-semibold text-white">Thông báo khi tạo xong hoàn toàn phim</div>
+                <div class="text-[11px] text-slate-400">Gửi tổng kết số cảnh hoàn thành khi chạy xong bộ phim</div>
+              </div>
+            </label>
+
+            <label class="flex items-start space-x-3 p-3 rounded-lg bg-[#1e1e1e] border border-[#333333] hover:border-[#3c3c3c] cursor-pointer select-none">
+              <input type="checkbox" id="tele-ev-breakdown_done" class="mt-0.5 w-4 h-4 accent-[#0078d4] cursor-pointer">
+              <div>
+                <div class="text-xs font-semibold text-white">Thông báo khi phân tích xong kịch bản</div>
+                <div class="text-[11px] text-slate-400">Báo số lượng nhân vật và phân cảnh đã tách xong</div>
+              </div>
+            </label>
+
+            <label class="flex items-start space-x-3 p-3 rounded-lg bg-[#1e1e1e] border border-[#333333] hover:border-[#3c3c3c] cursor-pointer select-none">
+              <input type="checkbox" id="tele-ev-characters_done" class="mt-0.5 w-4 h-4 accent-[#0078d4] cursor-pointer">
+              <div>
+                <div class="text-xs font-semibold text-white">Thông báo khi vẽ xong toàn bộ ảnh nhân vật</div>
+                <div class="text-[11px] text-slate-400">Báo khi hoàn tất 3 ảnh chuẩn cho các nhân vật</div>
+              </div>
+            </label>
+
+            <label class="flex items-start space-x-3 p-3 rounded-lg bg-[#1e1e1e] border border-[#333333] hover:border-[#3c3c3c] cursor-pointer select-none">
+              <input type="checkbox" id="tele-ev-scene_error" class="mt-0.5 w-4 h-4 accent-[#0078d4] cursor-pointer">
+              <div>
+                <div class="text-xs font-semibold text-white">Thông báo khi có phân cảnh gặp lỗi</div>
+                <div class="text-[11px] text-slate-400">Cảnh báo nếu phân cảnh lỗi và được chuyển sang thử lại</div>
+              </div>
+            </label>
+
+            <label class="flex items-start space-x-3 p-3 rounded-lg bg-[#1e1e1e] border border-[#333333] hover:border-[#3c3c3c] cursor-pointer select-none">
+              <input type="checkbox" id="tele-ev-single_video_done" class="mt-0.5 w-4 h-4 accent-[#0078d4] cursor-pointer">
+              <div>
+                <div class="text-xs font-semibold text-white">Thông báo khi tạo xong Video đơn lẻ</div>
+                <div class="text-[11px] text-slate-400">Gửi thông báo khi tab Tạo Video AI hoàn thành 1 clip</div>
+              </div>
+            </label>
+
+            <label class="flex items-start space-x-3 p-3 rounded-lg bg-[#1e1e1e] border border-[#333333] hover:border-[#3c3c3c] cursor-pointer select-none">
+              <input type="checkbox" id="tele-ev-image_done" class="mt-0.5 w-4 h-4 accent-[#0078d4] cursor-pointer">
+              <div>
+                <div class="text-xs font-semibold text-white">Thông báo khi tạo xong Ảnh nghệ thuật</div>
+                <div class="text-[11px] text-slate-400">Gửi thông báo khi tab Tạo Ảnh Nghệ Thuật vẽ xong</div>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+
     </main>
   </div>
 
@@ -1284,7 +1429,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261114_02"></script>
+  <script src="/static/app.js?v=20261114_03"></script>
   <script>
     lucide.createIcons();
   </script>

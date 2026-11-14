@@ -2355,6 +2355,153 @@ async def get_gallery():
     }
 
 
+TELEGRAM_SETTINGS_FILE = STATE_DIR / "telegram_settings.json"
+
+
+def _default_telegram_settings() -> dict:
+    return {
+        "bot_token": "",
+        "recipients": [],
+        "events": {
+            "scene_done": True,
+            "movie_done": True,
+            "breakdown_done": False,
+            "characters_done": False,
+            "scene_error": True,
+            "single_video_done": False,
+            "image_done": False,
+        },
+    }
+
+
+def _load_telegram_settings() -> dict:
+    base = _default_telegram_settings()
+    if TELEGRAM_SETTINGS_FILE.exists():
+        try:
+            saved = json.loads(TELEGRAM_SETTINGS_FILE.read_text(encoding="utf-8"))
+            if isinstance(saved, dict):
+                base["bot_token"] = str(saved.get("bot_token") or "").strip()
+                recs = saved.get("recipients")
+                if isinstance(recs, list):
+                    base["recipients"] = [
+                        {"id": str(r.get("id") or "").strip(), "note": str(r.get("note") or "").strip()}
+                        for r in recs
+                        if isinstance(r, dict) and str(r.get("id") or "").strip()
+                    ]
+                evs = saved.get("events")
+                if isinstance(evs, dict):
+                    for k in base["events"]:
+                        if k in evs:
+                            base["events"][k] = bool(evs[k])
+        except Exception as exc:
+            logger.warning(f"Failed to read telegram settings: {exc}")
+    return base
+
+
+def _save_telegram_settings(data: dict) -> dict:
+    clean = _default_telegram_settings()
+    clean["bot_token"] = str(data.get("bot_token") or "").strip()
+    recs = data.get("recipients") or []
+    clean["recipients"] = [
+        {"id": str(r.get("id") or "").strip(), "note": str(r.get("note") or "").strip()}
+        for r in recs
+        if isinstance(r, dict) and str(r.get("id") or "").strip()
+    ]
+    evs = data.get("events") or {}
+    if isinstance(evs, dict):
+        for k in clean["events"]:
+            if k in evs:
+                clean["events"][k] = bool(evs[k])
+    TELEGRAM_SETTINGS_FILE.write_text(json.dumps(clean, ensure_ascii=False, indent=2), encoding="utf-8")
+    return clean
+
+
+async def _send_telegram_message(bot_token: str, chat_id: str, text: str) -> tuple[bool, str]:
+    import httpx
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as http_client:
+            resp = await http_client.post(url, json={"chat_id": chat_id, "text": text})
+            body = resp.json()
+            if resp.status_code == 200 and body.get("ok"):
+                return True, "OK"
+            return False, body.get("description") or f"HTTP {resp.status_code}"
+    except Exception as exc:
+        return False, str(exc)
+
+
+class TelegramRecipientModel(BaseModel):
+    id: str = ""
+    note: str = ""
+
+
+class TelegramSettingsModel(BaseModel):
+    bot_token: str = ""
+    recipients: list[TelegramRecipientModel] = []
+    events: dict[str, bool] = {}
+
+
+class TelegramNotifyModel(BaseModel):
+    event_key: str
+    message: str
+
+
+@app.get("/api/telegram/settings")
+async def get_telegram_settings():
+    return {"status": "success", "settings": _load_telegram_settings()}
+
+
+@app.post("/api/telegram/settings")
+async def save_telegram_settings(data: TelegramSettingsModel):
+    saved = _save_telegram_settings(data.model_dump())
+    return {"status": "success", "settings": saved}
+
+
+@app.post("/api/telegram/test")
+async def test_telegram_notification(data: Optional[TelegramSettingsModel] = None):
+    cfg = _save_telegram_settings(data.model_dump()) if data else _load_telegram_settings()
+    bot_token = cfg.get("bot_token", "").strip()
+    recipients = cfg.get("recipients") or []
+    if not bot_token:
+        raise HTTPException(status_code=400, detail="Vui lòng nhập Bot Token Telegram trước khi gửi thử.")
+    if not recipients:
+        raise HTTPException(status_code=400, detail="Vui lòng thêm ít nhất 1 Chat ID nhận thông báo.")
+
+    test_text = "🎬 [H-AI Studio] Kết nối thông báo Telegram thành công!"
+    results = []
+    sent_count = 0
+    for r in recipients:
+        cid = r["id"]
+        ok, err = await _send_telegram_message(bot_token, cid, test_text)
+        if ok:
+            sent_count += 1
+        results.append({"id": cid, "note": r.get("note", ""), "ok": ok, "detail": err})
+
+    if sent_count == 0:
+        first_err = results[0]["detail"] if results else "Không thể gửi tin nhắn."
+        raise HTTPException(status_code=400, detail=f"Gửi thử thất bại: {first_err}")
+
+    return {"status": "success", "sent": sent_count, "total": len(recipients), "results": results}
+
+
+@app.post("/api/telegram/notify")
+async def trigger_telegram_notification(data: TelegramNotifyModel):
+    cfg = _load_telegram_settings()
+    bot_token = cfg.get("bot_token", "").strip()
+    recipients = cfg.get("recipients") or []
+    events = cfg.get("events") or {}
+
+    if not bot_token or not recipients:
+        return {"status": "skipped", "reason": "not_configured"}
+    if not events.get(data.event_key, False):
+        return {"status": "skipped", "reason": "event_disabled"}
+
+    tasks = [_send_telegram_message(bot_token, r["id"], data.message) for r in recipients]
+    outcomes = await asyncio.gather(*tasks, return_exceptions=True)
+    sent = sum(1 for o in outcomes if isinstance(o, tuple) and o[0])
+    return {"status": "success", "sent": sent, "total": len(recipients)}
+
+
 # Static mounting
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.mount("/outputs", StaticFiles(directory=str(OUTPUTS_DIR)), name="outputs")

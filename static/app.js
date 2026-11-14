@@ -41,6 +41,7 @@ const TAB_TITLES = {
   image: 'H-AI Image Studio — Sáng tạo Hình ảnh 8K',
   chat: 'Trợ lý Đạo diễn & Biên kịch H-AI',
   gallery: 'Thư viện Tác phẩm H-AI',
+  telegram: 'Thông báo Telegram Bot',
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -52,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
   toggleAutoProduceAfterPortraits(isAutoProduceEnabled());
   toggleAutoDrawCharacters(isAutoDrawCharactersEnabled(), false);
   toggleMovieNarration(isMovieNarrationEnabled());
+  loadTelegramSettings();
 
   // 3. If storyboard was restored, render it and prepare next scene view
   if (hasCachedStoryboard && state.storyboard.length > 0) {
@@ -402,6 +404,9 @@ function switchTab(tabId, syncUrl = true) {
 
   if (tabId === 'dashboard' || tabId === 'gallery') {
     loadDashboardAndGallery();
+  }
+  if (tabId === 'telegram') {
+    loadTelegramSettings();
   }
   if (tabId === 'movie') {
     renderMovieCharacters();
@@ -1283,6 +1288,7 @@ async function generateVideo() {
       document.getElementById('video-result-container').classList.remove('hidden');
       player.play().catch(() => {});
       loadDashboardAndGallery();
+      sendTelegramNotification('single_video_done', `🎬 [H-AI Studio] Đã tạo xong Video đơn lẻ (Cảnh #${currentSceneNumber}, ${state.videoDuration || 5}s).`);
 
       // Cập nhật lại Quota & Token live ngay sau khi tạo video xong
       checkAuthStatus(true).catch(e => console.warn('Cập nhật quota thất bại:', e));
@@ -1574,6 +1580,7 @@ async function generateImage() {
       document.getElementById('image-loading-state').classList.add('hidden');
       document.getElementById('image-result-container').classList.remove('hidden');
       loadDashboardAndGallery();
+      sendTelegramNotification('image_done', `🎨 [H-AI Studio] Đã vẽ xong Ảnh nghệ thuật mới.`);
 
       // Cập nhật lại Quota & Token live ngay sau khi tạo ảnh xong
       checkAuthStatus(true).catch(e => console.warn('Cập nhật quota thất bại:', e));
@@ -2029,8 +2036,23 @@ function debouncedSyncMovieProjectToServer() {
   }, 1200);
 }
 
+function isEmptyMovieDraft() {
+  const hasScript = !!(movieState.script && movieState.script.trim().length > 0);
+  const hasChars = Array.isArray(movieState.characters) && movieState.characters.length > 0;
+  const hasScenes = Array.isArray(movieState.scenes) && movieState.scenes.length > 0;
+  const hasLogline = !!(movieState.logline && movieState.logline.trim().length > 0);
+  const hasCustomTitle = !!(movieState.title && movieState.title.trim() && movieState.title.trim() !== 'Kịch bản Phim Mới');
+  return !hasScript && !hasChars && !hasScenes && !hasLogline && !hasCustomTitle;
+}
+
 function saveMovieStateCache() {
   try {
+    const alreadySavedOnServer = !!(movieState.id && movieProjectsState.list.some(p => p.id === movieState.id));
+    if (isEmptyMovieDraft() && !alreadySavedOnServer) {
+      updateMovieActiveDisplay();
+      return;
+    }
+
     const data = {
       id: movieState.id,
       title: movieState.title,
@@ -2305,6 +2327,14 @@ async function switchMovieProject(projectId, updateUrl = true) {
 }
 
 async function saveCurrentMovieProject(showToast = true) {
+  const alreadySavedOnServer = !!(movieState.id && movieProjectsState.list.some(p => p.id === movieState.id));
+  if (isEmptyMovieDraft() && !alreadySavedOnServer) {
+    if (showToast) {
+      await customAlert('Phim mới chưa có kịch bản, nhân vật hay phân cảnh nào để lưu.', 'Chưa có thay đổi');
+    }
+    return;
+  }
+
   const saveBtnText = document.getElementById('btn-save-movie-text');
   const originalText = saveBtnText ? saveBtnText.innerText : 'Lưu Phim';
   try {
@@ -2408,7 +2438,6 @@ async function createNewMovieProject() {
   const scenesTarget = document.getElementById('movie-scenes-target');
   if (scenesTarget) scenesTarget.value = 'auto';
 
-  saveMovieStateCache();
   renderMovieCharacters();
   renderMovieScenes();
   renderCharacterLegend();
@@ -2670,6 +2699,8 @@ async function analyzeAndBreakdownScript() {
     renderMovieCharacters();
     renderMovieScenes();
     renderCharacterLegend();
+
+    sendTelegramNotification('breakdown_done', `📝 [H-AI Studio] Phân tích xong kịch bản "${movieState.title}": ${characters.length} nhân vật, ${scenes.length} phân cảnh.`);
 
     const autoDrawEnabled = isAutoDrawCharactersEnabled();
     // Auto-generate 3 standard character portraits for any character missing images
@@ -3158,6 +3189,8 @@ async function autoGenerateMissingCharacterPortraits(charsList) {
         await generateAll3CharacterPortraits(char.id);
       }
     }
+
+    sendTelegramNotification('characters_done', `🖼️ [H-AI Studio] Đã vẽ xong ảnh chuẩn cho các nhân vật của phim "${movieState.title}".`);
 
     // Check if auto-produce movie is enabled
     if (isAutoProduceEnabled() && movieState.scenes.length > 0 && !movieState.isGenerating) {
@@ -3706,6 +3739,7 @@ async function _requestMovieSceneVideo(scene, idx) {
     saveMovieStateCache();
     renderMovieScenes();
     checkAuthStatus(true).catch(() => {});
+    sendTelegramNotification('scene_done', `✅ [H-AI Studio] Đã quay xong Cảnh #${scene.scene_index} (${scene.duration || 8}s) của phim "${movieState.title}".`);
     return true;
   }
   throw new Error('Không nhận được video phân cảnh.');
@@ -3809,6 +3843,7 @@ async function startAutoMovieGeneration() {
       saveMovieStateCache();
       renderMovieScenes();
       showToast(`⚠️ Cảnh #${scene.scene_index} lỗi 2 lần (${lastErrMsg}). Tạm qua cảnh khác, sẽ thử lại sau khi xong cảnh cuối.`, 'error');
+      sendTelegramNotification('scene_error', `⚠️ [H-AI Studio] Cảnh #${scene.scene_index} phim "${movieState.title}" bị lỗi 2 lần (${lastErrMsg}). Đã chuyển cảnh kế và sẽ thử lại sau cảnh cuối.`);
     }
   }
 
@@ -3865,6 +3900,7 @@ async function startAutoMovieGeneration() {
 
   const completedCount = movieState.scenes.filter(s => s.video_url).length;
   if (completedCount > 0) {
+    sendTelegramNotification('movie_done', `🎬 [H-AI Studio] Đã hoàn thành sản xuất phim "${movieState.title}": ${completedCount}/${total} phân cảnh thành công!`);
     const playNow = await customConfirm(
       `🎉 Chúc mừng! Đã hoàn thành ${completedCount}/${total} phân cảnh phim!\nBạn có muốn mở Rạp Chiếu Phim để xem liên tục toàn bộ bộ phim ngay không?`,
       'Hoàn thành bộ phim',
@@ -4139,5 +4175,257 @@ async function mergeAndDownloadMovie() {
       btn.innerHTML = originalText;
       lucide.createIcons();
     }
+  }
+}
+
+// ==========================================
+// 11. TELEGRAM BOT NOTIFICATIONS
+// ==========================================
+const telegramState = {
+  bot_token: '',
+  recipients: [],
+  events: {
+    scene_done: true,
+    movie_done: true,
+    breakdown_done: false,
+    characters_done: false,
+    scene_error: true,
+    single_video_done: false,
+    image_done: false,
+  },
+};
+
+const TELEGRAM_EVENT_KEYS = [
+  'scene_done',
+  'movie_done',
+  'breakdown_done',
+  'characters_done',
+  'scene_error',
+  'single_video_done',
+  'image_done',
+];
+
+async function loadTelegramSettings() {
+  try {
+    const res = await fetch('/api/telegram/settings');
+    if (!res.ok) return;
+    const data = await res.json();
+    const s = data.settings || {};
+    telegramState.bot_token = s.bot_token || '';
+    telegramState.recipients = Array.isArray(s.recipients) ? s.recipients.map(r => ({
+      id: r.id || '',
+      note: r.note || '',
+    })) : [];
+    telegramState.events = {
+      ...telegramState.events,
+      ...(s.events || {}),
+    };
+    renderTelegramSettingsUI();
+  } catch (err) {
+    console.warn('Không thể tải cài đặt Telegram:', err);
+  }
+}
+
+function renderTelegramSettingsUI() {
+  const tokenInput = document.getElementById('tele-bot-token');
+  if (tokenInput) {
+    tokenInput.value = telegramState.bot_token || '';
+  }
+
+  for (const key of TELEGRAM_EVENT_KEYS) {
+    const cb = document.getElementById(`tele-ev-${key}`);
+    if (cb) cb.checked = Boolean(telegramState.events[key]);
+  }
+
+  renderTelegramRecipients();
+}
+
+function renderTelegramRecipients() {
+  const tbody = document.getElementById('tele-recipients-tbody');
+  const countBadge = document.getElementById('tele-recipients-count');
+  if (!tbody) return;
+
+  if (countBadge) {
+    countBadge.textContent = `${telegramState.recipients.length} người nhận`;
+  }
+
+  if (telegramState.recipients.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" class="px-3 py-6 text-center text-xs text-ide-textMuted">
+          Chưa có Chat ID nào. Bấm <strong>+ Thêm dòng</strong> để thêm người nhận thông báo.
+        </td>
+      </tr>
+    `;
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  tbody.innerHTML = telegramState.recipients.map((rec, idx) => `
+    <tr class="hover:bg-[#2a2d2e]/40 transition-colors">
+      <td class="px-3 py-2 text-center text-xs text-ide-textMuted font-mono">${idx + 1}</td>
+      <td class="px-3 py-2">
+        <input type="text" value="${escapeHtml(rec.id || '')}"
+          oninput="updateTelegramRecipient(${idx}, 'id', this.value)"
+          placeholder="VD: 123456789 hoặc -1001234567890"
+          class="w-full bg-[#181818] border border-ide-border rounded px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-ide-accent">
+      </td>
+      <td class="px-3 py-2">
+        <input type="text" value="${escapeHtml(rec.note || '')}"
+          oninput="updateTelegramRecipient(${idx}, 'note', this.value)"
+          placeholder="VD: Sếp Hải, Nhóm Render..."
+          class="w-full bg-[#181818] border border-ide-border rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-ide-accent">
+      </td>
+      <td class="px-3 py-2 text-center">
+        <button type="button" onclick="removeTelegramRecipientRow(${idx})" title="Xóa dòng"
+          class="p-1 rounded text-ide-textMuted hover:text-red-400 hover:bg-red-500/10 transition-colors">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+        </button>
+      </td>
+    </tr>
+  `).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+function addTelegramRecipientRow() {
+  telegramState.recipients.push({ id: '', note: '' });
+  renderTelegramRecipients();
+}
+
+function removeTelegramRecipientRow(idx) {
+  telegramState.recipients.splice(idx, 1);
+  renderTelegramRecipients();
+}
+
+function updateTelegramRecipient(idx, field, value) {
+  if (!telegramState.recipients[idx]) return;
+  telegramState.recipients[idx][field] = value;
+}
+
+function toggleTelegramTokenVisibility() {
+  const input = document.getElementById('tele-bot-token');
+  const icon = document.getElementById('tele-token-eye-icon');
+  if (!input) return;
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  if (icon) {
+    icon.setAttribute('data-lucide', show ? 'eye-off' : 'eye');
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+function collectTelegramSettingsFromUI() {
+  const tokenInput = document.getElementById('tele-bot-token');
+  const bot_token = tokenInput ? tokenInput.value.trim() : telegramState.bot_token;
+
+  const events = {};
+  for (const key of TELEGRAM_EVENT_KEYS) {
+    const cb = document.getElementById(`tele-ev-${key}`);
+    events[key] = cb ? cb.checked : Boolean(telegramState.events[key]);
+  }
+
+  const recipients = telegramState.recipients
+    .map(r => ({
+      id: String(r.id || '').trim(),
+      note: String(r.note || '').trim(),
+    }))
+    .filter(r => r.id.length > 0);
+
+  telegramState.bot_token = bot_token;
+  telegramState.events = events;
+  telegramState.recipients = recipients;
+
+  return { bot_token, recipients, events };
+}
+
+async function saveTelegramSettings() {
+  const btn = document.getElementById('btn-save-telegram');
+  const originalHtml = btn ? btn.innerHTML : '';
+  try {
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Đang lưu...';
+      if (window.lucide) lucide.createIcons();
+    }
+
+    const payload = collectTelegramSettingsFromUI();
+    const res = await fetch('/api/telegram/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Không thể lưu cấu hình Telegram.');
+
+    renderTelegramRecipients();
+    await customAlert('Đã lưu cấu hình thông báo Telegram thành công!', 'Đã lưu', 'success');
+  } catch (err) {
+    await customAlert('Lỗi lưu cấu hình Telegram: ' + err.message, 'Lỗi', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+}
+
+async function testTelegramSettings() {
+  const btn = document.getElementById('btn-test-telegram');
+  const originalHtml = btn ? btn.innerHTML : '';
+  try {
+    const payload = collectTelegramSettingsFromUI();
+    if (!payload.bot_token) {
+      await customAlert('Vui lòng nhập Bot Token trước khi gửi thử.', 'Thiếu Bot Token', 'warning');
+      return;
+    }
+    if (!payload.recipients || payload.recipients.length === 0) {
+      await customAlert('Vui lòng thêm ít nhất 1 Chat ID nhận thông báo.', 'Thiếu Chat ID', 'warning');
+      return;
+    }
+
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Đang gửi...';
+      if (window.lucide) lucide.createIcons();
+    }
+
+    const res = await fetch('/api/telegram/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Gửi thử thất bại.');
+
+    const failed = (data.results || []).filter(r => !r.ok);
+    if (failed.length === 0) {
+      await customAlert(`Đã gửi tin nhắn thử thành công tới ${data.sent}/${data.total} người nhận!`, 'Gửi thử thành công', 'success');
+    } else {
+      const errLines = failed.map(f => `- ${f.id}: ${f.error || 'Lỗi không xác định'}`).join('\n');
+      await customAlert(`Đã gửi ${data.sent}/${data.total} người nhận.\nCác ID lỗi:\n${errLines}`, 'Gửi thử hoàn tất (có lỗi)', 'warning');
+    }
+  } catch (err) {
+    await customAlert('Lỗi gửi thử Telegram: ' + err.message, 'Lỗi', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+}
+
+async function sendTelegramNotification(eventKey, message) {
+  try {
+    if (!telegramState.events || telegramState.events[eventKey] === false) return;
+    await fetch('/api/telegram/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_key: eventKey, message }),
+    });
+  } catch (err) {
+    console.warn('Telegram notify error:', err);
   }
 }
