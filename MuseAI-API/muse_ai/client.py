@@ -180,10 +180,33 @@ class MuseClient:
         first_found_at: float | None = None
         latest_history = None
         latest_refs: list[VideoRef] = []
+        last_assistant_text = ""
+        assistant_text_since: float | None = None
+        error_markers = (
+            "lỗi",
+            "không tạo được",
+            "làm không được",
+            "không tạo ra",
+            "không có file",
+            "không thể",
+            "xin lỗi",
+            "bị chặn",
+            "dừng ở",
+            "internal error",
+            "failed",
+            "error",
+            "unable to",
+            "cannot",
+            "couldn't",
+            "sorry",
+            "blocked",
+            "policy",
+        )
 
         while time.monotonic() < deadline:
             latest_history = await self.history(session_id=session_id, limit=80)
             event_refs: list[VideoRef] = []
+            new_events: list[dict] = []
             if baseline_msg_ids is not None and isinstance(latest_history, dict):
                 chat_events = (latest_history.get("result") or {}).get("chat_events") or []
                 new_events = [
@@ -207,6 +230,30 @@ class MuseClient:
                     return latest_refs, latest_history
             else:
                 first_found_at = None
+                if not latest_refs and new_events:
+                    assistant_texts = []
+                    for ev in new_events:
+                        if ev.get("event_name") == "message.assistant":
+                            txt = (
+                                ev.get("display_text")
+                                or (ev.get("payload") or {}).get("content")
+                                or ""
+                            ).strip()
+                            if txt:
+                                assistant_texts.append(txt)
+                    if assistant_texts:
+                        combined = "\n".join(assistant_texts)
+                        if combined != last_assistant_text:
+                            last_assistant_text = combined
+                            assistant_text_since = time.monotonic()
+                        else:
+                            stable_for = time.monotonic() - (assistant_text_since or time.monotonic())
+                            lowered = combined.lower()
+                            has_error_marker = any(m in lowered for m in error_markers)
+                            if (has_error_marker and stable_for >= 3.0) or stable_for >= 12.0:
+                                raise RuntimeError(
+                                    f"MuseAI không tạo được video: {combined[:300]}"
+                                )
             await asyncio.sleep(poll_interval)
 
         if latest_refs:
