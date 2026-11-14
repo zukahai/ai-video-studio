@@ -4591,6 +4591,7 @@ function closeMergedMoviePlayer() {
 }
 
 let _editingCoverProjectId = null;
+let _editingCoverProject = null;
 
 async function openMovieCoverModal(projectId) {
   const targetId = projectId || movieState.id;
@@ -4613,6 +4614,7 @@ async function openMovieCoverModal(projectId) {
   if (!proj) {
     proj = (movieProjectsState.list || []).find(p => p.id === targetId) || { id: targetId, title: 'Phim' };
   }
+  _editingCoverProject = proj;
 
   const modal = document.getElementById('movie-cover-modal');
   const titleEl = document.getElementById('movie-cover-modal-title');
@@ -4670,6 +4672,7 @@ function closeMovieCoverModal() {
   const modal = document.getElementById('movie-cover-modal');
   if (modal) modal.classList.add('hidden');
   _editingCoverProjectId = null;
+  _editingCoverProject = null;
 }
 
 async function applyMovieCoverUrl(projectId, url) {
@@ -4761,14 +4764,26 @@ async function generateMovieCoverWithAI() {
       if (window.lucide) lucide.createIcons();
     }
 
+    const charImagePaths = [];
+    const projChars = (_editingCoverProject && Array.isArray(_editingCoverProject.characters))
+      ? _editingCoverProject.characters
+      : (movieState.id === _editingCoverProjectId ? (movieState.characters || []) : []);
+    for (const ch of projChars) {
+      const firstImg = (ch.images || []).find(im => im && (im.local_path || im.url));
+      if (firstImg) {
+        charImagePaths.push(firstImg.local_path || firstImg.url);
+      }
+      if (charImagePaths.length >= 6) break;
+    }
+
     const res = await fetch('/api/image/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt,
-        aspect_ratio: '16:9',
-        style_preset: movieState.stylePreset || 'Điện ảnh HD Hollywood',
-        image_paths: [],
+        aspect_ratio: (_editingCoverProject && _editingCoverProject.aspectRatio) || '16:9',
+        style_preset: (_editingCoverProject && _editingCoverProject.stylePreset) || movieState.stylePreset || 'Điện ảnh HD Hollywood',
+        image_paths: charImagePaths,
       }),
     });
     const data = await res.json();

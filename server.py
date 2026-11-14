@@ -1264,7 +1264,20 @@ async def generate_image(data: ImageGenerateModel):
 
     client = await get_or_create_client()
     try:
-        images = [Path(p) for p in data.image_paths if Path(p).exists()]
+        images = []
+        for p in data.image_paths:
+            if not p:
+                continue
+            cand = Path(p)
+            if cand.exists():
+                images.append(cand)
+            else:
+                clean_name = Path(str(p).split("?")[0]).name
+                for base_dir in (OUTPUTS_DIR, UPLOADS_DIR):
+                    alt = base_dir / clean_name
+                    if alt.exists():
+                        images.append(alt)
+                        break
 
         # Inject invisible professional image prompt
         prompt_full = build_hidden_image_prompt(
@@ -1314,7 +1327,20 @@ async def chat_interaction(data: ChatModel):
 
     client = await get_or_create_client()
     try:
-        images = [Path(p) for p in data.image_paths if Path(p).exists()]
+        images = []
+        for p in data.image_paths:
+            if not p:
+                continue
+            cand = Path(p)
+            if cand.exists():
+                images.append(cand)
+            else:
+                clean_name = Path(str(p).split("?")[0]).name
+                for base_dir in (OUTPUTS_DIR, UPLOADS_DIR):
+                    alt = base_dir / clean_name
+                    if alt.exists():
+                        images.append(alt)
+                        break
 
         baseline_ids: set[str] = set()
         try:
