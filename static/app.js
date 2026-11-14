@@ -454,15 +454,11 @@ function applyAuthData(data) {
   state.email = data.email || null;
   state.quota = data.quota || {};
 
-  // Calculate or extract VIP token string (e.g. "982 triệu")
+  // Calculate or extract VIP token string (e.g. "31,098 tỷ")
   const calculateVipTokens = () => {
     if (data.quota && data.quota.vip_tokens) return data.quota.vip_tokens;
     const add = (data.usage && data.usage.additional_tokens) || {};
     if (add.vip_tokens) return add.vip_tokens;
-    if (add.topup_balance !== undefined && add.topup_total && add.topup_total > 0) {
-      const millions = Math.round((add.topup_balance / add.topup_total) * 1000);
-      return millions >= 1000 ? '1 tỷ' : `${millions} triệu`;
-    }
     if (add.label || add.tokens_left) {
       const raw = (add.label || add.tokens_left).replace(/\u00a0/g, ' ').trim();
       const m = raw.match(/còn\s+([\d.,]+\s*(?:triệu|tỷ|nghìn|k|m|b)?(?:\s*token)?)/i);

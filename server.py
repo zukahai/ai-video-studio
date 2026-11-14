@@ -763,15 +763,57 @@ async def auth_status(force: bool = False):
         raw_topup_label = str(live_sub.get("topupRowValueLabel") or "Đã dùng 0% (Còn 1 tỷ token)")
         topup_capitalized = raw_topup_label.replace("(còn", "(Còn").replace(" còn ", " Còn ")
 
+        def _parse_vn_token_count(text: str) -> Optional[int]:
+            norm = text.replace("\xa0", " ").strip()
+            m = re.search(r'còn\s+([\d.,]+)\s*(tỷ|triệu|nghìn|k|m|b)?', norm, re.IGNORECASE)
+            if not m:
+                return None
+            num_raw = m.group(1).replace(" ", "")
+            # Handle Vietnamese decimal comma or dot
+            if "," in num_raw and "." not in num_raw:
+                num_val = float(num_raw.replace(",", "."))
+            elif "." in num_raw and "," in num_raw:
+                num_val = float(num_raw.replace(".", "").replace(",", "."))
+            else:
+                num_val = float(num_raw)
+            unit = (m.group(2) or "").lower()
+            mult = {
+                "tỷ": 1_000_000_000,
+                "b": 1_000_000_000,
+                "triệu": 1_000_000,
+                "m": 1_000_000,
+                "nghìn": 1_000,
+                "k": 1_000,
+            }.get(unit, 1)
+            return int(round(num_val * mult))
+
+        def _format_vn_tokens(tokens: int) -> str:
+            if tokens >= 1_000_000_000:
+                val = f"{tokens / 1_000_000_000:.3f}".rstrip("0").rstrip(".").replace(".", ",")
+                return f"{val} tỷ"
+            if tokens >= 1_000_000:
+                millions = round(tokens / 1_000_000)
+                return f"{millions:,} triệu".replace(",", ".")
+            if tokens >= 1_000:
+                return f"{round(tokens / 1_000):,} nghìn".replace(",", ".")
+            return f"{tokens:,}".replace(",", ".")
+
         topup_balance = live_sub.get("topupBalance")
         topup_total = live_sub.get("topupTotal")
-        if topup_balance is not None and topup_total and topup_total > 0:
-            millions = round((topup_balance / topup_total) * 1000)
-            vip_tokens_str = "1 tỷ" if millions >= 1000 else f"{millions:,} triệu".replace(",", ".")
-        else:
-            norm_label = raw_topup_label.replace('\xa0', ' ')
-            m = re.search(r'còn\s+([\d.,]+\s*(?:triệu|tỷ|nghìn|k|m|b)?(?:\s*token)?)', norm_label, re.IGNORECASE)
-            vip_tokens_str = m.group(1).replace('token', '').strip() if m else "982 triệu"
+        parsed_topup_tokens = _parse_vn_token_count(raw_topup_label)
+        if parsed_topup_tokens is None:
+            if topup_balance is not None and topup_total and topup_total > 0:
+                parsed_topup_tokens = int(round((topup_balance / topup_total) * 1_000_000_000))
+            else:
+                parsed_topup_tokens = 982_000_000
+
+        # Weekly free quota is 100,000,000 tokens; add remaining weekly quota to total displayed tokens
+        weekly_quota_total = 100_000_000
+        weekly_remaining_tokens = max(0, int(round(weekly_quota_total * (100 - float(pct or 0)) / 100.0)))
+        combined_tokens = parsed_topup_tokens + weekly_remaining_tokens
+        vip_tokens_str = _format_vn_tokens(combined_tokens)
+        topup_only_str = _format_vn_tokens(parsed_topup_tokens)
+        weekly_remaining_str = _format_vn_tokens(weekly_remaining_tokens)
 
         usage_data = {
             "tier_name": tier_name,
@@ -781,14 +823,20 @@ async def auth_status(force: bool = False):
                 "label": live_sub.get("usageRowValueLabel") or f"Đã dùng {pct}%",
                 "subtitle": live_sub.get("statusSubtitle") or f"Giới hạn hàng tuần sẽ đặt lại vào {reset_date_str}",
                 "resets_at": free_usage.get("resetsAt"),
+                "weekly_quota_total": weekly_quota_total,
+                "weekly_remaining_tokens": weekly_remaining_tokens,
+                "weekly_remaining_label": weekly_remaining_str,
             },
             "additional_tokens": {
                 "name": "Token VIP",
                 "vip_tokens": vip_tokens_str,
+                "topup_tokens": parsed_topup_tokens,
+                "topup_only_label": topup_only_str,
+                "total_tokens": combined_tokens,
                 "used_percent": 0,
                 "label": f"Token VIP: {vip_tokens_str}",
                 "tokens_left": vip_tokens_str,
-                "subtitle": "Không bao giờ hết hạn",
+                "subtitle": f"Không bao giờ hết hạn (Bổ sung: {topup_only_str} + Tuần: {weekly_remaining_str})",
                 "topup_balance": topup_balance or 0,
                 "topup_total": topup_total or 0,
             },
