@@ -3343,6 +3343,13 @@ function renderMovieScenes() {
   if (durText) durText.innerText = `${totalDuration}s`;
   if (renderedText) renderedText.innerText = `${renderedCount}/${totalScenes} cảnh`;
   syncMovieStartSceneSelect();
+  if (typeof renderMovieScenesManagerList === 'function') {
+    const mgrModal = document.getElementById('movie-scenes-manager-modal');
+    const activeIsMgrTextarea = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.managerSceneIdx !== undefined;
+    if (mgrModal && !mgrModal.classList.contains('hidden') && !activeIsMgrTextarea) {
+      renderMovieScenesManagerList();
+    }
+  }
   updateMoviePageTitle();
   renderMovieProgressScenesStrip();
 
@@ -5114,6 +5121,148 @@ async function regenerateQuickSceneWithConfirm() {
   sc.prompt = promptEl.value.trim();
   saveMovieStateCache();
   closeQuickSceneInspector();
+  await generateSingleMovieScene(idx);
+}
+
+let _movieScenesManagerFilter = 'all';
+
+function openMovieScenesManager() {
+  const modal = document.getElementById('movie-scenes-manager-modal');
+  if (!modal) return;
+  _movieScenesManagerFilter = 'all';
+  setMovieScenesManagerFilter('all');
+  modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeMovieScenesManager() {
+  const modal = document.getElementById('movie-scenes-manager-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function setMovieScenesManagerFilter(filter) {
+  _movieScenesManagerFilter = filter || 'all';
+  document.querySelectorAll('.mgr-filter-btn').forEach(btn => {
+    const active = btn.dataset.mgrFilter === _movieScenesManagerFilter;
+    btn.className = active
+      ? 'mgr-filter-btn px-2.5 py-1 rounded-md text-[11px] font-medium bg-[#0078d4] text-white transition cursor-pointer'
+      : 'mgr-filter-btn px-2.5 py-1 rounded-md text-[11px] font-medium bg-[#2d2d2d] text-slate-300 hover:text-white transition cursor-pointer';
+  });
+  renderMovieScenesManagerList();
+}
+
+function renderMovieScenesManagerList() {
+  const listEl = document.getElementById('movie-scenes-manager-list');
+  const summaryEl = document.getElementById('movie-scenes-manager-summary');
+  if (!listEl) return;
+
+  const scenes = movieState.scenes || [];
+  const doneCount = scenes.filter(s => Boolean(s.video_url)).length;
+  const errCount = scenes.filter(s => s.status === 'error').length;
+  if (summaryEl) {
+    summaryEl.innerText = `${scenes.length} phân cảnh • ${doneCount} đã quay xong${errCount ? ` • ${errCount} lỗi` : ''}`;
+  }
+
+  const filtered = scenes
+    .map((sc, idx) => ({ sc, idx }))
+    .filter(({ sc }) => {
+      if (_movieScenesManagerFilter === 'done') return Boolean(sc.video_url);
+      if (_movieScenesManagerFilter === 'pending') return !sc.video_url && sc.status !== 'error';
+      if (_movieScenesManagerFilter === 'error') return sc.status === 'error';
+      return true;
+    });
+
+  if (filtered.length === 0) {
+    listEl.innerHTML = `<div class="py-12 text-center text-xs text-slate-400">Không có phân cảnh nào phù hợp bộ lọc hiện tại.</div>`;
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(({ sc, idx }) => {
+    const num = sc.scene_index || (idx + 1);
+    const hasVideo = Boolean(sc.video_url);
+    const isGen = sc.status === 'generating';
+    const isErr = sc.status === 'error';
+
+    let statusBadge = `<span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-medium">Chưa quay</span>`;
+    if (hasVideo) {
+      statusBadge = `<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold">Đã quay</span>`;
+    } else if (isGen) {
+      statusBadge = `<span class="px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[10px] font-semibold animate-pulse">Đang quay...</span>`;
+    } else if (isErr) {
+      statusBadge = `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-semibold">Lỗi</span>`;
+    }
+
+    const thumb = hasVideo
+      ? `<video src="${escapeHtml(sc.video_url)}#t=0.1" muted preload="metadata" class="w-28 h-20 object-cover rounded-lg bg-black border border-[#3c3c3c] shrink-0"></video>`
+      : `<div class="w-28 h-20 rounded-lg bg-[#181818] border border-[#3c3c3c] flex items-center justify-center text-xs font-bold text-slate-500 shrink-0">#${num}</div>`;
+
+    const summaryText = sc.situation || sc.dialogue || 'Chưa có mô tả tình huống';
+    const promptVal = sc.prompt || sc.situation || '';
+
+    return `
+      <div class="rounded-xl bg-[#1e1e1e] border border-[#333333] hover:border-[#454545] p-3 flex flex-col sm:flex-row gap-3 items-start">
+        <button type="button" onclick="openQuickSceneInspector(${idx})" title="Mở trình xem chi tiết Cảnh #${num}" class="cursor-pointer shrink-0">
+          ${thumb}
+        </button>
+        <div class="flex-1 min-w-0 w-full space-y-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center space-x-2 min-w-0">
+              <span class="text-xs font-bold text-white">Cảnh #${num}</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-[#2d2d2d] text-slate-300 font-mono">${sc.duration || 8}s</span>
+              ${statusBadge}
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <button type="button" onclick="openQuickSceneInspector(${idx})" class="px-2 py-1 rounded-md bg-[#2d2d2d] hover:bg-[#37373d] text-slate-200 text-[11px] font-medium flex items-center space-x-1 transition cursor-pointer">
+                <i data-lucide="${hasVideo ? 'play' : 'eye'}" class="w-3 h-3 text-[#38bdf8]"></i>
+                <span>${hasVideo ? 'Phát' : 'Xem'}</span>
+              </button>
+              <button type="button" onclick="saveManagerScenePrompt(${idx})" class="px-2 py-1 rounded-md bg-[#2d2d2d] hover:bg-[#37373d] text-slate-200 text-[11px] font-medium flex items-center space-x-1 transition cursor-pointer">
+                <i data-lucide="save" class="w-3 h-3 text-[#4ec9b0]"></i>
+                <span>Lưu</span>
+              </button>
+              <button type="button" onclick="regenerateManagerSceneWithConfirm(${idx})" ${isGen ? 'disabled' : ''} class="px-2.5 py-1 rounded-md bg-[#0078d4] hover:bg-[#1f8ad2] disabled:opacity-50 text-white text-[11px] font-semibold flex items-center space-x-1 transition cursor-pointer">
+                <i data-lucide="refresh-cw" class="w-3 h-3 ${isGen ? 'animate-spin' : ''}"></i>
+                <span>${isGen ? 'Đang tạo...' : 'Tạo lại'}</span>
+              </button>
+            </div>
+          </div>
+          <p class="text-[11px] text-slate-400 truncate" title="${escapeHtml(summaryText)}">${escapeHtml(summaryText)}</p>
+          <textarea data-manager-scene-idx="${idx}" id="mgr-scene-prompt-${idx}" rows="2" placeholder="Nhập prompt quay video cho phân cảnh này..." class="w-full rounded-lg bg-[#141414] border border-[#333333] focus:border-[#0078d4] px-2.5 py-1.5 text-[11px] text-slate-200 focus:outline-none resize-y">${escapeHtml(promptVal)}</textarea>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+function saveManagerScenePrompt(idx) {
+  const sc = (movieState.scenes || [])[idx];
+  const promptEl = document.getElementById(`mgr-scene-prompt-${idx}`);
+  if (!sc || !promptEl) return;
+  sc.prompt = promptEl.value.trim();
+  saveMovieStateCache();
+  renderMovieScenes();
+  showToast(`Đã lưu prompt cho Cảnh #${sc.scene_index || (idx + 1)}.`, 'success');
+}
+
+async function regenerateManagerSceneWithConfirm(idx) {
+  const sc = (movieState.scenes || [])[idx];
+  const promptEl = document.getElementById(`mgr-scene-prompt-${idx}`);
+  if (!sc || !promptEl) return;
+
+  const num = sc.scene_index || (idx + 1);
+  const ok = await customConfirm(
+    `Bạn có chắc chắn muốn cập nhật prompt và tạo lại video cho Cảnh #${num} không?`,
+    'Xác nhận tạo lại phân cảnh',
+    'Tạo lại ngay',
+    'Huỷ'
+  );
+  if (!ok) return;
+
+  sc.prompt = promptEl.value.trim();
+  saveMovieStateCache();
+  renderMovieScenesManagerList();
   await generateSingleMovieScene(idx);
 }
 

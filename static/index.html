@@ -826,6 +826,10 @@
           </div>
 
           <div class="flex flex-wrap items-center gap-2">
+            <button type="button" onclick="openMovieScenesManager()" id="btn-manage-movie-scenes" class="px-3.5 py-1.5 bg-[#2d2d2d] hover:bg-[#37373d] text-[#cccccc] hover:text-white border border-[#3c3c3c] rounded-md text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer">
+              <i data-lucide="list-video" class="w-3.5 h-3.5 text-[#c586c0]"></i>
+              <span>Quản Lý Phân Cảnh</span>
+            </button>
             <button type="button" onclick="openCinemaTheater()" id="btn-cinema-play" class="px-3.5 py-1.5 bg-[#2d2d2d] hover:bg-[#37373d] text-[#cccccc] hover:text-white border border-[#3c3c3c] rounded-md text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer">
               <i data-lucide="play" class="w-3.5 h-3.5 text-[#38bdf8]"></i>
               <span>Phát Toàn Bộ Phim</span>
@@ -1558,6 +1562,35 @@
     </div>
   </div>
 
+  <!-- MOVIE SCENES MANAGER MODAL (Quản lý tất cả phân cảnh dạng tóm tắt) -->
+  <div id="movie-scenes-manager-modal" class="fixed inset-0 z-[75] bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-[#252526] border border-[#3c3c3c] rounded-2xl max-w-4xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
+      <div class="px-5 py-4 bg-[#1e1e1e] border-b border-[#333333] flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div class="flex items-center space-x-3">
+          <div class="w-9 h-9 rounded-xl bg-[#2d2d2d] border border-[#3c3c3c] flex items-center justify-center text-[#c586c0]">
+            <i data-lucide="list-video" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Quản Lý Phân Cảnh</h3>
+            <p id="movie-scenes-manager-summary" class="text-[11px] text-slate-400">0 phân cảnh</p>
+          </div>
+        </div>
+        <div class="flex items-center space-x-1.5">
+          <button type="button" onclick="setMovieScenesManagerFilter('all')" data-mgr-filter="all" class="mgr-filter-btn px-2.5 py-1 rounded-md text-[11px] font-medium bg-[#0078d4] text-white transition cursor-pointer">Tất cả</button>
+          <button type="button" onclick="setMovieScenesManagerFilter('done')" data-mgr-filter="done" class="mgr-filter-btn px-2.5 py-1 rounded-md text-[11px] font-medium bg-[#2d2d2d] text-slate-300 hover:text-white transition cursor-pointer">Đã quay</button>
+          <button type="button" onclick="setMovieScenesManagerFilter('pending')" data-mgr-filter="pending" class="mgr-filter-btn px-2.5 py-1 rounded-md text-[11px] font-medium bg-[#2d2d2d] text-slate-300 hover:text-white transition cursor-pointer">Chưa quay</button>
+          <button type="button" onclick="setMovieScenesManagerFilter('error')" data-mgr-filter="error" class="mgr-filter-btn px-2.5 py-1 rounded-md text-[11px] font-medium bg-[#2d2d2d] text-slate-300 hover:text-white transition cursor-pointer">Lỗi</button>
+          <button type="button" onclick="closeMovieScenesManager()" class="p-1.5 ml-2 rounded-lg bg-[#2d2d2d] hover:bg-[#37373d] text-slate-400 hover:text-white transition cursor-pointer">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+      <div id="movie-scenes-manager-list" class="p-4 overflow-y-auto space-y-2.5 flex-1 scrollbar-thin">
+        <!-- Populated dynamically -->
+      </div>
+    </div>
+  </div>
+
   <!-- QUICK SCENE INSPECTOR MODAL (Phát, sửa prompt & tạo lại có confirm) -->
   <div id="movie-scene-quick-modal" class="fixed inset-0 z-[88] bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div class="bg-[#252526] border border-[#3c3c3c] rounded-xl max-w-2xl w-full p-5 shadow-2xl space-y-4">
@@ -1647,7 +1680,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261114_16"></script>
+  <script src="/static/app.js?v=20261114_17"></script>
   <script>
     lucide.createIcons();
   </script>
