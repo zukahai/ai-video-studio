@@ -2474,6 +2474,13 @@ async def get_telegram_bot_info(data: Optional[TelegramBotInfoRequest] = None):
 
     result = body.get("result") or {}
     username = result.get("username") or ""
+
+    # Persist valid token immediately so the /start poller can respond right away
+    current_cfg = _load_telegram_settings()
+    if current_cfg.get("bot_token") != token:
+        current_cfg["bot_token"] = token
+        _save_telegram_settings(current_cfg)
+
     return {
         "status": "success",
         "bot": {
@@ -2539,6 +2546,86 @@ async def trigger_telegram_notification(data: TelegramNotifyModel):
     outcomes = await asyncio.gather(*tasks, return_exceptions=True)
     sent = sum(1 for o in outcomes if isinstance(o, tuple) and o[0])
     return {"status": "success", "sent": sent, "total": len(recipients)}
+
+
+_telegram_poller_task: Optional[asyncio.Task] = None
+
+
+async def _telegram_start_poller():
+    """Long-poll Telegram getUpdates so /start replies with a connected confirmation and Chat ID."""
+    last_token = ""
+    offset = 0
+    while True:
+        try:
+            cfg = _load_telegram_settings()
+            token = (cfg.get("bot_token") or "").strip()
+            if not token:
+                last_token = ""
+                offset = 0
+                await asyncio.sleep(3)
+                continue
+
+            if token != last_token:
+                last_token = token
+                offset = 0
+
+            url = f"https://api.telegram.org/bot{token}/getUpdates"
+            params = {
+                "offset": offset,
+                "timeout": 10,
+                "allowed_updates": json.dumps(["message"]),
+            }
+            async with httpx.AsyncClient(timeout=18.0) as client:
+                resp = await client.get(url, params=params)
+                if resp.status_code != 200:
+                    await asyncio.sleep(5)
+                    continue
+                data = resp.json()
+
+            if not data.get("ok"):
+                await asyncio.sleep(5)
+                continue
+
+            for upd in data.get("result") or []:
+                uid = upd.get("update_id")
+                if isinstance(uid, int) and uid >= offset:
+                    offset = uid + 1
+                msg = upd.get("message") or {}
+                text = (msg.get("text") or "").strip()
+                if text.startswith("/start"):
+                    chat = msg.get("chat") or {}
+                    chat_id = chat.get("id")
+                    if chat_id is not None:
+                        reply = (
+                            "✅ Đã kết nối với H-AI Studio!\n"
+                            f"🆔 Chat ID của bạn là: {chat_id}\n"
+                            "Hãy copy ID này dán vào mục Danh sách ID cần thông báo trên web."
+                        )
+                        await _send_telegram_message(token, str(chat_id), reply)
+        except asyncio.CancelledError:
+            break
+        except Exception as exc:
+            logger.debug(f"Telegram poller warning: {exc}")
+            await asyncio.sleep(4)
+
+
+@app.on_event("startup")
+async def start_background_tasks():
+    global _telegram_poller_task
+    if _telegram_poller_task is None or _telegram_poller_task.done():
+        _telegram_poller_task = asyncio.create_task(_telegram_start_poller())
+
+
+@app.on_event("shutdown")
+async def stop_background_tasks():
+    global _telegram_poller_task
+    if _telegram_poller_task and not _telegram_poller_task.done():
+        _telegram_poller_task.cancel()
+        try:
+            await _telegram_poller_task
+        except asyncio.CancelledError:
+            pass
+        _telegram_poller_task = None
 
 
 # Static mounting
