@@ -4770,10 +4770,28 @@ function renderCharacterLibrary() {
 
   grid.innerHTML = list.map(item => {
     const imgs = Array.isArray(item.images) ? item.images : [];
+    const heroImg = imgs[0]?.url || '';
+    const heroHtml = heroImg
+      ? `<div class="relative group w-full h-64 rounded-xl overflow-hidden border border-[#3c3c3c] bg-[#181818] cursor-pointer" onclick="openImagePreviewModal('${escapeHtml(heroImg)}', '${escapeHtml(item.display_name || item.name)}')">
+           <img src="${escapeHtml(heroImg)}" class="w-full h-full object-cover object-top group-hover:scale-105 transition duration-300">
+           <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-3 flex items-end justify-between">
+             <div class="min-w-0">
+               <div class="text-sm font-bold text-white truncate">${escapeHtml(item.display_name || item.name || 'Nhân vật')}</div>
+               <div class="text-[11px] text-slate-300 truncate">${escapeHtml(item.movie_title || 'Kho nhân vật')}</div>
+             </div>
+             <span class="px-2 py-0.5 rounded-full bg-black/60 border border-white/15 text-[10px] text-slate-200 shrink-0">${imgs.length} ảnh</span>
+           </div>
+         </div>`
+      : `<div class="w-full h-64 rounded-xl border border-dashed border-[#3c3c3c] bg-[#181818] flex flex-col items-center justify-center space-y-2 text-slate-500">
+           <div class="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white/90" style="background:${escapeHtml(item.color || '#0078d4')}">${escapeHtml((item.name || '?')[0].toUpperCase())}</div>
+           <div class="text-xs font-medium text-slate-400">Chưa có ảnh đại diện</div>
+           <button type="button" onclick="generateAll3LibraryCharPortraits('${item.id}')" class="px-3 py-1.5 rounded-md bg-[#0078d4] hover:bg-[#1f8ad2] text-white text-[11px] font-semibold cursor-pointer">AI Tạo 3 Ảnh Ngay</button>
+         </div>`;
+
     const thumbsHtml = imgs.length > 0
       ? `<div class="flex flex-wrap gap-2">
           ${imgs.map((img, idx) => `
-            <div class="relative group w-16 h-16 rounded-lg overflow-hidden border border-[#3c3c3c] bg-[#181818]">
+            <div class="relative group w-16 h-16 rounded-lg overflow-hidden border ${idx === 0 ? 'border-[#0078d4]' : 'border-[#3c3c3c]'} bg-[#181818]">
               <img src="${escapeHtml(img.url)}" class="w-full h-full object-cover cursor-pointer" onclick="openImagePreviewModal('${escapeHtml(img.url)}', '${escapeHtml(item.display_name || item.name)}')">
               <button type="button" onclick="deleteLibraryCharImage('${item.id}', ${idx})" title="Xóa ảnh" class="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/75 hover:bg-rose-600 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] transition cursor-pointer">×</button>
             </div>
@@ -4783,6 +4801,8 @@ function renderCharacterLibrary() {
 
     return `
       <div class="glass-card rounded-xl p-4 space-y-3" id="lib-char-card-${item.id}">
+        ${heroHtml}
+
         <div class="flex items-center justify-between gap-2 pb-2 border-b border-[#333333]">
           <div class="flex items-center space-x-2 flex-1 min-w-0">
             <input type="color" id="lib-color-${item.id}" value="${escapeHtml(item.color || '#06b6d4')}" class="w-6 h-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0">
