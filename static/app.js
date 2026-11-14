@@ -4741,8 +4741,10 @@ async function uploadMovieCoverFile(input) {
   }
 }
 
+let _isGeneratingMovieCover = false;
+
 async function generateMovieCoverWithAI() {
-  if (!_editingCoverProjectId) return;
+  if (!_editingCoverProjectId || _isGeneratingMovieCover) return;
   const promptEl = document.getElementById('movie-cover-ai-prompt');
   const btn = document.getElementById('btn-movie-cover-ai-gen');
   const prompt = (promptEl ? promptEl.value : '').trim();
@@ -4756,11 +4758,15 @@ async function generateMovieCoverWithAI() {
     return;
   }
 
+  _isGeneratingMovieCover = true;
   const origHtml = btn ? btn.innerHTML : '';
+  const origClass = btn ? btn.className : '';
   try {
+    if (promptEl) promptEl.disabled = true;
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Đang tạo bằng AI...</span>`;
+      btn.className = 'px-4 py-1.5 rounded-lg bg-rose-600/80 text-white/90 text-xs font-semibold flex items-center space-x-1.5 cursor-not-allowed pointer-events-none opacity-85';
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Đang tạo poster...</span>`;
       if (window.lucide) lucide.createIcons();
     }
 
@@ -4796,8 +4802,11 @@ async function generateMovieCoverWithAI() {
   } catch (err) {
     await customAlert('Lỗi tạo ảnh AI: ' + err.message, 'Lỗi tạo ảnh', 'error');
   } finally {
+    _isGeneratingMovieCover = false;
+    if (promptEl) promptEl.disabled = false;
     if (btn) {
       btn.disabled = false;
+      btn.className = origClass;
       btn.innerHTML = origHtml;
       if (window.lucide) lucide.createIcons();
     }
