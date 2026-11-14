@@ -5916,45 +5916,80 @@ async function generateAll3LibraryCharPortraits(libId) {
 
 async function openCharLibraryPickerModal(movieCharId) {
   characterLibraryState.pickerTargetCharId = movieCharId;
+  characterLibraryState.selectedPickerLibId = null;
   await loadCharacterLibrary();
 
   const modal = document.getElementById('char-library-picker-modal');
-  const selectEl = document.getElementById('char-picker-select2');
-  if (!modal || !selectEl) return;
+  const searchEl = document.getElementById('char-picker-search');
+  if (!modal) return;
 
+  if (searchEl) searchEl.value = '';
   modal.classList.remove('hidden');
 
-  if (window.jQuery && jQuery.fn.select2) {
-    const $sel = jQuery(selectEl);
-    if ($sel.hasClass('select2-hidden-accessible')) {
-      $sel.select2('destroy');
-    }
-    $sel.empty();
-    $sel.append(new Option('-- Chọn nhân vật đã tạo --', '', true, true));
-    for (const item of characterLibraryState.items) {
-      const label = item.display_name || item.name || 'Nhân vật';
-      $sel.append(new Option(label, item.id, false, false));
-    }
-    $sel.select2({
-      width: '100%',
-      dropdownParent: jQuery('#char-library-picker-modal'),
-      placeholder: 'Gõ tên nhân vật hoặc tên phim để tìm...',
-      templateResult: formatSelect2CharacterOption,
-      templateSelection: formatSelect2CharacterOption,
-    });
-    $sel.off('change.picker').on('change.picker', function () {
-      renderCharPickerPreview(jQuery(this).val() || '');
-    });
-  }
-
+  renderCharPickerList('');
   renderCharPickerPreview('');
   if (window.lucide) lucide.createIcons();
+}
+
+function renderCharPickerList(query = '') {
+  const listEl = document.getElementById('char-picker-list');
+  if (!listEl) return;
+
+  const q = String(query || '').trim().toLowerCase();
+  const targetChar = (movieState.characters || []).find(c => c.id === characterLibraryState.pickerTargetCharId);
+  const targetName = String(targetChar?.name || '').trim().toLowerCase();
+
+  const withImages = (characterLibraryState.items || []).filter(item => Array.isArray(item.images) && item.images.length > 0);
+  const filtered = withImages.filter(item => {
+    if (!q) return true;
+    const hay = `${item.display_name || ''} ${item.name || ''} ${item.movie_title || ''}`.toLowerCase();
+    return hay.includes(q);
+  });
+
+  // Prioritize characters whose name matches the target character
+  filtered.sort((a, b) => {
+    const aMatch = targetName && String(a.name || '').toLowerCase().includes(targetName) ? 1 : 0;
+    const bMatch = targetName && String(b.name || '').toLowerCase().includes(targetName) ? 1 : 0;
+    return bMatch - aMatch;
+  });
+
+  if (filtered.length === 0) {
+    listEl.innerHTML = `<div class="py-6 text-center text-xs text-slate-400">Không tìm thấy nhân vật cũ nào có ảnh phù hợp.</div>`;
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(item => {
+    const imgs = item.images || [];
+    const thumb = imgs[0]?.url || '';
+    const selected = characterLibraryState.selectedPickerLibId === item.id;
+    const rowClass = selected
+      ? 'border-[#0078d4] bg-[#0078d4]/15'
+      : 'border-[#333333] bg-[#1e1e1e] hover:border-[#4c4c4c] hover:bg-[#2a2d2e]';
+    return `
+      <button type="button" onclick="selectCharPickerItem('${escapeHtml(item.id)}')" class="w-full flex items-center space-x-3 p-2 rounded-lg border text-left transition cursor-pointer ${rowClass}">
+        <img src="${escapeHtml(thumb)}" loading="lazy" class="w-10 h-10 rounded-lg object-cover bg-black shrink-0 border border-white/10">
+        <div class="min-w-0 flex-1">
+          <div class="text-xs font-semibold text-white truncate">${escapeHtml(item.display_name || item.name || 'Nhân vật')}</div>
+          <div class="text-[11px] text-slate-400">${imgs.length} ảnh tham chiếu${item.voice_prompt ? ' • Có giọng nói' : ''}</div>
+        </div>
+        ${selected ? '<span class="text-[10px] px-2 py-0.5 rounded bg-[#0078d4] text-white font-semibold shrink-0">Đã chọn</span>' : ''}
+      </button>
+    `;
+  }).join('');
+}
+
+function selectCharPickerItem(libId) {
+  characterLibraryState.selectedPickerLibId = libId;
+  const searchEl = document.getElementById('char-picker-search');
+  renderCharPickerList(searchEl ? searchEl.value : '');
+  renderCharPickerPreview(libId);
 }
 
 function closeCharLibraryPickerModal() {
   const modal = document.getElementById('char-library-picker-modal');
   if (modal) modal.classList.add('hidden');
   characterLibraryState.pickerTargetCharId = null;
+  characterLibraryState.selectedPickerLibId = null;
 }
 
 function renderCharPickerPreview(libId) {
@@ -5986,8 +6021,7 @@ function renderCharPickerPreview(libId) {
 
 async function applySelectedLibraryCharacterImages() {
   const targetId = characterLibraryState.pickerTargetCharId;
-  const selectEl = document.getElementById('char-picker-select2');
-  const libId = selectEl ? (window.jQuery ? jQuery(selectEl).val() : selectEl.value) : '';
+  const libId = characterLibraryState.selectedPickerLibId || '';
   const syncMeta = document.getElementById('char-picker-sync-meta')?.checked;
 
   const movieChar = movieState.characters.find(c => c.id === targetId);

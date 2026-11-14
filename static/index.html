@@ -1596,8 +1596,14 @@
       </div>
 
       <div class="space-y-2">
-        <label class="block text-xs font-medium text-slate-300">Chọn nhân vật trong kho (tìm theo tên nhân vật hoặc tên phim):</label>
-        <select id="char-picker-select2" class="w-full"></select>
+        <label class="block text-xs font-medium text-slate-300">Chọn nhân vật đã có ảnh trong kho (tìm theo tên nhân vật hoặc tên phim):</label>
+        <div class="relative">
+          <i data-lucide="search" class="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2"></i>
+          <input type="text" id="char-picker-search" oninput="renderCharPickerList(this.value)" placeholder="Gõ tên nhân vật hoặc tên phim để tìm..." class="w-full bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none">
+        </div>
+        <div id="char-picker-list" class="max-h-56 overflow-y-auto space-y-1.5 pr-1">
+          <!-- Populated dynamically -->
+        </div>
       </div>
 
       <div id="char-picker-preview" class="rounded-lg bg-[#1e1e1e] border border-[#333333] p-3 text-xs text-slate-400">
@@ -1815,7 +1821,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261114_32"></script>
+  <script src="/static/app.js?v=20261114_33"></script>
   <script>
     lucide.createIcons();
   </script>
