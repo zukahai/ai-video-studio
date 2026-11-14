@@ -1300,6 +1300,25 @@
               </tbody>
             </table>
           </div>
+
+          <details open class="rounded-lg bg-[#1e1e1e] border border-[#333333] p-3 text-xs text-slate-300">
+            <summary class="cursor-pointer select-none font-semibold text-[#38bdf8] flex items-center space-x-1.5 list-none">
+              <i data-lucide="help-circle" class="w-3.5 h-3.5 shrink-0"></i>
+              <span>Hướng dẫn lấy Chat ID / Group ID Telegram</span>
+            </summary>
+            <div class="mt-2.5 pt-2.5 border-t border-[#333333]/80 grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] leading-relaxed text-slate-300">
+              <div class="space-y-1">
+                <div class="font-semibold text-white">1. Lấy ID cá nhân (Chat riêng với Bot):</div>
+                <p>• Mở Telegram, tìm <code class="px-1 py-0.5 rounded bg-[#2d2d2d] text-[#38bdf8]">@userinfobot</code> hoặc <code class="px-1 py-0.5 rounded bg-[#2d2d2d] text-[#38bdf8]">@RawDataBot</code> rồi bấm <strong>Start</strong> để xem dòng <code class="px-1 py-0.5 rounded bg-[#2d2d2d]">Id</code> (VD: <code class="text-emerald-400">123456789</code>).</p>
+                <p class="text-amber-300/90">• <strong>Quan trọng:</strong> Mở chính Bot của bạn (tạo ở mục 1) và bấm <strong>Start</strong> (<code class="px-1 py-0.5 rounded bg-[#2d2d2d]">/start</code>) ít nhất 1 lần thì Bot mới gửi được tin nhắn cho bạn.</p>
+              </div>
+              <div class="space-y-1">
+                <div class="font-semibold text-white">2. Lấy ID Nhóm (Group) / Kênh (Channel):</div>
+                <p>• Thêm Bot của bạn vào nhóm (nếu là Channel, cấp quyền Admin đăng bài cho Bot) và nhắn 1 tin bất kỳ vào nhóm.</p>
+                <p>• Cách nhanh: thêm <code class="px-1 py-0.5 rounded bg-[#2d2d2d] text-[#38bdf8]">@RawDataBot</code> vào nhóm để lấy trường <code class="px-1 py-0.5 rounded bg-[#2d2d2d]">"chat": {"id": ...}</code>, hoặc mở link <code class="px-1 py-0.5 rounded bg-[#2d2d2d] break-all">https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> để xem ID (ID nhóm thường bắt đầu bằng <code class="text-emerald-400">-</code> hoặc <code class="text-emerald-400">-100...</code>).</p>
+              </div>
+            </div>
+          </details>
         </div>
 
         <!-- Card 3: Notification Events Checkboxes -->
