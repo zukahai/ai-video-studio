@@ -1101,6 +1101,70 @@ async def generate_video(data: VideoGenerateModel):
         )
 
 
+_thumb_semaphore = asyncio.Semaphore(4)
+
+
+@app.get("/api/video/thumbnail")
+async def get_video_thumbnail(url: str):
+    clean_name = Path(url.split("?")[0]).name
+    if not clean_name:
+        raise HTTPException(status_code=400, detail="Thiếu tên file video.")
+
+    video_path = OUTPUTS_DIR / clean_name
+    if not video_path.exists():
+        alt_path = UPLOADS_DIR / clean_name
+        if alt_path.exists():
+            video_path = alt_path
+        else:
+            raise HTTPException(status_code=404, detail="Không tìm thấy video.")
+
+    thumbs_dir = OUTPUTS_DIR / "_thumbs"
+    thumbs_dir.mkdir(parents=True, exist_ok=True)
+    thumb_path = thumbs_dir / f"{clean_name}.jpg"
+
+    if not thumb_path.exists():
+        async with _thumb_semaphore:
+            if not thumb_path.exists():
+                import imageio_ffmpeg
+                ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+                cmd = [
+                    ffmpeg_exe,
+                    "-ss", "0.1",
+                    "-i", str(video_path),
+                    "-vframes", "1",
+                    "-vf", "scale=240:-1",
+                    "-q:v", "5",
+                    "-y",
+                    str(thumb_path),
+                ]
+                proc = await asyncio.to_thread(
+                    subprocess.run, cmd, capture_output=True, timeout=15
+                )
+                if proc.returncode != 0 or not thumb_path.exists():
+                    # Fallback at t=0
+                    cmd_zero = [
+                        ffmpeg_exe,
+                        "-i", str(video_path),
+                        "-vframes", "1",
+                        "-vf", "scale=240:-1",
+                        "-q:v", "5",
+                        "-y",
+                        str(thumb_path),
+                    ]
+                    await asyncio.to_thread(
+                        subprocess.run, cmd_zero, capture_output=True, timeout=15
+                    )
+
+    if not thumb_path.exists():
+        raise HTTPException(status_code=500, detail="Không thể trích xuất thumbnail.")
+
+    return FileResponse(
+        str(thumb_path),
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
 @app.post("/api/video/merge")
 async def merge_videos(data: MergeVideosModel):
     if not data.video_urls or len(data.video_urls) == 0:
