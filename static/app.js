@@ -5010,6 +5010,29 @@ function playCompletionChime() {
 
 let _quickSceneIndex = null;
 
+function getMovieThumbnailAspectMeta(aspectRatio) {
+  const ar = String(aspectRatio || '16:9').trim();
+  if (ar === '9:16') {
+    return {
+      stripCardClass: 'w-20',
+      stripThumbClass: 'w-full aspect-[9/16]',
+      mgrThumbClass: 'w-16 aspect-[9/16]',
+    };
+  }
+  if (ar === '1:1') {
+    return {
+      stripCardClass: 'w-24',
+      stripThumbClass: 'w-full aspect-square',
+      mgrThumbClass: 'w-20 aspect-square',
+    };
+  }
+  return {
+    stripCardClass: 'w-28',
+    stripThumbClass: 'w-full aspect-video',
+    mgrThumbClass: 'w-28 aspect-video',
+  };
+}
+
 function renderMovieProgressScenesStrip() {
   const strip = document.getElementById('movie-progress-scenes-strip');
   if (!strip) return;
@@ -5018,6 +5041,8 @@ function renderMovieProgressScenesStrip() {
     strip.innerHTML = '';
     return;
   }
+
+  const arMeta = getMovieThumbnailAspectMeta(movieState.aspectRatio);
 
   strip.innerHTML = scenes.map((sc, idx) => {
     const num = sc.scene_index || (idx + 1);
@@ -5039,12 +5064,12 @@ function renderMovieProgressScenesStrip() {
     }
 
     const previewThumb = hasVideo
-      ? `<video src="${escapeHtml(sc.video_url)}#t=0.1" muted preload="metadata" class="w-full h-14 object-cover rounded bg-black"></video>`
-      : `<div class="w-full h-14 rounded bg-[#181818] flex items-center justify-center text-[11px] font-bold text-slate-500">#${num}</div>`;
+      ? `<video src="${escapeHtml(sc.video_url)}#t=0.1" muted preload="metadata" class="${arMeta.stripThumbClass} object-cover rounded bg-black"></video>`
+      : `<div class="${arMeta.stripThumbClass} rounded bg-[#181818] flex items-center justify-center text-[11px] font-bold text-slate-500">#${num}</div>`;
 
     return `
       <button type="button" onclick="openQuickSceneInspector(${idx})" title="Bấm để xem, sửa prompt hoặc tạo lại Cảnh #${num}"
-        class="w-28 shrink-0 rounded-lg border p-1.5 text-left transition cursor-pointer space-y-1 ${borderClass}">
+        class="${arMeta.stripCardClass} shrink-0 rounded-lg border p-1.5 text-left transition cursor-pointer space-y-1 ${borderClass}">
         ${previewThumb}
         <div class="flex items-center justify-between px-0.5">
           <span class="text-[10px] font-bold text-white">#${num}</span>
@@ -5188,6 +5213,8 @@ function renderMovieScenesManagerList() {
     return;
   }
 
+  const arMeta = getMovieThumbnailAspectMeta(movieState.aspectRatio);
+
   listEl.innerHTML = filtered.map(({ sc, idx }) => {
     const num = sc.scene_index || (idx + 1);
     const hasVideo = Boolean(sc.video_url);
@@ -5204,8 +5231,8 @@ function renderMovieScenesManagerList() {
     }
 
     const thumb = hasVideo
-      ? `<video src="${escapeHtml(sc.video_url)}#t=0.1" muted preload="metadata" class="w-28 h-20 object-cover rounded-lg bg-black border border-[#3c3c3c] shrink-0"></video>`
-      : `<div class="w-28 h-20 rounded-lg bg-[#181818] border border-[#3c3c3c] flex items-center justify-center text-xs font-bold text-slate-500 shrink-0">#${num}</div>`;
+      ? `<video src="${escapeHtml(sc.video_url)}#t=0.1" muted preload="metadata" class="${arMeta.mgrThumbClass} object-cover rounded-lg bg-black border border-[#3c3c3c] shrink-0"></video>`
+      : `<div class="${arMeta.mgrThumbClass} rounded-lg bg-[#181818] border border-[#3c3c3c] flex items-center justify-center text-xs font-bold text-slate-500 shrink-0">#${num}</div>`;
 
     const summaryText = sc.situation || sc.dialogue || 'Chưa có mô tả tình huống';
     const promptVal = sc.prompt || sc.situation || '';
