@@ -1742,6 +1742,7 @@ async function loadDashboardAndGallery() {
     }
 
     renderDashboardRecent();
+    renderDashboardVideos();
     if (state.currentTab === 'gallery') {
       renderGalleryGrid();
     }
@@ -1885,6 +1886,82 @@ function setupDashboardLazyScroll() {
       }
     });
   }
+}
+
+function renderDashboardMovies() {
+  const grid = document.getElementById('dashboard-movies-grid');
+  if (!grid) return;
+
+  const movies = (movieProjectsState.list || []).slice(0, 4);
+  if (movies.length === 0) {
+    grid.innerHTML = `
+      <div class="col-span-full py-8 text-center text-slate-500 text-xs glass-card rounded-2xl">
+        Chưa có dự án phim nào. Bấm <button type="button" onclick="switchTab('movie')" class="text-sky-400 hover:underline font-semibold cursor-pointer">Tạo Phim AI</button> để bắt đầu!
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = movies.map(p => {
+    const rendered = p.rendered_count || 0;
+    const totalScenes = p.scene_count || 0;
+    const isCompleted = totalScenes > 0 && rendered === totalScenes;
+    const thumbSrc = p.thumbnail_url
+      ? (p.thumbnail_url.endsWith('.mp4')
+          ? `/api/video/thumbnail?url=${encodeURIComponent(p.thumbnail_url)}`
+          : p.thumbnail_url)
+      : '';
+    const thumbHtml = thumbSrc
+      ? `<img src="${escapeHtml(thumbSrc)}" loading="lazy" decoding="async" alt="${escapeHtml(p.title || 'Phim')}" onerror="this.style.display='none'" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">`
+      : `<div class="w-full h-full bg-[#1e1e1e] flex items-center justify-center text-[#38bdf8]/70">
+           <i data-lucide="clapperboard" class="w-8 h-8"></i>
+         </div>`;
+
+    return `
+      <div onclick="openMovieFromDashboard('${escapeHtml(p.id)}')" class="glass-card rounded-2xl overflow-hidden shadow-lg group hover:border-sky-400/40 transition cursor-pointer flex flex-col justify-between">
+        <div class="aspect-video bg-black/60 flex items-center justify-center overflow-hidden relative">
+          ${thumbHtml}
+          <span class="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded bg-black/75 border border-white/10 text-slate-200 font-semibold">${escapeHtml(p.aspect_ratio || '16:9')}</span>
+        </div>
+        <div class="p-3.5 space-y-1.5">
+          <div class="font-bold text-xs text-white truncate" title="${escapeHtml(p.title || 'Phim chưa đặt tên')}">${escapeHtml(p.title || 'Phim chưa đặt tên')}</div>
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="${isCompleted ? 'text-emerald-400' : 'text-sky-400'} font-semibold">${rendered}/${totalScenes} cảnh</span>
+            <span class="text-slate-400 group-hover:text-white transition">Mở phim →</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  if (window.lucide) lucide.createIcons();
+}
+
+function openMovieFromDashboard(projectId) {
+  switchTab('movie');
+  if (projectId) {
+    switchMovieProject(projectId);
+  }
+}
+
+function renderDashboardVideos() {
+  const grid = document.getElementById('dashboard-videos-grid');
+  if (!grid) return;
+
+  const videos = (state.galleryItems || []).filter(it => it.type === 'video').slice(0, 4);
+  if (videos.length === 0) {
+    grid.innerHTML = `
+      <div class="col-span-full py-8 text-center text-slate-500 text-xs glass-card rounded-2xl">
+        Chưa có video nào được tạo.
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = '';
+  videos.forEach(item => {
+    grid.appendChild(createMediaCard(item));
+  });
+  if (window.lucide) lucide.createIcons();
 }
 
 function renderDashboardRecent() {
@@ -2175,6 +2252,7 @@ async function loadMovieProjectsList(autoSelectId = null) {
     if (res.ok && data.status === 'success') {
       movieProjectsState.list = data.projects || [];
       renderMovieProjectsRibbon();
+      renderDashboardMovies();
       updateMovieLibraryCount();
 
       // Determine which movie to load
