@@ -2566,11 +2566,12 @@ def _default_telegram_settings() -> dict:
         "events": {
             "scene_done": True,
             "movie_done": True,
-            "breakdown_done": False,
-            "characters_done": False,
+            "breakdown_done": True,
+            "characters_done": True,
             "scene_error": True,
-            "single_video_done": False,
-            "image_done": False,
+            "single_video_done": True,
+            "image_done": True,
+            "merge_done": True,
         },
     }
 

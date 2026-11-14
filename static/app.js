@@ -4367,6 +4367,7 @@ async function mergeAndDownloadMovie(triggerBtn = null) {
     if (!res.ok) throw new Error(data.detail || 'Không thể ghép video.');
 
     triggerDownload(data.url, data.filename || `H-AI_FullMovie_${Date.now()}.mp4`);
+    sendTelegramNotification('merge_done', `🎞️ [H-AI Studio] Đã ghép xong phim "${movieState.title || 'Movie'}" (${readyScenes.length} phân cảnh) thành file MP4!`);
     await customAlert(`🎬 Ghép thành công ${readyScenes.length} phân cảnh thành 1 bộ phim hoàn chỉnh!\nTrình duyệt đang tự động tải file MP4 về máy.`, 'Ghép phim hoàn tất', 'success');
   } catch (err) {
     await customAlert('Lỗi ghép phim: ' + err.message, 'Lỗi ghép phim', 'error');
@@ -4388,11 +4389,12 @@ const telegramState = {
   events: {
     scene_done: true,
     movie_done: true,
-    breakdown_done: false,
-    characters_done: false,
+    breakdown_done: true,
+    characters_done: true,
     scene_error: true,
-    single_video_done: false,
-    image_done: false,
+    single_video_done: true,
+    image_done: true,
+    merge_done: true,
   },
 };
 
@@ -4404,7 +4406,16 @@ const TELEGRAM_EVENT_KEYS = [
   'scene_error',
   'single_video_done',
   'image_done',
+  'merge_done',
 ];
+
+function toggleAllTelegramEvents(checked) {
+  for (const key of TELEGRAM_EVENT_KEYS) {
+    telegramState.events[key] = Boolean(checked);
+    const cb = document.getElementById(`tele-ev-${key}`);
+    if (cb) cb.checked = Boolean(checked);
+  }
+}
 
 async function loadTelegramSettings() {
   try {
