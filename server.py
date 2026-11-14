@@ -320,6 +320,17 @@ def build_hidden_video_prompt(
     duration_desc = f"Thời lượng video: đúng {duration_val} giây ({duration_val} seconds duration clip, pacing & action timing calibrated for exactly {duration_val}s)."
 
     clean_user_prompt = clean_narration_prefixes_in_prompt(user_prompt.strip())
+    # Strip negative audio/narration phrases that can trigger MuseAI tool errors
+    clean_user_prompt = re.sub(
+        r'(?i)[,;.]*\s*\b(?:no\s+voiceover|no\s+narrator|no\s+off-screen\s+narration|no\s+dialogue|without\s+voiceover)\b[^.]*',
+        '',
+        clean_user_prompt,
+    ).strip(' ,;')
+    if clean_user_prompt and "--ar" not in clean_user_prompt and "clean cinematic composition" not in clean_user_prompt.lower():
+        clean_user_prompt = (
+            f"{clean_user_prompt.rstrip('.')}. "
+            f"Highly detailed character expressions, dynamic framing, warm ambient lighting, soft shadows, clean cinematic composition --ar {aspect_ratio}"
+        )
     diag_clean = (dialogue or "").strip()
     is_narr = is_narration_dialogue(diag_clean) or is_narration_dialogue(clean_user_prompt)
 
@@ -350,9 +361,9 @@ def build_hidden_video_prompt(
         else:
             clean_user_prompt = re.sub(r'(?i)off-screen\s+(?:narrator\s+)?voiceover(?:\s+narration)?[^.]*\.?', '', clean_user_prompt).strip()
             dialogue_part = (
-                "\n[QUY TẮC ÂM THANH: KHÔNG ĐỌC DẪN CHUYỆN (NO NARRATION)]:\n"
-                "- Cảnh quay này KHÔNG có giọng người dẫn chuyện hay thuyết minh ngoài khung hình. "
-                "Chỉ sử dụng âm thanh môi trường, tiếng động tự nhiên và diễn xuất hình thể chân thực (Pure visual cinematic scene with natural ambient sound effects only, NO narrator voiceover, NO off-screen narration, characters keep mouths naturally closed)."
+                "\n[QUY TẮC ÂM THANH: CẢNH DIỄN XUẤT THUẦN HÌNH ẢNH & ÂM THANH MÔI TRƯỜNG]:\n"
+                "- Sử dụng âm thanh môi trường tự nhiên, tiếng động chân thực và diễn xuất biểu cảm hình thể "
+                "(Pure visual cinematic scene with natural ambient sound effects and expressive physical acting)."
             )
     elif diag_clean:
         speaker_name, spoken_line = extract_speaker_and_spoken_text(diag_clean)
@@ -1743,7 +1754,7 @@ async def breakdown_movie(data: MovieBreakdownModel):
             "     'prompt' BẮT BUỘC PHẢI DÙNG CẤU TRÚC: Off-screen narrator voiceover: \"...\". Critical acting constraint: The narrator is off-screen. Characters on screen DO NOT SPEAK, DO NOT MOVE THEIR LIPS, zero lip-sync, mouths remain naturally closed, characters only perform silent natural acting, physical movements and facial reactions.\n"
             "     TUYỆT ĐỐI KHÔNG DÙNG từ 'spoken dialogue' hay 'lip-sync' cho cảnh dẫn chuyện để tránh nhân vật bị mấp máy môi!"
             if data.enable_narration
-            else "   - TUYỆT ĐỐI KHÔNG TẠO PHÂN CẢNH DẪN CHUYỆN / THUYẾT MINH (NO NARRATOR / NO VOICEOVER): Không dùng 'Người dẫn chuyện:', 'Dẫn chuyện:', hay 'Thuyết minh:'. Nếu là cảnh mở đầu hoặc chuyển cảnh không có nhân vật nói, hãy để 'dialogue' rỗng (\"\") và chỉ mô tả hình ảnh điện ảnh + âm thanh môi trường tự nhiên (no voiceover, no narrator)!"
+            else "   - TUYỆT ĐỐI KHÔNG TẠO PHÂN CẢNH DẪN CHUYỆN / THUYẾT MINH: Không dùng 'Người dẫn chuyện:', 'Dẫn chuyện:', hay 'Thuyết minh:'. Nếu là cảnh mở đầu hoặc chuyển cảnh không có nhân vật nói, hãy để 'dialogue' rỗng (\"\") và viết 'prompt' theo cấu trúc điện ảnh tích cực, giàu chi tiết góc máy & ánh sáng (VD: 'Cinematic 3D animation style, vibrant and rich colors, 4K resolution, medium shot. <mô tả hành động và biểu cảm chi tiết>. Highly detailed character expressions, dynamic framing, warm ambient lighting, soft shadows, clean cinematic composition') — TUYỆT ĐỐI KHÔNG ghi các cụm từ phủ định như 'no voiceover', 'no narrator' vào trong 'prompt'!"
         )
 
         director_prompt = f"""Bạn là một Đạo diễn & Biên kịch điện ảnh chuyên nghiệp (H-AI Movie Director).

@@ -3697,21 +3697,24 @@ function getPreviousMovieSceneVideoUrl(idx) {
 }
 
 function buildAlternativeScenePrompt(scene, retryIndex, lastError = '') {
-  const style = movieState.stylePreset || 'Điện ảnh HD Hollywood';
+  const style = movieState.stylePreset || 'Cinematic 3D animation style, Pixar and modern anime fusion';
+  const ratio = movieState.aspectRatio || '16:9';
   const rawSit = (scene.situation || scene.prompt || 'A calm cinematic character moment').trim();
   const sanitized = rawSit
+    .replace(/\b(no voiceover|no narrator|no off-screen narration|without voiceover)\b/gi, '')
     .replace(/\b(blood|bleeding|kill|murder|weapon|gun|sword|knife|punch|hit|fight|battle|explosion|dead|death|wound|injured|violence|violent|steal|theft|thief)\b/gi, 'dramatic moment')
     .replace(/\b(máu|giết|chém|đánh|đấm|bạo lực|súng|dao|kiếm|chết|tử vong|thương tích|nổ|ăn trộm|trộm cắp|trộm)\b/gi, 'kịch tính')
-    .replace(/\b(4K|8K|Ultra HD)\b/gi, 'HD')
+    .replace(/\b(8K|Ultra HD)\b/gi, '4K resolution')
+    .replace(/\s{2,}/g, ' ')
     .trim();
   const charList = Array.isArray(scene.characters_involved) && scene.characters_involved.length > 0
     ? scene.characters_involved.join(', ')
     : 'the main characters';
 
   if (retryIndex === 1) {
-    return `Cinematic ${style} medium shot featuring ${charList}. Safe family-friendly visual storytelling, smooth natural camera motion, warm balanced lighting: ${sanitized}. Expressive acting, clean composition.`;
+    return `${style}, vibrant and rich colors, 4K resolution, medium shot featuring ${charList}. ${sanitized}. Highly detailed character expressions, dynamic framing, warm golden hour ambient lighting, soft shadows, clean cinematic composition --ar ${ratio}`;
   }
-  return `Gentle cinematic wide-to-medium shot of ${charList} in a bright peaceful setting, soft natural lighting, smooth camera movement, calm character expressions and dialogue.`;
+  return `${style}, vibrant and rich colors, 4K resolution, medium wide shot of ${charList} in a bright peaceful setting. ${sanitized}. Expressive acting, warm ambient lighting, soft shadows, clean cinematic composition --ar ${ratio}`;
 }
 
 async function _requestMovieSceneVideo(scene, idx) {
