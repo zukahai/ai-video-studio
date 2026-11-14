@@ -505,13 +505,21 @@ async def _poll_for_image_refs(
     events: list,
     timeout: float = 90.0,
 ) -> list[dict]:
-    """Poll history and stream events for newly returned image refs (including reused file refs in new messages)."""
-    stream_images = [m for m in extract_all_media_refs(events) if m["type"] == "image"]
+    """Poll history and stream events for newly returned assistant image refs (excluding user-uploaded reference images)."""
+    assistant_stream_events = [
+        ev for ev in (events or [])
+        if not (isinstance(ev, dict) and (ev.get("role") or "").lower() == "user")
+    ]
+    stream_images = [m for m in extract_all_media_refs(assistant_stream_events) if m["type"] == "image"]
     if stream_images:
         return stream_images
 
-    baseline_media = {m["identity"] for m in extract_all_media_refs(baseline_hist)}
     baseline_events = (baseline_hist.get("result") or {}).get("chat_events") or []
+    baseline_assistant_events = [
+        ev for ev in baseline_events
+        if isinstance(ev, dict) and (ev.get("role") or "").lower() != "user"
+    ]
+    baseline_media = {m["identity"] for m in extract_all_media_refs(baseline_assistant_events)}
     baseline_msg_ids = {
         ev.get("message_id")
         for ev in baseline_events
@@ -525,16 +533,22 @@ async def _poll_for_image_refs(
     while time.monotonic() < deadline:
         hist = await client.history(session_id=target_session_id, limit=50)
         chat_events = (hist.get("result") or {}).get("chat_events") or []
-        new_events = [
+        new_assistant_events = [
             ev for ev in chat_events
-            if isinstance(ev, dict) and ev.get("message_id") not in baseline_msg_ids
+            if isinstance(ev, dict)
+            and ev.get("message_id") not in baseline_msg_ids
+            and (ev.get("role") or "").lower() == "assistant"
         ]
-        if new_events:
-            event_images = [m for m in extract_all_media_refs(new_events) if m["type"] == "image"]
+        if new_assistant_events:
+            event_images = [m for m in extract_all_media_refs(new_assistant_events) if m["type"] == "image"]
             if event_images:
                 return event_images
 
-        media_list = extract_all_media_refs(hist)
+        all_assistant_events = [
+            ev for ev in chat_events
+            if isinstance(ev, dict) and (ev.get("role") or "").lower() != "user"
+        ]
+        media_list = extract_all_media_refs(all_assistant_events)
         new_images = [
             m for m in media_list
             if m["type"] == "image" and m["identity"] not in baseline_media
@@ -1264,20 +1278,7 @@ async def generate_image(data: ImageGenerateModel):
 
     client = await get_or_create_client()
     try:
-        images = []
-        for p in data.image_paths:
-            if not p:
-                continue
-            cand = Path(p)
-            if cand.exists():
-                images.append(cand)
-            else:
-                clean_name = Path(str(p).split("?")[0]).name
-                for base_dir in (OUTPUTS_DIR, UPLOADS_DIR):
-                    alt = base_dir / clean_name
-                    if alt.exists():
-                        images.append(alt)
-                        break
+        images = [Path(p) for p in data.image_paths if Path(p).exists()]
 
         # Inject invisible professional image prompt
         prompt_full = build_hidden_image_prompt(
@@ -1327,20 +1328,7 @@ async def chat_interaction(data: ChatModel):
 
     client = await get_or_create_client()
     try:
-        images = []
-        for p in data.image_paths:
-            if not p:
-                continue
-            cand = Path(p)
-            if cand.exists():
-                images.append(cand)
-            else:
-                clean_name = Path(str(p).split("?")[0]).name
-                for base_dir in (OUTPUTS_DIR, UPLOADS_DIR):
-                    alt = base_dir / clean_name
-                    if alt.exists():
-                        images.append(alt)
-                        break
+        images = [Path(p) for p in data.image_paths if Path(p).exists()]
 
         baseline_ids: set[str] = set()
         try:
