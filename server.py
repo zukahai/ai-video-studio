@@ -2101,6 +2101,7 @@ class MovieProjectModel(BaseModel):
     scenes: Optional[list] = []
     sessionId: Optional[str] = None
     merged_video_url: Optional[str] = None
+    cover_image_url: Optional[str] = None
     createdAt: Optional[float] = None
     updatedAt: Optional[float] = None
 
@@ -2364,12 +2365,13 @@ async def list_movie_projects():
             scenes = data.get("scenes") or []
             rendered_count = sum(1 for s in scenes if s.get("video_url") or s.get("status") == "done")
 
-            thumbnail_url = None
-            for c in chars:
-                imgs = c.get("images") or []
-                if imgs and imgs[0].get("url"):
-                    thumbnail_url = imgs[0].get("url")
-                    break
+            thumbnail_url = data.get("cover_image_url") or None
+            if not thumbnail_url:
+                for c in chars:
+                    imgs = c.get("images") or []
+                    if imgs and imgs[0].get("url"):
+                        thumbnail_url = imgs[0].get("url")
+                        break
             if not thumbnail_url:
                 for s in scenes:
                     if s.get("video_url"):
@@ -2397,6 +2399,7 @@ async def list_movie_projects():
                 "scene_count": len(scenes),
                 "rendered_count": rendered_count,
                 "thumbnail_url": thumbnail_url,
+                "cover_image_url": data.get("cover_image_url") or None,
                 "merged_video_url": data.get("merged_video_url") or None,
                 "createdAt": data.get("createdAt") or file.stat().st_ctime * 1000,
                 "updatedAt": data.get("updatedAt") or file.stat().st_mtime * 1000,
@@ -2418,6 +2421,27 @@ async def get_movie_project(project_id: str):
         return {"status": "success", "project": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi đọc dự án phim: {e}")
+
+
+class MovieCoverUpdateModel(BaseModel):
+    cover_image_url: Optional[str] = None
+
+
+@app.post("/api/movie/projects/{project_id}/cover")
+async def update_movie_project_cover(project_id: str, body: MovieCoverUpdateModel):
+    file_path = MOVIES_DIR / f"{project_id}.json"
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Không tìm thấy dự án phim.")
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        data["cover_image_url"] = body.cover_image_url or None
+        data["updatedAt"] = time.time() * 1000
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return {"status": "success", "cover_image_url": data["cover_image_url"]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi cập nhật ảnh đại diện phim: {e}")
 
 
 @app.post("/api/movie/projects")

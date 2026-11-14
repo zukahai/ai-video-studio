@@ -860,6 +860,10 @@
           </div>
 
           <div class="flex flex-wrap items-center gap-2">
+            <button type="button" onclick="openMovieCoverModal(movieState.id)" id="btn-movie-cover" class="px-3.5 py-1.5 bg-[#2d2d2d] hover:bg-[#37373d] text-[#cccccc] hover:text-white border border-[#3c3c3c] rounded-md text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer">
+              <i data-lucide="image" class="w-3.5 h-3.5 text-amber-400"></i>
+              <span>Ảnh Đại Diện</span>
+            </button>
             <button type="button" onclick="openMovieScenesManager()" id="btn-manage-movie-scenes" class="px-3.5 py-1.5 bg-[#2d2d2d] hover:bg-[#37373d] text-[#cccccc] hover:text-white border border-[#3c3c3c] rounded-md text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer">
               <i data-lucide="list-video" class="w-3.5 h-3.5 text-[#c586c0]"></i>
               <span>Quản Lý Phân Cảnh</span>
@@ -1611,6 +1615,60 @@
     </div>
   </div>
 
+  <!-- MOVIE COVER IMAGE MODAL (Chọn hoặc dùng AI tạo ảnh đại diện cho phim) -->
+  <div id="movie-cover-modal" class="fixed inset-0 z-[85] bg-black/85 hidden flex items-center justify-center p-4">
+    <div class="bg-[#252526] border border-[#3c3c3c] rounded-2xl max-w-2xl w-full p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-2.5 border-b border-[#333333]">
+        <div class="flex items-center space-x-2.5 min-w-0">
+          <i data-lucide="image" class="w-4 h-4 text-amber-400 shrink-0"></i>
+          <h3 id="movie-cover-modal-title" class="text-sm font-bold text-white truncate">Ảnh Đại Diện Phim</h3>
+        </div>
+        <button type="button" onclick="closeMovieCoverModal()" class="p-1.5 rounded-lg bg-[#2d2d2d] hover:bg-[#37373d] text-slate-300 hover:text-white transition cursor-pointer">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="aspect-video w-full rounded-xl bg-[#141414] border border-[#333333] overflow-hidden flex items-center justify-center relative">
+        <img id="movie-cover-preview" src="" alt="Cover preview" class="hidden w-full h-full object-cover">
+        <div id="movie-cover-empty" class="text-center text-xs text-slate-500 space-y-1.5">
+          <i data-lucide="clapperboard" class="w-8 h-8 mx-auto text-slate-600"></i>
+          <p>Chưa chọn ảnh đại diện riêng (đang dùng ảnh tự động)</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <label class="px-3.5 py-2 rounded-lg bg-[#2d2d2d] hover:bg-[#37373d] text-white border border-[#3c3c3c] text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer">
+          <i data-lucide="upload" class="w-3.5 h-3.5 text-sky-400"></i>
+          <span>Tải ảnh từ máy</span>
+          <input type="file" id="movie-cover-file-input" accept="image/*" onchange="uploadMovieCoverFile(this)" class="hidden">
+        </label>
+        <button type="button" onclick="clearMovieCoverImage()" class="px-3 py-2 rounded-lg bg-[#2d2d2d] hover:bg-rose-950/50 text-slate-300 hover:text-rose-300 border border-[#3c3c3c] text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          <span>Dùng lại mặc định</span>
+        </button>
+      </div>
+
+      <div class="p-3.5 rounded-xl bg-[#1e1e1e] border border-[#333333] space-y-2.5">
+        <label class="text-xs font-semibold text-white flex items-center space-x-1.5">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span>Hoặc dùng AI tạo Poster / Ảnh đại diện phim</span>
+        </label>
+        <textarea id="movie-cover-ai-prompt" rows="2" placeholder="Mô tả poster phim bạn muốn AI vẽ..." class="w-full rounded-lg bg-[#141414] border border-[#333333] focus:border-[#0078d4] px-3 py-2 text-xs text-slate-200 focus:outline-none resize-y"></textarea>
+        <div class="flex justify-end">
+          <button type="button" id="btn-movie-cover-ai-gen" onclick="generateMovieCoverWithAI()" class="px-4 py-1.5 rounded-lg bg-[#0078d4] hover:bg-[#1f8ad2] text-white text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer">
+            <i data-lucide="wand-2" class="w-3.5 h-3.5"></i>
+            <span>Tạo ảnh đại diện bằng AI</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="movie-cover-char-picks-wrap" class="hidden space-y-2">
+        <div class="text-xs font-semibold text-slate-300">Chọn nhanh từ ảnh nhân vật trong phim:</div>
+        <div id="movie-cover-char-picks" class="flex flex-wrap gap-2"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- MERGED MOVIE PLAYER MODAL (Xem phim đã ghép hoàn chỉnh) -->
   <div id="merged-movie-player-modal" class="fixed inset-0 z-[90] bg-black/90 hidden flex items-center justify-center p-4">
     <div class="bg-[#1e1e1e] border border-[#3c3c3c] rounded-2xl max-w-4xl w-full overflow-hidden shadow-2xl flex flex-col">
@@ -1753,7 +1811,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261114_26"></script>
+  <script src="/static/app.js?v=20261114_27"></script>
   <script>
     lucide.createIcons();
   </script>

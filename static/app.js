@@ -1947,6 +1947,9 @@ function renderDashboardMovies() {
       <div onclick="openMovieFromDashboard('${escapeHtml(p.id)}')" class="glass-card rounded-2xl overflow-hidden shadow-lg group hover:border-sky-400/40 transition cursor-pointer flex flex-col">
         <div class="aspect-video bg-black/60 flex items-center justify-center overflow-hidden relative shrink-0">
           ${thumbHtml}
+          <button type="button" onclick="event.stopPropagation(); openMovieCoverModal('${escapeHtml(p.id)}')" title="Chọn hoặc tạo ảnh đại diện phim" class="absolute top-2 left-2 p-1.5 rounded-lg bg-black/70 hover:bg-black/90 border border-white/15 text-slate-200 hover:text-amber-300 opacity-85 group-hover:opacity-100 transition cursor-pointer">
+            <i data-lucide="image" class="w-3.5 h-3.5"></i>
+          </button>
           <span class="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded bg-black/75 border border-white/10 text-slate-200 font-semibold">${escapeHtml(p.aspectRatio || '16:9')}</span>
         </div>
         <div class="p-3.5 flex-1 flex flex-col justify-between gap-2.5">
@@ -2439,6 +2442,7 @@ async function switchMovieProject(projectId, updateUrl = true) {
     movieState.scenes = Array.isArray(p.scenes) ? p.scenes : [];
     movieState.sessionId = p.sessionId || null;
     movieState.merged_video_url = p.merged_video_url || null;
+    movieState.cover_image_url = p.cover_image_url || null;
     movieState.createdAt = p.createdAt || Date.now();
     movieState.updatedAt = p.updatedAt || Date.now();
     updateWatchMergedMovieBtn();
@@ -2512,6 +2516,7 @@ async function saveCurrentMovieProject(showToast = true) {
       scenes: movieState.scenes || [],
       sessionId: movieState.sessionId || null,
       merged_video_url: movieState.merged_video_url || null,
+      cover_image_url: movieState.cover_image_url || null,
       createdAt: movieState.createdAt || Date.now(),
       updatedAt: Date.now(),
     };
@@ -4583,6 +4588,210 @@ function closeMergedMoviePlayer() {
     video.load();
   }
   if (modal) modal.classList.add('hidden');
+}
+
+let _editingCoverProjectId = null;
+
+async function openMovieCoverModal(projectId) {
+  const targetId = projectId || movieState.id;
+  if (!targetId) {
+    await customAlert('Vui lòng lưu hoặc chọn một bộ phim trước khi đặt ảnh đại diện.', 'Chưa có dự án phim');
+    return;
+  }
+  _editingCoverProjectId = targetId;
+
+  let proj = null;
+  if (targetId === movieState.id) {
+    proj = movieState;
+  } else {
+    try {
+      const res = await fetch(`/api/movie/projects/${encodeURIComponent(targetId)}`);
+      const data = await res.json();
+      if (res.ok && data.project) proj = data.project;
+    } catch (_) {}
+  }
+  if (!proj) {
+    proj = (movieProjectsState.list || []).find(p => p.id === targetId) || { id: targetId, title: 'Phim' };
+  }
+
+  const modal = document.getElementById('movie-cover-modal');
+  const titleEl = document.getElementById('movie-cover-modal-title');
+  const previewEl = document.getElementById('movie-cover-preview');
+  const emptyEl = document.getElementById('movie-cover-empty');
+  const promptEl = document.getElementById('movie-cover-ai-prompt');
+  const picksWrap = document.getElementById('movie-cover-char-picks-wrap');
+  const picksEl = document.getElementById('movie-cover-char-picks');
+
+  if (titleEl) titleEl.innerText = `Ảnh Đại Diện: ${proj.title || 'Phim'}`;
+  const currentCover = proj.cover_image_url || '';
+  if (previewEl && emptyEl) {
+    if (currentCover) {
+      previewEl.src = currentCover;
+      previewEl.classList.remove('hidden');
+      emptyEl.classList.add('hidden');
+    } else {
+      previewEl.removeAttribute('src');
+      previewEl.classList.add('hidden');
+      emptyEl.classList.remove('hidden');
+    }
+  }
+
+  if (promptEl) {
+    const titlePart = proj.title ? `Poster phim điện ảnh "${proj.title}"` : 'Poster phim điện ảnh 3D';
+    const loglinePart = proj.logline ? `. Nội dung: ${proj.logline}` : '';
+    promptEl.value = `${titlePart}${loglinePart}. Bố cục ấn tượng, ánh sáng điện ảnh, không chữ.`;
+  }
+
+  if (picksWrap && picksEl) {
+    const charImgs = [];
+    (proj.characters || []).forEach(c => {
+      (c.images || []).forEach(im => {
+        if (im && im.url) charImgs.push({ name: c.name || 'Nhân vật', url: im.url });
+      });
+    });
+    if (charImgs.length > 0) {
+      picksWrap.classList.remove('hidden');
+      picksEl.innerHTML = charImgs.slice(0, 12).map(ci => `
+        <button type="button" onclick="applyMovieCoverUrl('${escapeHtml(targetId)}', '${escapeHtml(ci.url)}')" title="Chọn ảnh của ${escapeHtml(ci.name)}" class="w-16 h-16 rounded-lg overflow-hidden border border-[#3c3c3c] hover:border-amber-400 transition cursor-pointer bg-black shrink-0">
+          <img src="${escapeHtml(ci.url)}" loading="lazy" class="w-full h-full object-cover">
+        </button>
+      `).join('');
+    } else {
+      picksWrap.classList.add('hidden');
+      picksEl.innerHTML = '';
+    }
+  }
+
+  if (modal) modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeMovieCoverModal() {
+  const modal = document.getElementById('movie-cover-modal');
+  if (modal) modal.classList.add('hidden');
+  _editingCoverProjectId = null;
+}
+
+async function applyMovieCoverUrl(projectId, url) {
+  const targetId = projectId || _editingCoverProjectId;
+  if (!targetId) return;
+
+  try {
+    const res = await fetch(`/api/movie/projects/${encodeURIComponent(targetId)}/cover`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cover_image_url: url || null }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Không thể lưu ảnh đại diện.');
+
+    const savedUrl = data.cover_image_url || null;
+    if (targetId === movieState.id) {
+      movieState.cover_image_url = savedUrl;
+      saveMovieStateCache();
+    }
+    const listItem = (movieProjectsState.list || []).find(p => p.id === targetId);
+    if (listItem) {
+      listItem.cover_image_url = savedUrl;
+      if (savedUrl) listItem.thumbnail_url = savedUrl;
+    }
+
+    const previewEl = document.getElementById('movie-cover-preview');
+    const emptyEl = document.getElementById('movie-cover-empty');
+    if (previewEl && emptyEl) {
+      if (savedUrl) {
+        previewEl.src = savedUrl;
+        previewEl.classList.remove('hidden');
+        emptyEl.classList.add('hidden');
+      } else {
+        previewEl.removeAttribute('src');
+        previewEl.classList.add('hidden');
+        emptyEl.classList.remove('hidden');
+      }
+    }
+
+    renderDashboardMovies();
+    renderMovieProjectsRibbon();
+    if (!savedUrl) {
+      loadMovieProjectsList();
+    }
+    showToast(savedUrl ? 'Đã cập nhật ảnh đại diện phim!' : 'Đã đặt lại ảnh đại diện mặc định.', 'success');
+  } catch (err) {
+    await customAlert('Lỗi cập nhật ảnh đại diện: ' + err.message, 'Lỗi', 'error');
+  }
+}
+
+async function uploadMovieCoverFile(input) {
+  const file = input && input.files && input.files[0];
+  if (!file || !_editingCoverProjectId) return;
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch('/api/upload', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok || !data.url) throw new Error(data.detail || 'Tải ảnh thất bại.');
+    await applyMovieCoverUrl(_editingCoverProjectId, data.url);
+  } catch (err) {
+    await customAlert('Lỗi tải ảnh lên: ' + err.message, 'Lỗi tải ảnh', 'error');
+  } finally {
+    input.value = '';
+  }
+}
+
+async function generateMovieCoverWithAI() {
+  if (!_editingCoverProjectId) return;
+  const promptEl = document.getElementById('movie-cover-ai-prompt');
+  const btn = document.getElementById('btn-movie-cover-ai-gen');
+  const prompt = (promptEl ? promptEl.value : '').trim();
+  if (!prompt) {
+    await customAlert('Vui lòng nhập mô tả để AI vẽ ảnh đại diện phim.', 'Thiếu mô tả');
+    return;
+  }
+
+  if (!state.authenticated) {
+    openAuthModal();
+    return;
+  }
+
+  const origHtml = btn ? btn.innerHTML : '';
+  try {
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Đang tạo bằng AI...</span>`;
+      if (window.lucide) lucide.createIcons();
+    }
+
+    const res = await fetch('/api/image/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        aspect_ratio: '16:9',
+        style_preset: movieState.stylePreset || 'Điện ảnh HD Hollywood',
+        image_paths: [],
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Không thể tạo ảnh đại diện.');
+
+    const imgUrl = (data.images && data.images[0]) || null;
+    if (!imgUrl) throw new Error('AI không trả về ảnh nào.');
+
+    await applyMovieCoverUrl(_editingCoverProjectId, imgUrl);
+  } catch (err) {
+    await customAlert('Lỗi tạo ảnh AI: ' + err.message, 'Lỗi tạo ảnh', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origHtml;
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+}
+
+async function clearMovieCoverImage() {
+  if (!_editingCoverProjectId) return;
+  await applyMovieCoverUrl(_editingCoverProjectId, null);
 }
 
 // ==========================================
