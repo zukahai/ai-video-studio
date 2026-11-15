@@ -3956,9 +3956,8 @@ function buildAlternativeScenePrompt(scene, retryIndex, lastError = '') {
   let rawSit = (scene.prompt || scene.situation || 'A calm cinematic character moment').trim();
   // Strip previous retry wrapper if already wrapped so re-retries stay clean
   rawSit = rawSit
-    .replace(/^[^.]*?(?:4K resolution|medium (?:wide )?shot[^.]*?)\.\s*/i, '')
-    .replace(/\s*Highly detailed character expressions[\s\S]*$/i, '')
-    .replace(/\s*Expressive acting[\s\S]*$/i, '')
+    .replace(/^[^.]*?(?:4K resolution|medium (?:wide )?shot[^.]*?|fresh standalone[^.]*?)\.\s*/i, '')
+    .replace(/\s*(?:Highly detailed character expressions|Expressive natural acting|Calm expressive interaction|Smooth natural character movement|Calm natural interaction)[\s\S]*$/i, '')
     .replace(/\s*--ar\s+\S+/gi, '')
     .trim() || rawSit;
   const sanitized = rawSit
@@ -3978,14 +3977,14 @@ function buildAlternativeScenePrompt(scene, retryIndex, lastError = '') {
   return `${style}, vibrant and rich colors, 4K resolution, fresh standalone wide establishing shot of ${charList} in a bright peaceful setting. ${sanitized}. Calm natural interaction, steady camera, warm ambient lighting, soft shadows, clean cinematic composition --ar ${ratio}`;
 }
 
-async function _requestMovieSceneVideo(scene, idx, forceFreshSession = false) {
+async function _requestMovieSceneVideo(scene, idx, forceFreshSession = false, overrideDialogue = null) {
   const involvedImages = getInvolvedCharacterImages(scene).map(x => x.path);
   const prevVideoUrl = getPreviousMovieSceneVideoUrl(idx);
   const isContinuation = (idx > 0 && (movieState.sessionId !== null || prevVideoUrl !== null));
 
   const payload = {
     prompt: scene.prompt || scene.situation,
-    dialogue: scene.dialogue || '',
+    dialogue: overrideDialogue !== null ? overrideDialogue : (scene.dialogue || ''),
     image_paths: involvedImages,
     aspect_ratio: movieState.aspectRatio,
     duration: parseInt(scene.duration, 10) || 8,
@@ -4180,7 +4179,9 @@ async function startAutoMovieGeneration() {
       }
 
       try {
-        await _requestMovieSceneVideo(scene, i, attempt > 0);
+        // On retry after failure/refusal, drop problematic dialogue so Muse runs a clean visual take
+        const retryDialogue = attempt > 0 ? '' : null;
+        await _requestMovieSceneVideo(scene, i, attempt > 0, retryDialogue);
         sceneSucceeded = true;
         break;
       } catch (err) {
@@ -4240,7 +4241,7 @@ async function startAutoMovieGeneration() {
 
         try {
           await new Promise(r => setTimeout(r, 2000));
-          await _requestMovieSceneVideo(errScene, errIdx, true);
+          await _requestMovieSceneVideo(errScene, errIdx, true, '');
           showToast(`✅ Đã cứu thành công Cảnh #${errScene.scene_index}!`, 'success');
         } catch (retryErr) {
           console.error(`Cảnh #${errScene.scene_index} vẫn lỗi ở lần thử cuối:`, retryErr);
@@ -4330,9 +4331,10 @@ async function generateSingleMovieScene(idx) {
       }
 
       try {
+        const effectiveDialogue = attempt > 0 ? '' : (scene.dialogue || '');
         const payload = {
           prompt: scene.prompt || scene.situation,
-          dialogue: scene.dialogue || '',
+          dialogue: effectiveDialogue,
           image_paths: involvedImages,
           aspect_ratio: movieState.aspectRatio,
           duration: parseInt(scene.duration, 10) || 8,
