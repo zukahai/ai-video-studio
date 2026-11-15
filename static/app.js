@@ -3973,9 +3973,9 @@ function buildAlternativeScenePrompt(scene, retryIndex, lastError = '') {
     : 'the main characters';
 
   if (retryIndex === 1) {
-    return `${style}, vibrant and rich colors, 4K resolution, medium shot featuring ${charList}. ${sanitized}. Expressive natural acting, dynamic framing, warm golden hour ambient lighting, soft shadows, clean cinematic composition --ar ${ratio}`;
+    return `${style}, vibrant and rich colors, 4K resolution, fresh standalone low-angle medium shot featuring ${charList}. ${sanitized}. Smooth natural character movement, gentle camera pan, warm golden hour ambient lighting, soft shadows, clean cinematic composition --ar ${ratio}`;
   }
-  return `${style}, vibrant and rich colors, 4K resolution, medium wide shot of ${charList} in a bright peaceful setting. ${sanitized}. Calm expressive interaction, warm ambient lighting, soft shadows, clean cinematic composition --ar ${ratio}`;
+  return `${style}, vibrant and rich colors, 4K resolution, fresh standalone wide establishing shot of ${charList} in a bright peaceful setting. ${sanitized}. Calm natural interaction, steady camera, warm ambient lighting, soft shadows, clean cinematic composition --ar ${ratio}`;
 }
 
 async function _requestMovieSceneVideo(scene, idx, forceFreshSession = false) {
