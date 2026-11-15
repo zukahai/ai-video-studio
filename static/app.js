@@ -537,6 +537,17 @@ function applyAuthData(data) {
     const sTokensVipCompact = document.getElementById('sidebar-tokens-vip-compact');
     if (sTokensVipCompact) sTokensVipCompact.innerText = vipTokens;
 
+    const pandaBadge = document.getElementById('sidebar-panda-badge');
+    if (pandaBadge) {
+      const remPct = typeof add.remaining_percent === 'number'
+        ? add.remaining_percent
+        : (add.total_quota_tokens > 0 && typeof add.total_tokens === 'number'
+            ? Math.round((add.total_tokens / add.total_quota_tokens) * 1000) / 10
+            : 100);
+      pandaBadge.innerHTML = renderPandaMoodSvg(remPct);
+      pandaBadge.title = `Còn ${remPct}% token (${vipTokens})`;
+    }
+
     const sAddSub = document.getElementById('sidebar-add-sub');
     if (sAddSub) sAddSub.innerText = add.subtitle || 'Không bao giờ hết hạn';
   }
@@ -554,6 +565,78 @@ function applyAuthData(data) {
       btnText.innerText = 'Đăng nhập OTP';
     }
   }
+}
+
+function renderPandaMoodSvg(remainingPct) {
+  const pct = Math.max(0, Math.min(100, Number(remainingPct) || 0));
+  // Higher % => fresher, happier panda
+  let bgRing = '#10b981';
+  let blushOpacity = '0.75';
+  let eyesHtml = '';
+  let mouthHtml = '';
+  let extraHtml = '';
+
+  if (pct >= 75) {
+    // Super fresh & happy panda (^ ^ eyes, big smile, sparkle)
+    bgRing = '#10b981';
+    blushOpacity = '0.85';
+    eyesHtml = `
+      <path d="M9.2 14.5 Q10.8 12.6 12.4 14.5" stroke="#fff" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+      <path d="M19.6 14.5 Q21.2 12.6 22.8 14.5" stroke="#fff" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+    `;
+    mouthHtml = `<path d="M13.3 18.8 Q16 21.8 18.7 18.8" stroke="#1f2937" stroke-width="1.4" fill="#fb7185" stroke-linecap="round"/>`;
+    extraHtml = `<circle cx="26.5" cy="6" r="2" fill="#34d399"/><path d="M26.5 3.3 L26.5 8.7 M23.8 6 L29.2 6" stroke="#fff" stroke-width="0.9" stroke-linecap="round"/>`;
+  } else if (pct >= 45) {
+    // Cheerful panda (bright round eyes, gentle smile)
+    bgRing = '#38bdf8';
+    blushOpacity = '0.55';
+    eyesHtml = `
+      <circle cx="10.8" cy="14.2" r="1.2" fill="#fff"/>
+      <circle cx="21.2" cy="14.2" r="1.2" fill="#fff"/>
+    `;
+    mouthHtml = `<path d="M13.5 19 Q16 21 18.5 19" stroke="#1f2937" stroke-width="1.4" fill="none" stroke-linecap="round"/>`;
+  } else if (pct >= 20) {
+    // Slightly worried panda (flat mouth, smaller blush)
+    bgRing = '#f59e0b';
+    blushOpacity = '0.2';
+    eyesHtml = `
+      <circle cx="10.8" cy="14.6" r="1.05" fill="#fff"/>
+      <circle cx="21.2" cy="14.6" r="1.05" fill="#fff"/>
+    `;
+    mouthHtml = `<path d="M13.8 19.6 Q16 19 18.2 19.6" stroke="#1f2937" stroke-width="1.4" fill="none" stroke-linecap="round"/>`;
+  } else {
+    // Tired / low-token panda (droopy eyes, frown, sweat drop)
+    bgRing = '#ef4444';
+    blushOpacity = '0';
+    eyesHtml = `
+      <path d="M9.4 13.8 L12.2 15" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>
+      <path d="M22.6 13.8 L19.8 15" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>
+    `;
+    mouthHtml = `<path d="M13.5 20.5 Q16 18.2 18.5 20.5" stroke="#1f2937" stroke-width="1.4" fill="none" stroke-linecap="round"/>`;
+    extraHtml = `<path d="M25.5 11.5 C25.5 11.5 27.5 14 27.5 15.2 A2 2 0 1 1 23.5 15.2 C23.5 14 25.5 11.5 25.5 11.5 Z" fill="#38bdf8"/>`;
+  }
+
+  return `
+    <svg width="24" height="24" viewBox="0 0 32 32" class="shrink-0 drop-shadow" aria-label="Panda ${pct}%">
+      <circle cx="16" cy="16" r="14.5" fill="#111827" stroke="${bgRing}" stroke-width="1.6"/>
+      <!-- Ears -->
+      <circle cx="8.5" cy="8.5" r="4" fill="#1f2937"/>
+      <circle cx="23.5" cy="8.5" r="4" fill="#1f2937"/>
+      <!-- Head -->
+      <ellipse cx="16" cy="17" rx="10" ry="8.8" fill="#f8fafc"/>
+      <!-- Eye patches -->
+      <ellipse cx="11" cy="14.5" rx="3.1" ry="2.6" transform="rotate(-15 11 14.5)" fill="#1e293b"/>
+      <ellipse cx="21" cy="14.5" rx="3.1" ry="2.6" transform="rotate(15 21 14.5)" fill="#1e293b"/>
+      ${eyesHtml}
+      <!-- Cheeks -->
+      <ellipse cx="8.8" cy="18.2" rx="1.8" ry="1.1" fill="#fb7185" opacity="${blushOpacity}"/>
+      <ellipse cx="23.2" cy="18.2" rx="1.8" ry="1.1" fill="#fb7185" opacity="${blushOpacity}"/>
+      <!-- Nose & Mouth -->
+      <ellipse cx="16" cy="17.1" rx="1.6" ry="1.1" fill="#1f2937"/>
+      ${mouthHtml}
+      ${extraHtml}
+    </svg>
+  `;
 }
 
 async function checkAuthStatus(force = false) {

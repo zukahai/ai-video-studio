@@ -801,9 +801,19 @@ async def auth_status(force: bool = False):
             }.get(unit, 1)
             return int(round(num_val * mult))
 
-        def _format_vn_tokens(tokens: int) -> str:
+        def _parse_used_percent(text: str) -> Optional[float]:
+            norm = text.replace("\xa0", " ").strip()
+            m = re.search(r'đã\s*dùng\s*([\d.,]+)\s*%', norm, re.IGNORECASE)
+            if not m:
+                return None
+            try:
+                return float(m.group(1).replace(",", "."))
+            except ValueError:
+                return None
+
+        def _format_vn_tokens(tokens: int, max_decimals: int = 2) -> str:
             if tokens >= 1_000_000_000:
-                val = f"{tokens / 1_000_000_000:.3f}".rstrip("0").rstrip(".").replace(".", ",")
+                val = f"{tokens / 1_000_000_000:.{max_decimals}f}".rstrip("0").rstrip(".").replace(".", ",")
                 return f"{val} tỷ"
             if tokens >= 1_000_000:
                 millions = round(tokens / 1_000_000)
@@ -812,22 +822,42 @@ async def auth_status(force: bool = False):
                 return f"{round(tokens / 1_000):,} nghìn".replace(",", ".")
             return f"{tokens:,}".replace(",", ".")
 
+        def _format_vn_ratio(rem_tokens: int, tot_tokens: int) -> str:
+            if rem_tokens >= 1_000_000_000 and tot_tokens >= 1_000_000_000:
+                rem_num = f"{rem_tokens / 1_000_000_000:.2f}".rstrip("0").rstrip(".").replace(".", ",")
+                return f"{rem_num}/{_format_vn_tokens(tot_tokens, 2)}"
+            return f"{_format_vn_tokens(rem_tokens, 2)}/{_format_vn_tokens(tot_tokens, 2)}"
+
         topup_balance = live_sub.get("topupBalance")
         topup_total = live_sub.get("topupTotal")
         parsed_topup_tokens = _parse_vn_token_count(raw_topup_label)
+        topup_used_pct = _parse_used_percent(raw_topup_label)
         if parsed_topup_tokens is None:
             if topup_balance is not None and topup_total and topup_total > 0:
                 parsed_topup_tokens = int(round((topup_balance / topup_total) * 1_000_000_000))
             else:
                 parsed_topup_tokens = 982_000_000
 
+        if topup_used_pct is not None and 0.0 <= topup_used_pct < 100.0:
+            topup_quota_total = int(round(parsed_topup_tokens / (1.0 - topup_used_pct / 100.0)))
+        elif topup_balance and topup_total and topup_total > topup_balance > 0:
+            topup_quota_total = int(round(parsed_topup_tokens * (topup_total / topup_balance)))
+        else:
+            topup_quota_total = parsed_topup_tokens
+
         # Weekly free quota is 100,000,000 tokens; add remaining weekly quota to total displayed tokens
         weekly_quota_total = 100_000_000
         weekly_remaining_tokens = max(0, int(round(weekly_quota_total * (100 - float(pct or 0)) / 100.0)))
         combined_tokens = parsed_topup_tokens + weekly_remaining_tokens
-        vip_tokens_str = _format_vn_tokens(combined_tokens)
+        combined_total_tokens = max(combined_tokens, topup_quota_total + weekly_quota_total)
+        remaining_percent = round((combined_tokens / combined_total_tokens) * 100.0, 1) if combined_total_tokens > 0 else 100.0
+        remaining_percent = max(0.0, min(100.0, remaining_percent))
+        used_percent_total = round(100.0 - remaining_percent, 1)
+
+        vip_tokens_str = _format_vn_ratio(combined_tokens, combined_total_tokens)
         topup_only_str = _format_vn_tokens(parsed_topup_tokens)
         weekly_remaining_str = _format_vn_tokens(weekly_remaining_tokens)
+        total_quota_label = _format_vn_tokens(combined_total_tokens)
 
         usage_data = {
             "tier_name": tier_name,
@@ -847,10 +877,13 @@ async def auth_status(force: bool = False):
                 "topup_tokens": parsed_topup_tokens,
                 "topup_only_label": topup_only_str,
                 "total_tokens": combined_tokens,
-                "used_percent": 0,
+                "total_quota_tokens": combined_total_tokens,
+                "total_quota_label": total_quota_label,
+                "remaining_percent": remaining_percent,
+                "used_percent": used_percent_total,
                 "label": f"Token VIP: {vip_tokens_str}",
                 "tokens_left": vip_tokens_str,
-                "subtitle": f"Không bao giờ hết hạn (Bổ sung: {topup_only_str} + Tuần: {weekly_remaining_str})",
+                "subtitle": f"Không bao giờ hết hạn (Bổ sung: {topup_only_str} + Tuần: {weekly_remaining_str} / Tổng {total_quota_label})",
                 "topup_balance": topup_balance or 0,
                 "topup_total": topup_total or 0,
             },
