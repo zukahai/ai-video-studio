@@ -1118,8 +1118,12 @@ async def generate_video(data: VideoGenerateModel):
             is_retry=data.is_retry,
         )
 
-        # Use existing session_id if continuing a video sequence
-        target_session_id = data.session_id if (data.is_continuation and data.session_id) else None
+        # Use existing session_id if continuing a video sequence (and not retrying);
+        # otherwise generate a fresh UUID to create a brand-new clean Muse thread
+        if not data.is_retry and data.is_continuation and data.session_id:
+            target_session_id = data.session_id
+        else:
+            target_session_id = str(uuid.uuid4())
 
         logger.info(
             f"[VideoGenerate] scene={data.scene_index} cont={data.is_continuation} "
