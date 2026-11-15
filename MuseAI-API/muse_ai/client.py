@@ -186,6 +186,10 @@ class MuseClient:
             "lỗi",
             "không tạo được",
             "làm không được",
+            "không làm được",
+            "không thử lại",
+            "mình không thử",
+            "y hệt lần trước",
             "không tạo ra",
             "không có file",
             "không thể",
@@ -361,7 +365,10 @@ class MuseClient:
             except Exception:
                 pass
 
-        baseline_history = await self.history(session_id=session_id, limit=80)
+        try:
+            baseline_history = await self.history(session_id=session_id, limit=80)
+        except Exception:
+            baseline_history = {}
         baseline = {ref.identity for ref in extract_video_refs(baseline_history)}
         baseline_events = (
             (baseline_history.get("result") or {}).get("chat_events") or []
