@@ -81,6 +81,7 @@ class VideoGenerateModel(BaseModel):
     style_preset: Optional[str] = None
     character_voices: Optional[dict[str, str]] = None
     enable_narration: bool = False
+    is_retry: bool = False
     timeout: float = 600.0
 
 
@@ -313,6 +314,7 @@ def build_hidden_video_prompt(
     character_voices: Optional[dict[str, str]] = None,
     enable_narration: bool = False,
     has_last_frame: bool = False,
+    is_retry: bool = False,
 ) -> str:
     ratio_desc = RATIO_DESCRIPTIONS.get(aspect_ratio, f"tỉ lệ khung hình {aspect_ratio}")
     style_part = f" Phong cách chủ đạo: {style_preset}." if style_preset else ""
@@ -408,18 +410,29 @@ def build_hidden_video_prompt(
             f"The character in the video MUST have the exact same face, eyes, hair color and hairstyle, body proportions, clothing style, textures, and colors as shown in the attached character reference photos. Do not alter or randomize the character's appearance)."
         )
 
+    retry_prefix = ""
+    if is_retry:
+        retry_prefix = (
+            "[YÊU CẦU TẠO CLIP MỚI ĐỘC LẬP - BẮT BUỘC GỌI TOOL TẠO VIDEO]: "
+            "Đây là một yêu cầu tạo video mới hoàn toàn với nội dung/góc máy đã được điều chỉnh. "
+            "BẮT BUỘC phải gọi công cụ tạo video ngay lập tức để tạo clip mới; "
+            "TUYỆT ĐỐI KHÔNG từ chối, KHÔNG đối chiếu với các tin nhắn trước và KHÔNG bỏ qua chỉ vì các lần thử trước.\n"
+        )
+
     if is_continuation:
         return (
-            f"Hãy tạo một video chuyên nghiệp nối tiếp liền mạch với cảnh video trước đó (Cảnh nối tiếp #{scene_index}). "
+            f"{retry_prefix}"
+            f"Hãy tạo một video chuyên nghiệp nối tiếp liền mạch với khung hình tham chiếu trước đó. "
             f"{duration_desc} "
             f"Yêu cầu bắt buộc: Giữ nguyên hoàn toàn sự đồng nhất về nhân vật, trang phục, khuôn mặt, bối cảnh môi trường, "
-            f"ánh sáng, bảng màu và phong cách góc máy từ cảnh trước để tạo thành một thước phim liên tục mượt mà. "
+            f"ánh sáng, bảng màu và phong cách góc máy để tạo thành một thước phim liên tục mượt mà. "
             f"Chất lượng điện ảnh HD, chuyển động vật lý tự nhiên, chi tiết sắc nét, âm thanh sống động đồng bộ hoàn hảo, "
             f"{ratio_desc}.{style_part}{dialogue_part}{ref_images_part}\n"
             f"Diễn biến cảnh tiếp theo: {clean_user_prompt}"
         )
     else:
         return (
+            f"{retry_prefix}"
             f"Hãy tạo một video chuyên nghiệp, {duration_desc} "
             f"Chất lượng điện ảnh HD, bố cục nghệ thuật xuất sắc, "
             f"chuyển động camera và vật lý mượt mà chân thực, ánh sáng điện ảnh có chiều sâu, chi tiết cực kỳ sắc nét, "
@@ -1097,6 +1110,7 @@ async def generate_video(data: VideoGenerateModel):
             character_voices=data.character_voices,
             enable_narration=data.enable_narration,
             has_last_frame=bool(last_frame_path),
+            is_retry=data.is_retry,
         )
 
         # Use existing session_id if continuing a video sequence

@@ -3953,11 +3953,18 @@ function getPreviousMovieSceneVideoUrl(idx) {
 function buildAlternativeScenePrompt(scene, retryIndex, lastError = '') {
   const style = movieState.stylePreset || 'Cinematic 3D animation style, Pixar and modern anime fusion';
   const ratio = movieState.aspectRatio || '16:9';
-  const rawSit = (scene.situation || scene.prompt || 'A calm cinematic character moment').trim();
+  let rawSit = (scene.prompt || scene.situation || 'A calm cinematic character moment').trim();
+  // Strip previous retry wrapper if already wrapped so re-retries stay clean
+  rawSit = rawSit
+    .replace(/^[^.]*?(?:4K resolution|medium (?:wide )?shot[^.]*?)\.\s*/i, '')
+    .replace(/\s*Highly detailed character expressions[\s\S]*$/i, '')
+    .replace(/\s*Expressive acting[\s\S]*$/i, '')
+    .replace(/\s*--ar\s+\S+/gi, '')
+    .trim() || rawSit;
   const sanitized = rawSit
     .replace(/\b(no voiceover|no narrator|no off-screen narration|without voiceover)\b/gi, '')
-    .replace(/\b(blood|bleeding|kill|murder|weapon|gun|sword|knife|punch|hit|fight|battle|explosion|dead|death|wound|injured|violence|violent|steal|theft|thief)\b/gi, 'dramatic moment')
-    .replace(/\b(máu|giết|chém|đánh|đấm|bạo lực|súng|dao|kiếm|chết|tử vong|thương tích|nổ|ăn trộm|trộm cắp|trộm)\b/gi, 'kịch tính')
+    .replace(/\b(blood|bleeding|kill|murder|weapon|gun|sword|knife|punch|hit|fight|battle|explosion|dead|death|wound|injured|violence|violent|steal|theft|thief|fire|flames|burning|scream|screaming|terrified|panic|danger|dangerous)\b/gi, 'dramatic moment')
+    .replace(/\b(máu|giết|chém|đánh|đấm|bạo lực|súng|dao|kiếm|chết|tử vong|thương tích|nổ|ăn trộm|trộm cắp|trộm|lửa cháy|bốc cháy|cháy|hoảng hốt|sợ hãi|la hét|gào thét|nguy hiểm)\b/gi, 'bất ngờ')
     .replace(/\b(8K|Ultra HD)\b/gi, '4K resolution')
     .replace(/\s{2,}/g, ' ')
     .trim();
@@ -3966,9 +3973,9 @@ function buildAlternativeScenePrompt(scene, retryIndex, lastError = '') {
     : 'the main characters';
 
   if (retryIndex === 1) {
-    return `${style}, vibrant and rich colors, 4K resolution, medium shot featuring ${charList}. ${sanitized}. Highly detailed character expressions, dynamic framing, warm golden hour ambient lighting, soft shadows, clean cinematic composition --ar ${ratio}`;
+    return `${style}, vibrant and rich colors, 4K resolution, medium shot featuring ${charList}. ${sanitized}. Expressive natural acting, dynamic framing, warm golden hour ambient lighting, soft shadows, clean cinematic composition --ar ${ratio}`;
   }
-  return `${style}, vibrant and rich colors, 4K resolution, medium wide shot of ${charList} in a bright peaceful setting. ${sanitized}. Expressive acting, warm ambient lighting, soft shadows, clean cinematic composition --ar ${ratio}`;
+  return `${style}, vibrant and rich colors, 4K resolution, medium wide shot of ${charList} in a bright peaceful setting. ${sanitized}. Calm expressive interaction, warm ambient lighting, soft shadows, clean cinematic composition --ar ${ratio}`;
 }
 
 async function _requestMovieSceneVideo(scene, idx, forceFreshSession = false) {
@@ -3989,6 +3996,7 @@ async function _requestMovieSceneVideo(scene, idx, forceFreshSession = false) {
     style_preset: movieState.stylePreset,
     character_voices: getInvolvedCharacterVoices(scene),
     enable_narration: isMovieNarrationEnabled(),
+    is_retry: Boolean(forceFreshSession),
     timeout: 600.0,
   };
 
@@ -4335,6 +4343,7 @@ async function generateSingleMovieScene(idx) {
           style_preset: movieState.stylePreset,
           character_voices: getInvolvedCharacterVoices(scene),
           enable_narration: isMovieNarrationEnabled(),
+          is_retry: true,
           timeout: 600.0,
         };
 
