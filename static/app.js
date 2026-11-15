@@ -3971,6 +3971,11 @@ function buildAlternativeScenePrompt(scene, retryIndex, lastError = '') {
     ? scene.characters_involved.join(', ')
     : 'the main characters';
 
+  const isMuseRefusal = /không thử lại|y hệt|vẫn là cảnh|mình không thử/i.test(lastError || '');
+  if (isMuseRefusal) {
+    return `${style}, vibrant and rich colors, 4K resolution, medium wide shot of ${charList} meeting in a calm brightly lit environment, exchanging curious glances and natural friendly gestures, smooth subtle motion, warm golden hour lighting, soft shadows, clean cinematic composition --ar ${ratio}`;
+  }
+
   if (retryIndex === 1) {
     return `${style}, vibrant and rich colors, 4K resolution, fresh standalone low-angle medium shot featuring ${charList}. ${sanitized}. Smooth natural character movement, gentle camera pan, warm golden hour ambient lighting, soft shadows, clean cinematic composition --ar ${ratio}`;
   }
