@@ -1757,6 +1757,11 @@
         <textarea id="quick-scene-prompt" rows="4" class="w-full bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded-lg p-3 text-xs text-slate-100 focus:outline-none resize-y leading-relaxed"></textarea>
       </div>
 
+      <div class="space-y-1.5">
+        <label class="block text-xs font-semibold text-slate-300">Lời thoại nhân vật (đồng bộ khẩu hình):</label>
+        <input id="quick-scene-dialogue" type="text" placeholder="Ví dụ: Minh: &quot;...&quot; (để trống nếu không có thoại hoặc đã ghi trong prompt)" class="w-full bg-[#1e1e1e] border border-[#3c3c3c] focus:border-[#0078d4] rounded-lg px-3 py-2 text-xs text-amber-200/90 focus:outline-none">
+      </div>
+
       <div class="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-[#333333]">
         <button type="button" onclick="closeQuickSceneInspector()" class="px-3.5 py-2 rounded-md bg-[#2d2d2d] hover:bg-[#37373d] text-slate-300 hover:text-white border border-[#3c3c3c] text-xs font-medium cursor-pointer">Đóng</button>
         <button type="button" onclick="saveQuickScenePromptOnly()" class="px-3.5 py-2 rounded-md bg-[#2d2d2d] hover:bg-[#37373d] text-[#38bdf8] hover:text-white border border-[#3c3c3c] text-xs font-semibold cursor-pointer">Lưu Prompt</button>
@@ -1822,7 +1827,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261115_2"></script>
+  <script src="/static/app.js?v=20261115_3"></script>
   <script>
     lucide.createIcons();
   </script>

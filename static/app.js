@@ -3971,7 +3971,7 @@ function buildAlternativeScenePrompt(scene, retryIndex, lastError = '') {
   return `${style}, vibrant and rich colors, 4K resolution, medium wide shot of ${charList} in a bright peaceful setting. ${sanitized}. Expressive acting, warm ambient lighting, soft shadows, clean cinematic composition --ar ${ratio}`;
 }
 
-async function _requestMovieSceneVideo(scene, idx) {
+async function _requestMovieSceneVideo(scene, idx, forceFreshSession = false) {
   const involvedImages = getInvolvedCharacterImages(scene).map(x => x.path);
   const prevVideoUrl = getPreviousMovieSceneVideoUrl(idx);
   const isContinuation = (idx > 0 && (movieState.sessionId !== null || prevVideoUrl !== null));
@@ -3984,7 +3984,7 @@ async function _requestMovieSceneVideo(scene, idx) {
     duration: parseInt(scene.duration, 10) || 8,
     is_continuation: isContinuation,
     previous_video_url: prevVideoUrl,
-    session_id: movieState.sessionId,
+    session_id: forceFreshSession ? null : movieState.sessionId,
     scene_index: scene.scene_index,
     style_preset: movieState.stylePreset,
     character_voices: getInvolvedCharacterVoices(scene),
@@ -4002,7 +4002,7 @@ async function _requestMovieSceneVideo(scene, idx) {
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail || 'Không thể tạo phân cảnh.');
 
-  if (data.session_id) {
+  if (data.session_id && (!forceFreshSession || !movieState.sessionId)) {
     movieState.sessionId = data.session_id;
   }
 
@@ -4172,7 +4172,7 @@ async function startAutoMovieGeneration() {
       }
 
       try {
-        await _requestMovieSceneVideo(scene, i);
+        await _requestMovieSceneVideo(scene, i, attempt > 0);
         sceneSucceeded = true;
         break;
       } catch (err) {
@@ -4232,7 +4232,7 @@ async function startAutoMovieGeneration() {
 
         try {
           await new Promise(r => setTimeout(r, 2000));
-          await _requestMovieSceneVideo(errScene, errIdx);
+          await _requestMovieSceneVideo(errScene, errIdx, true);
           showToast(`✅ Đã cứu thành công Cảnh #${errScene.scene_index}!`, 'success');
         } catch (retryErr) {
           console.error(`Cảnh #${errScene.scene_index} vẫn lỗi ở lần thử cuối:`, retryErr);
@@ -4330,7 +4330,7 @@ async function generateSingleMovieScene(idx) {
           duration: parseInt(scene.duration, 10) || 8,
           is_continuation: isContinuation,
           previous_video_url: prevVideoUrl,
-          session_id: movieState.sessionId,
+          session_id: null,
           scene_index: scene.scene_index,
           style_preset: movieState.stylePreset,
           character_voices: getInvolvedCharacterVoices(scene),
@@ -4347,7 +4347,7 @@ async function generateSingleMovieScene(idx) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Không thể tạo phân cảnh.');
 
-        if (data.session_id) movieState.sessionId = data.session_id;
+        if (data.session_id && !movieState.sessionId) movieState.sessionId = data.session_id;
 
         if (data.videos && data.videos.length > 0) {
           scene.video_url = data.videos[0];
@@ -5617,12 +5617,14 @@ function openQuickSceneInspector(idx) {
   const videoEl = document.getElementById('quick-scene-video');
   const noVideoEl = document.getElementById('quick-scene-no-video');
   const promptEl = document.getElementById('quick-scene-prompt');
+  const dialogueEl = document.getElementById('quick-scene-dialogue');
 
   if (titleEl) titleEl.innerText = `Phân cảnh #${sc.scene_index || (idx + 1)} (${sc.duration || 8}s)`;
   if (statusEl) {
     statusEl.innerText = sc.video_url ? 'Đã quay xong' : (sc.status === 'generating' ? 'Đang quay' : (sc.status === 'error' ? 'Bị lỗi' : 'Chưa quay'));
   }
   if (promptEl) promptEl.value = sc.prompt || sc.situation || '';
+  if (dialogueEl) dialogueEl.value = sc.dialogue || '';
 
   if (videoEl && noVideoEl) {
     if (sc.video_url) {
@@ -5657,8 +5659,10 @@ function saveQuickScenePromptOnly() {
   if (_quickSceneIndex === null) return;
   const sc = (movieState.scenes || [])[_quickSceneIndex];
   const promptEl = document.getElementById('quick-scene-prompt');
+  const dialogueEl = document.getElementById('quick-scene-dialogue');
   if (!sc || !promptEl) return;
   sc.prompt = promptEl.value.trim();
+  if (dialogueEl) sc.dialogue = dialogueEl.value.trim();
   saveMovieStateCache();
   renderMovieScenes();
   showToast(`Đã lưu prompt cho Cảnh #${sc.scene_index || (_quickSceneIndex + 1)}.`, 'success');
@@ -5669,6 +5673,7 @@ async function regenerateQuickSceneWithConfirm() {
   const idx = _quickSceneIndex;
   const sc = (movieState.scenes || [])[idx];
   const promptEl = document.getElementById('quick-scene-prompt');
+  const dialogueEl = document.getElementById('quick-scene-dialogue');
   if (!sc || !promptEl) return;
 
   const num = sc.scene_index || (idx + 1);
@@ -5681,6 +5686,7 @@ async function regenerateQuickSceneWithConfirm() {
   if (!ok) return;
 
   sc.prompt = promptEl.value.trim();
+  if (dialogueEl) sc.dialogue = dialogueEl.value.trim();
   saveMovieStateCache();
   closeQuickSceneInspector();
   await generateSingleMovieScene(idx);
@@ -5792,6 +5798,7 @@ function renderMovieScenesManagerList() {
           </div>
           <p class="text-[11px] text-slate-400 truncate" title="${escapeHtml(summaryText)}">${escapeHtml(summaryText)}</p>
           <textarea data-manager-scene-idx="${idx}" id="mgr-scene-prompt-${idx}" rows="2" placeholder="Nhập prompt quay video cho phân cảnh này..." class="w-full rounded-lg bg-[#141414] border border-[#333333] focus:border-[#0078d4] px-2.5 py-1.5 text-[11px] text-slate-200 focus:outline-none resize-y">${escapeHtml(promptVal)}</textarea>
+          <input id="mgr-scene-dialogue-${idx}" type="text" value="${escapeHtml(sc.dialogue || '')}" placeholder="Lời thoại nhân vật (để trống nếu không có thoại hoặc đã ghi trong prompt)..." class="w-full rounded-lg bg-[#141414] border border-[#333333] focus:border-[#0078d4] px-2.5 py-1.5 text-[11px] text-amber-200/90 focus:outline-none" />
         </div>
       </div>
     `;
@@ -5804,8 +5811,10 @@ function renderMovieScenesManagerList() {
 function saveManagerScenePrompt(idx) {
   const sc = (movieState.scenes || [])[idx];
   const promptEl = document.getElementById(`mgr-scene-prompt-${idx}`);
+  const dialogueEl = document.getElementById(`mgr-scene-dialogue-${idx}`);
   if (!sc || !promptEl) return;
   sc.prompt = promptEl.value.trim();
+  if (dialogueEl) sc.dialogue = dialogueEl.value.trim();
   saveMovieStateCache();
   renderMovieScenes();
   showToast(`Đã lưu prompt cho Cảnh #${sc.scene_index || (idx + 1)}.`, 'success');
@@ -5814,6 +5823,7 @@ function saveManagerScenePrompt(idx) {
 async function regenerateManagerSceneWithConfirm(idx) {
   const sc = (movieState.scenes || [])[idx];
   const promptEl = document.getElementById(`mgr-scene-prompt-${idx}`);
+  const dialogueEl = document.getElementById(`mgr-scene-dialogue-${idx}`);
   if (!sc || !promptEl) return;
 
   const num = sc.scene_index || (idx + 1);
@@ -5826,6 +5836,7 @@ async function regenerateManagerSceneWithConfirm(idx) {
   if (!ok) return;
 
   sc.prompt = promptEl.value.trim();
+  if (dialogueEl) sc.dialogue = dialogueEl.value.trim();
   saveMovieStateCache();
   renderMovieScenesManagerList();
   await generateSingleMovieScene(idx);
