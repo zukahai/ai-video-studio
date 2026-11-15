@@ -838,10 +838,10 @@ async def auth_status(force: bool = False):
             else:
                 parsed_topup_tokens = 982_000_000
 
-        if topup_used_pct is not None and 0.0 <= topup_used_pct < 100.0:
-            topup_quota_total = int(round(parsed_topup_tokens / (1.0 - topup_used_pct / 100.0)))
-        elif topup_balance and topup_total and topup_total > topup_balance > 0:
+        if topup_balance and topup_total and topup_total > topup_balance > 0:
             topup_quota_total = int(round(parsed_topup_tokens * (topup_total / topup_balance)))
+        elif topup_used_pct is not None and 0.0 <= topup_used_pct < 100.0:
+            topup_quota_total = int(round(parsed_topup_tokens / (1.0 - topup_used_pct / 100.0)))
         else:
             topup_quota_total = parsed_topup_tokens
 
