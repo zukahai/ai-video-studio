@@ -1301,6 +1301,7 @@ async function generateVideo() {
       session_id: state.videoSessionId,
       scene_index: currentSceneNumber,
       style_preset: state.videoStyle,
+      output_category: 'videos',
       timeout: 600.0,
     };
 
@@ -1495,6 +1496,7 @@ async function mergeAndDownloadStoryboard() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         video_urls: state.storyboard.map(s => s.url),
+        output_category: 'videos',
       }),
     });
 
@@ -1616,6 +1618,7 @@ async function generateImage() {
       prompt: prompt,
       image_paths: state.imageFiles.length > 0 ? state.imageFiles.map(img => img.local_path) : (state.imageFile ? [state.imageFile] : []),
       aspect_ratio: state.aspectRatio,
+      output_category: 'images',
     };
 
     const res = await fetch('/api/image/generate', {
@@ -4001,6 +4004,9 @@ async function _requestMovieSceneVideo(scene, idx, forceFreshSession = false, ov
     character_voices: getInvolvedCharacterVoices(scene),
     enable_narration: isMovieNarrationEnabled(),
     is_retry: Boolean(forceFreshSession),
+    output_category: 'movies',
+    project_id: movieState.id || null,
+    project_name: movieState.title || null,
     timeout: 600.0,
   };
 
@@ -4351,6 +4357,9 @@ async function generateSingleMovieScene(idx) {
           character_voices: getInvolvedCharacterVoices(scene),
           enable_narration: isMovieNarrationEnabled(),
           is_retry: true,
+          output_category: 'movies',
+          project_id: movieState.id || null,
+          project_name: movieState.title || null,
           timeout: 600.0,
         };
 
@@ -4615,6 +4624,9 @@ async function mergeAndDownloadMovie(triggerBtn = null) {
       body: JSON.stringify({
         video_urls: readyScenes.map(s => s.video_url),
         output_filename: `H-AI_FullMovie_${Date.now()}.mp4`,
+        output_category: 'movies',
+        project_id: movieState.id || null,
+        project_name: movieState.title || null,
       }),
     });
 
@@ -4883,6 +4895,10 @@ async function generateMovieCoverWithAI() {
         aspect_ratio: '16:9',
         style_preset: (_editingCoverProject && _editingCoverProject.stylePreset) || movieState.stylePreset || 'Điện ảnh HD Hollywood',
         image_paths: charImagePaths,
+        output_category: 'movies',
+        project_id: (_editingCoverProject && _editingCoverProject.id) || _editingCoverProjectId || movieState.id || null,
+        project_name: (_editingCoverProject && _editingCoverProject.title) || movieState.title || null,
+        subfolder: 'posters',
       }),
     });
     const data = await res.json();

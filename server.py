@@ -82,6 +82,9 @@ class VideoGenerateModel(BaseModel):
     character_voices: Optional[dict[str, str]] = None
     enable_narration: bool = False
     is_retry: bool = False
+    output_category: Optional[str] = None
+    project_id: Optional[str] = None
+    project_name: Optional[str] = None
     timeout: float = 600.0
 
 
@@ -90,6 +93,10 @@ class ImageGenerateModel(BaseModel):
     image_paths: list[str] = []
     aspect_ratio: str = "1:1"
     style_preset: Optional[str] = None
+    output_category: Optional[str] = None
+    project_id: Optional[str] = None
+    project_name: Optional[str] = None
+    subfolder: Optional[str] = None
 
 
 class ChatModel(BaseModel):
@@ -109,6 +116,9 @@ class MovieBreakdownModel(BaseModel):
 class MergeVideosModel(BaseModel):
     video_urls: list[str]
     output_filename: Optional[str] = None
+    output_category: Optional[str] = None
+    project_id: Optional[str] = None
+    project_name: Optional[str] = None
 
 
 class CharacterPortraitRequest(BaseModel):
@@ -201,10 +211,59 @@ def resolve_media_path(path_str: str) -> Optional[Path]:
             cand = folder / fname
             if cand.exists() and cand.is_file():
                 return cand.resolve()
+        if OUTPUTS_DIR.exists():
+            for cand in OUTPUTS_DIR.rglob(fname):
+                if cand.is_file():
+                    return cand.resolve()
     proj_cand = BASE_DIR / clean
     if proj_cand.exists() and proj_cand.is_file():
         return proj_cand.resolve()
     return None
+
+
+def _safe_folder_name(name: Optional[str], fallback: str = "default") -> str:
+    raw = (name or "").strip()
+    if not raw:
+        return fallback
+    slug = slugify_simple(raw)
+    return slug[:64].strip("_") or fallback
+
+
+def get_output_subdir(
+    category: Optional[str] = None,
+    project_name: Optional[str] = None,
+    project_id: Optional[str] = None,
+    subfolder: Optional[str] = None,
+) -> Path:
+    """Return organized output directory under outputs/ (movies/<project>/..., videos/, images/, characters/...)."""
+    cat = (category or "videos").strip().lower()
+    if cat in ("movie", "movies"):
+        proj_slug = _safe_folder_name(project_name, fallback=_safe_folder_name(project_id, fallback="untitled_movie"))
+        target = OUTPUTS_DIR / "movies" / proj_slug
+        if subfolder:
+            target = target / _safe_folder_name(subfolder, fallback="misc")
+    elif cat in ("image", "images"):
+        target = OUTPUTS_DIR / "images"
+        if subfolder:
+            target = target / _safe_folder_name(subfolder, fallback="misc")
+    elif cat in ("character", "characters"):
+        target = OUTPUTS_DIR / "characters"
+        if subfolder:
+            target = target / _safe_folder_name(subfolder, fallback="misc")
+    else:
+        target = OUTPUTS_DIR / "videos"
+        if subfolder:
+            target = target / _safe_folder_name(subfolder, fallback="misc")
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def _to_outputs_url(file_path: Path) -> str:
+    try:
+        rel = file_path.resolve().relative_to(OUTPUTS_DIR.resolve()).as_posix()
+        return f"/outputs/{rel}"
+    except Exception:
+        return f"/outputs/{file_path.name}"
 
 
 def is_narration_dialogue(text: str) -> bool:
@@ -278,7 +337,8 @@ def extract_last_frame_from_video(video_path: Path) -> Optional[Path]:
     try:
         import imageio_ffmpeg
         ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-        out_path = OUTPUTS_DIR / f"lastframe_{video_path.stem}_{int(time.time() * 1000)}.jpg"
+        frame_dir = video_path.parent if OUTPUTS_DIR.resolve() in video_path.resolve().parents else OUTPUTS_DIR
+        out_path = frame_dir / f"lastframe_{video_path.stem}_{int(time.time() * 1000)}.jpg"
         for seek_offset in ("-0.15", "-0.5"):
             proc = subprocess.run(
                 [ffmpeg_exe, "-sseof", seek_offset, "-i", str(video_path), "-frames:v", "1", "-q:v", "2", "-y", str(out_path)],
@@ -1126,10 +1186,17 @@ async def generate_video(data: VideoGenerateModel):
             f"images={len(resolved_images)} prompt={data.prompt[:100]!r}"
         )
 
+        out_dir = get_output_subdir(
+            category=data.output_category or ("movies" if (data.project_name or data.project_id) else "videos"),
+            project_name=data.project_name,
+            project_id=data.project_id,
+            subfolder="scenes" if (data.output_category == "movies" or data.project_name or data.project_id) else None,
+        )
+
         result = await client.generate_video(
             prompt=enhanced_prompt,
             images=resolved_images,
-            output_dir=OUTPUTS_DIR,
+            output_dir=out_dir,
             session_id=target_session_id,
             timeout=data.timeout,
             min_videos=1,
@@ -1145,7 +1212,7 @@ async def generate_video(data: VideoGenerateModel):
                 if not new_path.exists():
                     p.rename(new_path)
                     p = new_path
-            downloaded_urls.append(f"/outputs/{p.name}")
+            downloaded_urls.append(_to_outputs_url(p))
 
         # Invalidate subscription cache to immediately fetch latest live quota
         invalidate_subscription_cache()
@@ -1172,17 +1239,14 @@ _thumb_semaphore = asyncio.Semaphore(4)
 
 @app.get("/api/video/thumbnail")
 async def get_video_thumbnail(url: str):
-    clean_name = Path(url.split("?")[0]).name
+    clean_url = url.split("?")[0]
+    clean_name = Path(clean_url).name
     if not clean_name:
         raise HTTPException(status_code=400, detail="Thiếu tên file video.")
 
-    video_path = OUTPUTS_DIR / clean_name
-    if not video_path.exists():
-        alt_path = UPLOADS_DIR / clean_name
-        if alt_path.exists():
-            video_path = alt_path
-        else:
-            raise HTTPException(status_code=404, detail="Không tìm thấy video.")
+    video_path = resolve_media_path(clean_url)
+    if not video_path or not video_path.exists():
+        raise HTTPException(status_code=404, detail="Không tìm thấy video.")
 
     thumbs_dir = OUTPUTS_DIR / "_thumbs"
     thumbs_dir.mkdir(parents=True, exist_ok=True)
@@ -1245,27 +1309,29 @@ async def merge_videos(data: MergeVideosModel):
             "message": "Chỉ có 1 cảnh, không cần ghép.",
         }
 
-    # Resolve video paths from URLs
+    # Resolve video paths from URLs (supports subdirectories under outputs/ and uploads/)
     resolved_paths: list[Path] = []
     for u in data.video_urls:
-        clean_name = Path(u.split("?")[0]).name
-        file_path = OUTPUTS_DIR / clean_name
-        if not file_path.exists():
-            alt_path = UPLOADS_DIR / clean_name
-            if alt_path.exists():
-                file_path = alt_path
-            else:
-                raise HTTPException(status_code=404, detail=f"Không tìm thấy file video: {clean_name}")
+        clean_u = u.split("?")[0]
+        file_path = resolve_media_path(clean_u)
+        if not file_path or not file_path.exists():
+            raise HTTPException(status_code=404, detail=f"Không tìm thấy file video: {Path(clean_u).name}")
         resolved_paths.append(file_path.resolve())
 
-    # Prepare temp concat list file
+    # Prepare organized output directory & temp concat list file
+    out_dir = get_output_subdir(
+        category=data.output_category or ("movies" if (data.project_name or data.project_id) else "videos"),
+        project_name=data.project_name,
+        project_id=data.project_id,
+        subfolder="exports" if (data.output_category == "movies" or data.project_name or data.project_id) else None,
+    )
     timestamp = int(time.time())
     output_name = data.output_filename or f"haiai_movie_{timestamp}.mp4"
     if not output_name.endswith(".mp4"):
         output_name += ".mp4"
-    output_path = OUTPUTS_DIR / output_name
+    output_path = out_dir / output_name
 
-    concat_list_file = OUTPUTS_DIR / f"concat_list_{timestamp}.txt"
+    concat_list_file = out_dir / f"concat_list_{timestamp}.txt"
     try:
         with open(concat_list_file, "w", encoding="utf-8") as f:
             for p in resolved_paths:
@@ -1307,7 +1373,7 @@ async def merge_videos(data: MergeVideosModel):
 
         return {
             "status": "success",
-            "url": f"/outputs/{output_name}",
+            "url": _to_outputs_url(output_path),
             "filename": output_name,
             "count": len(resolved_paths),
             "size_bytes": output_path.stat().st_size,
@@ -1330,7 +1396,11 @@ async def generate_image(data: ImageGenerateModel):
 
     client = await get_or_create_client()
     try:
-        images = [Path(p) for p in data.image_paths if Path(p).exists()]
+        images = []
+        for p in data.image_paths:
+            r = resolve_media_path(p)
+            if r and r not in images:
+                images.append(r)
 
         # Inject invisible professional image prompt
         prompt_full = build_hidden_image_prompt(
@@ -1349,13 +1419,19 @@ async def generate_image(data: ImageGenerateModel):
 
         found_images = await _poll_for_image_refs(client, baseline_hist, events, timeout=90.0)
 
+        out_dir = get_output_subdir(
+            category=data.output_category or ("movies" if (data.project_name or data.project_id) else "images"),
+            project_name=data.project_name,
+            project_id=data.project_id,
+            subfolder=data.subfolder or ("posters" if (data.output_category == "movies" or data.project_name or data.project_id) else None),
+        )
         downloaded_urls = []
         for index, ref in enumerate(found_images):
             dest_name = f"haiai_img_{int(time.time())}_{index+1}.png"
-            dest_path = OUTPUTS_DIR / dest_name
+            dest_path = out_dir / dest_name
             ok = await download_media_ref(client, ref, dest_path)
             if ok and dest_path.exists() and dest_path.stat().st_size > 0:
-                downloaded_urls.append(f"/outputs/{dest_name}")
+                downloaded_urls.append(_to_outputs_url(dest_path))
 
         # Invalidate subscription cache to immediately fetch latest live quota
         invalidate_subscription_cache()
@@ -1380,7 +1456,11 @@ async def chat_interaction(data: ChatModel):
 
     client = await get_or_create_client()
     try:
-        images = [Path(p) for p in data.image_paths if Path(p).exists()]
+        images = []
+        for p in data.image_paths:
+            r = resolve_media_path(p)
+            if r and r not in images:
+                images.append(r)
 
         baseline_ids: set[str] = set()
         try:
@@ -2101,8 +2181,9 @@ async def generate_character_portrait_endpoint(data: CharacterPortraitRequest):
             raise HTTPException(status_code=504, detail="H-AI chưa trả về ảnh trong thời gian quy định.")
 
         ref = found_images[0]
+        char_dir = get_output_subdir("characters", subfolder=slugify_simple(data.character_name))
         dest_name = f"char_{slugify_simple(data.character_name)}_{data.angle_index}_{int(time.time())}.png"
-        dest_path = OUTPUTS_DIR / dest_name
+        dest_path = char_dir / dest_name
 
         ok = await download_media_ref(client, ref, dest_path)
         if not ok or not dest_path.exists() or dest_path.stat().st_size == 0:
@@ -2118,7 +2199,7 @@ async def generate_character_portrait_endpoint(data: CharacterPortraitRequest):
             "image": {
                 "id": f"img_{data.character_id}_{data.angle_index}_{int(time.time())}",
                 "name": f"Ảnh {data.angle_index}: {angle_name}",
-                "url": f"/outputs/{dest_name}",
+                "url": _to_outputs_url(dest_path),
                 "local_path": str(dest_path),
             }
         }
@@ -2134,20 +2215,21 @@ async def get_existing_character_images(name: str):
     slug_dash = slug.replace("_", "-")
     found = []
     if OUTPUTS_DIR.exists():
-        for file in sorted(OUTPUTS_DIR.iterdir(), key=lambda f: f.stat().st_mtime, reverse=True):
-            if file.is_file() and file.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp"):
+        all_files = [f for f in OUTPUTS_DIR.rglob("*") if f.is_file() and "_thumbs" not in f.parts]
+        for file in sorted(all_files, key=lambda f: f.stat().st_mtime, reverse=True):
+            if file.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp"):
                 fname_lower = file.name.lower()
                 # Exclude video frames or full movies
-                if fname_lower.startswith("haiai_movie") or "fullmovie" in fname_lower:
+                if fname_lower.startswith("haiai_movie") or fname_lower.startswith("lastframe_") or "fullmovie" in fname_lower:
                     continue
                 # Exact word-boundary awareness (e.g. don't mix "nguoi_em" with "vo_nguoi_em")
                 if slug == "nguoi_em" and ("vo_nguoi_em" in fname_lower or "vo-nguoi-em" in fname_lower):
                     continue
-                if slug in fname_lower or (len(slug) > 3 and slug_dash in fname_lower):
+                if slug in fname_lower or (len(slug) > 3 and slug_dash in fname_lower) or slug in str(file.parent).lower():
                     found.append({
                         "id": f"img_{file.stem}",
                         "name": file.name,
-                        "url": f"/outputs/{file.name}",
+                        "url": _to_outputs_url(file),
                         "local_path": str(file.resolve()),
                     })
     return {"status": "success", "images": found[:6]}
@@ -2555,25 +2637,30 @@ async def get_gallery():
     total_bytes = 0
 
     if OUTPUTS_DIR.exists():
-        for file in sorted(OUTPUTS_DIR.iterdir(), key=lambda f: f.stat().st_mtime, reverse=True):
-            if file.is_file():
-                ext = file.suffix.lower()
-                is_video = ext in (".mp4", ".webm", ".mov")
-                is_image = ext in (".png", ".jpg", ".jpeg", ".webp", ".gif")
-                if is_video or is_image:
-                    fsize = file.stat().st_size
-                    total_bytes += fsize
-                    if is_video:
-                        video_count += 1
-                    else:
-                        image_count += 1
-                    items.append({
-                        "name": file.name,
-                        "url": f"/outputs/{file.name}",
-                        "type": "video" if is_video else "image",
-                        "size_mb": round(fsize / (1024 * 1024), 2),
-                        "created_at": file.stat().st_mtime,
-                    })
+        all_files = [
+            f for f in OUTPUTS_DIR.rglob("*")
+            if f.is_file() and "_thumbs" not in f.parts and not f.name.startswith("lastframe_")
+        ]
+        for file in sorted(all_files, key=lambda f: f.stat().st_mtime, reverse=True):
+            ext = file.suffix.lower()
+            is_video = ext in (".mp4", ".webm", ".mov")
+            is_image = ext in (".png", ".jpg", ".jpeg", ".webp", ".gif")
+            if is_video or is_image:
+                fsize = file.stat().st_size
+                total_bytes += fsize
+                if is_video:
+                    video_count += 1
+                else:
+                    image_count += 1
+                rel_folder = file.parent.relative_to(OUTPUTS_DIR).as_posix()
+                items.append({
+                    "name": file.name,
+                    "folder": "" if rel_folder == "." else rel_folder,
+                    "url": _to_outputs_url(file),
+                    "type": "video" if is_video else "image",
+                    "size_mb": round(fsize / (1024 * 1024), 2),
+                    "created_at": file.stat().st_mtime,
+                })
 
     return {
         "items": items,
