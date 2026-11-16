@@ -411,6 +411,9 @@ function switchTab(tabId, syncUrl = true) {
   if (tabId === 'dashboard' || tabId === 'gallery') {
     loadDashboardAndGallery();
   }
+  if (tabId === 'chat') {
+    loadChatHistory(false);
+  }
   if (tabId === 'telegram') {
     loadTelegramSettings();
   }
@@ -1820,27 +1823,7 @@ async function sendChatMessage(e) {
     if (!res.ok) throw new Error(data.detail || 'Lỗi kết nối.');
     if (data.session_id) state.chatSessionId = data.session_id;
 
-    const botBubble = document.createElement('div');
-    botBubble.className = 'flex items-start space-x-3';
-    botBubble.innerHTML = `
-      <div class="w-8 h-8 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/30">
-        <i data-lucide="sparkles" class="w-4 h-4"></i>
-      </div>
-      <div class="bg-surface-800 border border-white/[0.06] rounded-2xl rounded-tl-none p-4 max-w-2xl text-sm text-slate-200 space-y-3">
-        <p class="whitespace-pre-wrap leading-relaxed">${escapeHtml(data.reply)}</p>
-        <div class="flex flex-wrap gap-2 pt-1">
-          <button onclick="useAsVideoPrompt(${JSON.stringify(data.reply)})" class="text-[11px] text-indigo-300 hover:text-white font-semibold flex items-center space-x-1 border border-indigo-500/30 bg-indigo-500/15 px-2.5 py-1 rounded-lg transition">
-            <i data-lucide="clapperboard" class="w-3 h-3"></i>
-            <span>Đưa sang Tạo Video</span>
-          </button>
-          <button onclick="useAsImagePrompt(${JSON.stringify(data.reply)})" class="text-[11px] text-purple-300 hover:text-white font-semibold flex items-center space-x-1 border border-purple-500/30 bg-purple-500/15 px-2.5 py-1 rounded-lg transition">
-            <i data-lucide="palette" class="w-3 h-3"></i>
-            <span>Đưa sang Tạo Ảnh</span>
-          </button>
-        </div>
-      </div>
-    `;
-    container.appendChild(botBubble);
+    renderChatAssistantBubble(container, data.reply, data.images || [], data.videos || []);
     container.scrollTop = container.scrollHeight;
     lucide.createIcons();
   } catch (err) {
@@ -1849,6 +1832,94 @@ async function sendChatMessage(e) {
     errorBubble.className = 'text-xs text-rose-400 p-2 text-center';
     errorBubble.innerText = 'Lỗi: ' + err.message;
     container.appendChild(errorBubble);
+  }
+}
+
+let _chatHistoryLoaded = false;
+
+function renderChatUserBubble(container, text, images = []) {
+  const imgsHtml = images.length > 0
+    ? `<div class="flex flex-wrap gap-2 mb-2">${images.map(u => `<img src="${u}" onclick="openImagePreviewModal('${u}', 'Ảnh đã gửi')" class="max-h-44 rounded-lg border border-white/20 object-cover cursor-pointer">`).join('')}</div>`
+    : '';
+  const userBubble = document.createElement('div');
+  userBubble.className = 'flex items-start justify-end space-x-3';
+  userBubble.innerHTML = `
+    <div class="bg-gradient-to-r from-sky-500 to-blue-600 rounded-2xl rounded-tr-none p-3.5 max-w-xl text-sm text-white shadow shadow-sky-600/25">
+      ${imgsHtml}
+      ${text ? `<div class="whitespace-pre-wrap leading-relaxed">${escapeHtml(text)}</div>` : ''}
+    </div>
+    <div class="w-8 h-8 rounded-xl bg-surface-700 text-slate-300 flex items-center justify-center shrink-0 border border-white/10">
+      <i data-lucide="user" class="w-4 h-4"></i>
+    </div>
+  `;
+  container.appendChild(userBubble);
+}
+
+function renderChatAssistantBubble(container, replyText, images = [], videos = []) {
+  const imgsHtml = images.length > 0
+    ? `<div class="flex flex-wrap gap-2 pt-1">${images.map(u => `
+        <div class="relative group rounded-xl overflow-hidden border border-white/10 bg-black/20">
+          <img src="${u}" onclick="openImagePreviewModal('${u}', 'Ảnh từ 23zô AI Chat')" class="max-h-64 rounded-xl object-contain cursor-pointer">
+          <a href="${u}" download class="absolute bottom-1.5 right-1.5 px-2 py-1 rounded-md bg-black/75 text-white text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition">Tải về</a>
+        </div>
+      `).join('')}</div>`
+    : '';
+  const vidsHtml = videos.length > 0
+    ? `<div class="space-y-2 pt-1">${videos.map(u => `<video src="${u}" controls playsinline class="w-full max-h-64 rounded-xl bg-black border border-white/10"></video>`).join('')}</div>`
+    : '';
+
+  const botBubble = document.createElement('div');
+  botBubble.className = 'flex items-start space-x-3';
+  botBubble.innerHTML = `
+    <div class="w-8 h-8 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/30">
+      <i data-lucide="sparkles" class="w-4 h-4"></i>
+    </div>
+    <div class="bg-surface-800 border border-white/[0.06] rounded-2xl rounded-tl-none p-4 max-w-2xl text-sm text-slate-200 space-y-3">
+      ${replyText ? `<p class="whitespace-pre-wrap leading-relaxed">${escapeHtml(replyText)}</p>` : ''}
+      ${imgsHtml}
+      ${vidsHtml}
+      ${replyText ? `
+        <div class="flex flex-wrap gap-2 pt-1">
+          <button onclick="useAsVideoPrompt(${JSON.stringify(replyText)})" class="text-[11px] text-indigo-300 hover:text-white font-semibold flex items-center space-x-1 border border-indigo-500/30 bg-indigo-500/15 px-2.5 py-1 rounded-lg transition cursor-pointer">
+            <i data-lucide="clapperboard" class="w-3 h-3"></i>
+            <span>Đưa sang Tạo Video</span>
+          </button>
+          <button onclick="useAsImagePrompt(${JSON.stringify(replyText)})" class="text-[11px] text-purple-300 hover:text-white font-semibold flex items-center space-x-1 border border-purple-500/30 bg-purple-500/15 px-2.5 py-1 rounded-lg transition cursor-pointer">
+            <i data-lucide="palette" class="w-3 h-3"></i>
+            <span>Đưa sang Tạo Ảnh</span>
+          </button>
+        </div>
+      ` : ''}
+    </div>
+  `;
+  container.appendChild(botBubble);
+}
+
+async function loadChatHistory(force = false) {
+  if (_chatHistoryLoaded && !force) return;
+  const container = document.getElementById('chat-messages');
+  if (!container) return;
+  try {
+    const res = await fetch('/api/chat/history?limit=60');
+    if (!res.ok) return;
+    const data = await res.json();
+    _chatHistoryLoaded = true;
+    if (data.session_id) state.chatSessionId = data.session_id;
+    const msgs = Array.isArray(data.messages) ? data.messages : [];
+    if (msgs.length === 0) return;
+
+    container.innerHTML = '';
+    for (const m of msgs) {
+      if (m.role === 'user') {
+        renderChatUserBubble(container, m.text || '', m.images || []);
+      } else {
+        renderChatAssistantBubble(container, m.text || '', m.images || [], m.videos || []);
+      }
+    }
+    container.scrollTop = container.scrollHeight;
+    if (window.lucide) lucide.createIcons();
+  } catch (err) {
+    console.warn('loadChatHistory failed:', err);
   }
 }
 

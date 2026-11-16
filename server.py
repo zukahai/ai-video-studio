@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -1571,32 +1572,75 @@ async def chat_interaction(data: ChatModel):
             session_id = extracted_ids[-1]
 
         reply_text = ""
-        deadline = time.monotonic() + 60.0
+        reply_seen_at: Optional[float] = None
+        media_refs: list[dict] = []
+        seen_media_ids: set[str] = set()
+        deadline = time.monotonic() + 90.0
+
         while time.monotonic() < deadline:
-            hist = await client.history(session_id=session_id, limit=20)
+            hist = await client.history(session_id=session_id, limit=30)
             chat_events = (hist.get("result") or {}).get("chat_events") or []
-            for ev in reversed(chat_events):
+            for ev in chat_events:
                 if not isinstance(ev, dict):
                     continue
                 msg_id = ev.get("message_id", "")
-                if msg_id in baseline_ids:
+                if msg_id and msg_id in baseline_ids:
                     continue
-                if ev.get("event_name") == "message.assistant":
+                ev_name = ev.get("event_name")
+                if ev_name == "message.assistant":
                     text = ev.get("display_text") or (ev.get("payload") or {}).get("content") or ""
                     if text.strip() and ev.get("display_text_ready", True):
-                        reply_text = text.strip()
-                        break
+                        if not reply_text:
+                            reply_text = text.strip()
+                            reply_seen_at = time.monotonic()
+                        elif len(text.strip()) > len(reply_text):
+                            reply_text = text.strip()
+                if ev_name in ("message.assistant", "delta.presentation"):
+                    for ref in extract_all_media_refs(ev):
+                        ident = ref.get("identity") or ref.get("path") or ref.get("url") or ""
+                        if ident and ident not in seen_media_ids:
+                            seen_media_ids.add(ident)
+                            media_refs.append(ref)
+
             if reply_text:
-                break
+                # If media already arrived, or enough grace time passed for delta.presentation, finish
+                if media_refs:
+                    break
+                elapsed_after_reply = time.monotonic() - (reply_seen_at or time.monotonic())
+                mentions_media = any(k in reply_text.lower() for k in ("ảnh", "hình", "video", "clip", "chibi"))
+                grace = 15.0 if mentions_media else 2.5
+                if elapsed_after_reply >= grace:
+                    break
             await asyncio.sleep(1.5)
 
         if not reply_text:
             reply_text = "23zô AI đã nhận yêu cầu và đang xử lý!"
 
+        chat_dir = OUTPUTS_DIR / "chat"
+        chat_dir.mkdir(parents=True, exist_ok=True)
+        downloaded_images: list[str] = []
+        downloaded_videos: list[str] = []
+        for idx, ref in enumerate(media_refs):
+            ident = ref.get("identity") or ref.get("path") or ref.get("url") or f"{time.time()}_{idx}"
+            h = hashlib.md5(ident.encode("utf-8")).hexdigest()[:12]
+            is_vid = ref.get("type") == "video"
+            ext = ".mp4" if is_vid else ".png"
+            dest = chat_dir / f"chat_{h}{ext}"
+            if not dest.exists() or dest.stat().st_size == 0:
+                await download_media_ref(client, ref, dest)
+            if dest.exists() and dest.stat().st_size > 0:
+                u = _to_outputs_url(dest)
+                if is_vid:
+                    downloaded_videos.append(u)
+                else:
+                    downloaded_images.append(u)
+
         return {
             "status": "success",
             "session_id": session_id,
             "reply": reply_text,
+            "images": downloaded_images,
+            "videos": downloaded_videos,
             "events": len(events),
         }
     except Exception as exc:
@@ -1604,6 +1648,80 @@ async def chat_interaction(data: ChatModel):
             status_code=500,
             detail=f"Lỗi chat với 23zô AI: {exc}",
         )
+
+
+@app.get("/api/chat/history")
+async def get_chat_history(limit: int = 60):
+    if not is_authenticated():
+        return {"status": "ok", "messages": [], "session_id": None}
+    client = await get_or_create_client()
+    try:
+        sid = await ensure_feature_session(client, "chat")
+        hist = await client.history(session_id=sid, limit=limit)
+        chat_events = (hist.get("result") or {}).get("chat_events") or []
+
+        chat_dir = OUTPUTS_DIR / "chat"
+        chat_dir.mkdir(parents=True, exist_ok=True)
+
+        async def _cache_refs(ev_obj: dict) -> tuple[list[str], list[str]]:
+            imgs: list[str] = []
+            vids: list[str] = []
+            for idx, ref in enumerate(extract_all_media_refs(ev_obj)):
+                ident = ref.get("identity") or ref.get("path") or ref.get("url") or f"h_{idx}"
+                h = hashlib.md5(ident.encode("utf-8")).hexdigest()[:12]
+                is_vid = ref.get("type") == "video"
+                ext = ".mp4" if is_vid else ".png"
+                dest = chat_dir / f"chat_{h}{ext}"
+                if not dest.exists() or dest.stat().st_size == 0:
+                    try:
+                        await download_media_ref(client, ref, dest)
+                    except Exception:
+                        pass
+                if dest.exists() and dest.stat().st_size > 0:
+                    u = _to_outputs_url(dest)
+                    if is_vid and u not in vids:
+                        vids.append(u)
+                    elif not is_vid and u not in imgs:
+                        imgs.append(u)
+            return imgs, vids
+
+        messages: list[dict] = []
+        skip_next_ready = False
+        for ev in chat_events:
+            if not isinstance(ev, dict):
+                continue
+            ev_name = ev.get("event_name")
+            raw_text = (ev.get("display_text") or (ev.get("payload") or {}).get("content") or "").strip()
+
+            if ev_name == "message.user":
+                if raw_text.startswith("Khởi tạo luồng làm việc 23zôAI Chat"):
+                    skip_next_ready = True
+                    continue
+                clean_text = re.sub(r"\[image:[^\]]+\]\s*", "", raw_text).strip()
+                imgs, vids = await _cache_refs(ev)
+                messages.append({"role": "user", "text": clean_text, "images": imgs, "videos": vids})
+            elif ev_name == "message.assistant":
+                if skip_next_ready and raw_text == "Sẵn sàng.":
+                    skip_next_ready = False
+                    continue
+                skip_next_ready = False
+                imgs, vids = await _cache_refs(ev)
+                if raw_text or imgs or vids:
+                    messages.append({"role": "assistant", "text": raw_text, "images": imgs, "videos": vids})
+            elif ev_name == "delta.presentation":
+                imgs, vids = await _cache_refs(ev)
+                if (imgs or vids) and messages and messages[-1]["role"] == "assistant":
+                    for u in imgs:
+                        if u not in messages[-1]["images"]:
+                            messages[-1]["images"].append(u)
+                    for u in vids:
+                        if u not in messages[-1]["videos"]:
+                            messages[-1]["videos"].append(u)
+
+        return {"status": "success", "session_id": sid, "messages": messages}
+    except Exception as exc:
+        logger.warning(f"[ChatHistory] error: {exc}")
+        return {"status": "error", "messages": [], "detail": str(exc)}
 
 
 MOVIE_CHARACTER_COLORS = [
