@@ -2112,10 +2112,10 @@ function setupDashboardLazyScroll() {
 
 function formatDurationCompact(sec) {
   const s = Math.max(0, Math.round(Number(sec) || 0));
-  if (s < 60) return `${s}s`;
+  if (s < 60) return `${s} giây`;
   const m = Math.floor(s / 60);
   const rem = s % 60;
-  return rem > 0 ? `${m}p ${rem}s` : `${m}p`;
+  return rem > 0 ? `${m} phút ${rem} giây` : `${m} phút`;
 }
 
 function renderDashboardMovies() {
