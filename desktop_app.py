@@ -11,9 +11,11 @@ import uvicorn
 import webview
 
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
+
+import server as haiai_server
 
 
 def _is_server_alive(port: int) -> bool:
@@ -43,7 +45,7 @@ def main() -> None:
     else:
         port = _pick_port(preferred_port)
         config = uvicorn.Config(
-            "server:app",
+            haiai_server.app,
             host="127.0.0.1",
             port=port,
             log_level="warning",

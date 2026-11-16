@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import time
 import uuid
 import unicodedata
@@ -28,11 +29,17 @@ from muse_ai.client import MuseClient
 from muse_ai.errors import MuseAuthError
 from muse_ai.media import extract_session_ids, extract_video_refs, VideoRef
 
-BASE_DIR = Path(__file__).resolve().parent
+if getattr(sys, "frozen", False):
+    BUNDLE_DIR = Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent))
+    BASE_DIR = Path(os.environ.get("HAIAI_DATA_DIR") or (Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "HaiAI Studio"))
+else:
+    BUNDLE_DIR = Path(__file__).resolve().parent
+    BASE_DIR = BUNDLE_DIR
+
 STATE_DIR = BASE_DIR / ".muse-state"
 OUTPUTS_DIR = BASE_DIR / "outputs"
 UPLOADS_DIR = BASE_DIR / "uploads"
-STATIC_DIR = BASE_DIR / "static"
+STATIC_DIR = BUNDLE_DIR / "static"
 MOVIES_DIR = OUTPUTS_DIR / "movies"
 
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
