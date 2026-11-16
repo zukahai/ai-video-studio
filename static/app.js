@@ -73,6 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  initThemeSystem();
+  checkBrowserVpnUsa(false);
   checkAuthStatus();
   setupDropzones();
   setupDashboardLazyScroll();
@@ -738,7 +740,9 @@ async function verifyOtp() {
     showModalMsg('Kết nối 23zô AI thành công!', false);
     setTimeout(() => {
       closeAuthModal();
-      checkAuthStatus();
+      initThemeSystem();
+  checkBrowserVpnUsa(false);
+  checkAuthStatus();
     }, 1000);
   } catch (err) {
     showModalMsg(err.message);
@@ -6149,4 +6153,243 @@ async function applySelectedLibraryCharacterImages() {
   renderMovieScenes();
   closeCharLibraryPickerModal();
   showToast(`Đã thêm ${added} ảnh từ "${libItem.display_name || libItem.name}" vào "${movieChar.name}"!`, 'success');
+}
+
+// ==================== 10 STUDIO THEMES + BROWSER USA VPN CHECK ====================
+const STUDIO_THEMES = [
+  {
+    id: 'vscode-dark',
+    name: 'VS Code Dark (Mặc định)',
+    mode: 'dark',
+    bg: '#1e1e1e', sidebar: '#181818', header: '#1e1e1e', card: '#252526',
+    elevated: '#2d2d2d', input: '#141414', border: '#333333', borderStrong: '#3c3c3c',
+    accent: '#0078d4', accentHover: '#1f8ad2', text: '#e2e8f0', muted: '#94a3b8',
+  },
+  {
+    id: 'light-sky-blue',
+    name: 'Xanh Dương Nhạt (Sky)',
+    mode: 'light',
+    bg: '#e0f2fe', sidebar: '#bae6fd', header: '#f0f9ff', card: '#f0f9ff',
+    elevated: '#dbeafe', input: '#ffffff', border: '#7dd3fc', borderStrong: '#38bdf8',
+    accent: '#0284c7', accentHover: '#0369a1', text: '#0c4a6e', muted: '#0369a1',
+  },
+  {
+    id: 'midnight-ocean',
+    name: 'Midnight Ocean',
+    mode: 'dark',
+    bg: '#0b192c', sidebar: '#071120', header: '#0b192c', card: '#102542',
+    elevated: '#163257', input: '#060e1a', border: '#1e3a5f', borderStrong: '#2b5284',
+    accent: '#0ea5e9', accentHover: '#38bdf8', text: '#e0f2fe', muted: '#7dd3fc',
+  },
+  {
+    id: 'emerald-forest',
+    name: 'Emerald Forest',
+    mode: 'dark',
+    bg: '#0c1a16', sidebar: '#08120f', header: '#0c1a16', card: '#132620',
+    elevated: '#19332b', input: '#060d0b', border: '#1f3f35', borderStrong: '#2c584a',
+    accent: '#10b981', accentHover: '#34d399', text: '#ecfdf5', muted: '#6ee7b7',
+  },
+  {
+    id: 'royal-amethyst',
+    name: 'Royal Amethyst',
+    mode: 'dark',
+    bg: '#171126', sidebar: '#100c1c', header: '#171126', card: '#211936',
+    elevated: '#2b2147', input: '#0c0915', border: '#362a57', borderStrong: '#4b3b78',
+    accent: '#9333ea', accentHover: '#a855f7', text: '#f3e8ff', muted: '#c4b5fd',
+  },
+  {
+    id: 'sunset-amber',
+    name: 'Sunset Amber',
+    mode: 'dark',
+    bg: '#1f1610', sidebar: '#160f0b', header: '#1f1610', card: '#2b1e15',
+    elevated: '#38271c', input: '#120c08', border: '#473224', borderStrong: '#614431',
+    accent: '#d97706', accentHover: '#f59e0b', text: '#fef3c7', muted: '#fcd34d',
+  },
+  {
+    id: 'crimson-ruby',
+    name: 'Crimson Ruby',
+    mode: 'dark',
+    bg: '#1f1115', sidebar: '#160b0e', header: '#1f1115', card: '#2b171d',
+    elevated: '#381e26', input: '#12090b', border: '#4a2631', borderStrong: '#663443',
+    accent: '#e11d48', accentHover: '#f43f5e', text: '#ffe4e6', muted: '#fda4af',
+  },
+  {
+    id: 'cyber-neon',
+    name: 'Cyber Neon',
+    mode: 'dark',
+    bg: '#0f0e1a', sidebar: '#0a0912', header: '#0f0e1a', card: '#171529',
+    elevated: '#201d38', input: '#07060d', border: '#2d2852', borderStrong: '#413975',
+    accent: '#db2777', accentHover: '#ec4899', text: '#fdf2f8', muted: '#f472b6',
+  },
+  {
+    id: 'nordic-slate',
+    name: 'Nordic Slate',
+    mode: 'dark',
+    bg: '#181d24', sidebar: '#11151b', header: '#181d24', card: '#212832',
+    elevated: '#2a3340', input: '#0d1014', border: '#34404f', borderStrong: '#46566b',
+    accent: '#3b82f6', accentHover: '#60a5fa', text: '#f1f5f9', muted: '#94a3b8',
+  },
+  {
+    id: 'clean-paper-light',
+    name: 'Sáng Tinh Khôi (Light)',
+    mode: 'light',
+    bg: '#f1f5f9', sidebar: '#e2e8f0', header: '#ffffff', card: '#ffffff',
+    elevated: '#f8fafc', input: '#ffffff', border: '#cbd5e1', borderStrong: '#94a3b8',
+    accent: '#2563eb', accentHover: '#1d4ed8', text: '#0f172a', muted: '#475569',
+  },
+];
+
+function applyStudioTheme(themeId, save = true) {
+  const theme = STUDIO_THEMES.find(t => t.id === themeId) || STUDIO_THEMES[0];
+  const root = document.documentElement;
+  root.dataset.theme = theme.id;
+  root.dataset.themeMode = theme.mode;
+  root.style.setProperty('--t-bg', theme.bg);
+  root.style.setProperty('--t-sidebar', theme.sidebar);
+  root.style.setProperty('--t-header', theme.header);
+  root.style.setProperty('--t-card', theme.card);
+  root.style.setProperty('--t-elevated', theme.elevated);
+  root.style.setProperty('--t-input', theme.input);
+  root.style.setProperty('--t-border', theme.border);
+  root.style.setProperty('--t-border-strong', theme.borderStrong);
+  root.style.setProperty('--t-accent', theme.accent);
+  root.style.setProperty('--t-accent-hover', theme.accentHover);
+  root.style.setProperty('--t-text', theme.text);
+  root.style.setProperty('--t-muted', theme.muted);
+
+  const dot = document.getElementById('theme-active-dot');
+  if (dot) dot.style.backgroundColor = theme.accent;
+
+  if (save) {
+    localStorage.setItem('23zo_ai_theme', theme.id);
+  }
+  renderThemeMenuList(theme.id);
+}
+
+function renderThemeMenuList(activeId) {
+  const list = document.getElementById('theme-menu-list');
+  if (!list) return;
+  list.innerHTML = STUDIO_THEMES.map(t => {
+    const isActive = t.id === activeId;
+    return `
+      <button type="button" onclick="applyStudioTheme('${t.id}'); toggleThemeMenu(null, false);" class="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left text-xs transition cursor-pointer ${isActive ? 'bg-[#0078d4]/20 border border-[#0078d4]' : 'hover:bg-[#2d2d2d] border border-transparent'}">
+        <span class="flex items-center space-x-2.5 min-w-0">
+          <span class="flex items-center -space-x-1 shrink-0">
+            <span class="w-4 h-4 rounded-full border border-white/30" style="background:${t.bg}"></span>
+            <span class="w-4 h-4 rounded-full border border-white/30" style="background:${t.accent}"></span>
+          </span>
+          <span class="truncate font-medium ${isActive ? 'font-bold text-white' : 'text-slate-200'}">${escapeHtml(t.name)}</span>
+        </span>
+        ${isActive ? '<span class="text-[10px] font-bold text-[#38bdf8] shrink-0">✓</span>' : ''}
+      </button>
+    `;
+  }).join('');
+}
+
+function toggleThemeMenu(ev, forceOpen = null) {
+  if (ev) ev.stopPropagation();
+  const pop = document.getElementById('theme-menu-popover');
+  if (!pop) return;
+  if (forceOpen === false) {
+    pop.classList.add('hidden');
+  } else if (forceOpen === true) {
+    pop.classList.remove('hidden');
+  } else {
+    pop.classList.toggle('hidden');
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
+function initThemeSystem() {
+  const saved = localStorage.getItem('23zo_ai_theme') || 'vscode-dark';
+  applyStudioTheme(saved, false);
+  document.addEventListener('click', (e) => {
+    const wrap = document.getElementById('theme-switcher-wrap');
+    const pop = document.getElementById('theme-menu-popover');
+    if (wrap && pop && !pop.classList.contains('hidden') && !wrap.contains(e.target)) {
+      pop.classList.add('hidden');
+    }
+  });
+}
+
+async function _fetchBrowserGeoIp() {
+  const providers = [
+    async () => {
+      const r = await fetch('https://ipapi.co/json/', { cache: 'no-store' });
+      if (!r.ok) throw new Error('ipapi');
+      const d = await r.json();
+      return { country: (d.country_code || d.country || '').toUpperCase(), countryName: d.country_name || '', ip: d.ip || '' };
+    },
+    async () => {
+      const r = await fetch('https://ipwho.is/', { cache: 'no-store' });
+      if (!r.ok) throw new Error('ipwhois');
+      const d = await r.json();
+      return { country: (d.country_code || '').toUpperCase(), countryName: d.country || '', ip: d.ip || '' };
+    },
+    async () => {
+      const r = await fetch('https://api.country.is/', { cache: 'no-store' });
+      if (!r.ok) throw new Error('countryis');
+      const d = await r.json();
+      return { country: (d.country || '').toUpperCase(), countryName: d.country || '', ip: d.ip || '' };
+    },
+  ];
+  for (const fn of providers) {
+    try {
+      const info = await fn();
+      if (info && info.country) return info;
+    } catch (_) {}
+  }
+  return null;
+}
+
+function dismissVpnModalTemporarily() {
+  document.getElementById('vpn-usa-modal')?.classList.add('hidden');
+}
+
+async function checkBrowserVpnUsa(manual = false) {
+  const statusEl = document.getElementById('header-vpn-status');
+  const modal = document.getElementById('vpn-usa-modal');
+  const detailEl = document.getElementById('vpn-usa-detail');
+  const recheckBtn = document.getElementById('btn-recheck-vpn');
+
+  if (statusEl && manual) statusEl.innerText = 'Đang kiểm tra...';
+  if (recheckBtn) recheckBtn.disabled = true;
+
+  const geo = await _fetchBrowserGeoIp();
+  if (recheckBtn) recheckBtn.disabled = false;
+
+  if (!geo) {
+    if (statusEl) {
+      statusEl.innerText = 'Không xác định';
+      statusEl.className = 'text-amber-300 font-bold';
+    }
+    if (manual) {
+      showToast('Không thể kiểm tra IP trình duyệt lúc này. Hãy thử lại sau.', 'error');
+    }
+    return;
+  }
+
+  const isUsa = geo.country === 'US' || geo.country === 'USA';
+  if (isUsa) {
+    if (statusEl) {
+      statusEl.innerText = `USA (${geo.ip || 'OK'})`;
+      statusEl.className = 'text-emerald-300 font-bold';
+    }
+    if (modal) modal.classList.add('hidden');
+    if (manual) {
+      showToast(`Đã xác nhận VPN trình duyệt đang ở USA (${geo.ip}).`, 'success');
+    }
+  } else {
+    if (statusEl) {
+      statusEl.innerText = `${geo.country} (Chưa phải USA)`;
+      statusEl.className = 'text-amber-300 font-bold';
+    }
+    if (detailEl) {
+      detailEl.innerHTML = `IP trình duyệt hiện tại: <b class="text-white">${escapeHtml(geo.ip || 'N/A')}</b> — Quốc gia: <b class="text-amber-300">${escapeHtml(geo.countryName || geo.country)} (${escapeHtml(geo.country)})</b>.<br/>Vui lòng bật VPN trên trình duyệt sang <b>Hoa Kỳ (USA)</b> rồi bấm <b>Kiểm tra lại VPN</b>.`;
+    }
+    if (modal) {
+      modal.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+  }
 }

@@ -7,7 +7,7 @@ echo          23ZO AI STUDIO (VIDEO - IMAGE - CHAT)
 echo ========================================================
 echo.
 echo [*] Dang khoi dong 23zo AI Studio tai http://localhost:7860 ...
-echo     (Khong can fake VPN - chay truc tiep)
+echo     (Hay bat VPN Browser sang USA khi su dung)
 echo.
 
 if not exist ".venv\Scripts\python.exe" (
