@@ -1022,6 +1022,70 @@ async def get_usage_endpoint():
     return sub
 
 
+FEATURE_THREAD_TITLES: dict[str, str] = {
+    "chat": "23zôAI Chat",
+    "movie": "23zôAI Movie",
+    "video": "23zôAI Video",
+    "image": "23zôAI Image",
+    "character": "23zôAI Character",
+}
+_feature_session_cache: dict[str, str] = {}
+_feature_session_lock = asyncio.Lock()
+
+
+async def ensure_feature_session(client: MuseClient, feature_key: str) -> Optional[str]:
+    """Ensure a dedicated Muse thread exists for each feature (1 feature = 1 thread)."""
+    key = (feature_key or "").strip().lower()
+    title = FEATURE_THREAD_TITLES.get(key)
+    if not title:
+        return None
+    if key in _feature_session_cache:
+        return _feature_session_cache[key]
+
+    async with _feature_session_lock:
+        if key in _feature_session_cache:
+            return _feature_session_cache[key]
+        try:
+            sessions_resp = await client.sessions_list()
+            sessions = (sessions_resp.get("result") or {}).get("sessions") or []
+            for s in sessions:
+                if s.get("is_thread") and (s.get("title") or "").strip().lower() == title.lower():
+                    sid = s.get("session_id")
+                    if sid:
+                        _feature_session_cache[key] = sid
+                        return sid
+        except Exception as exc:
+            logger.warning(f"[FeatureThreads] sessions_list failed: {exc}")
+
+        sid = str(uuid.uuid4())
+        try:
+            await client.chat_stream(
+                prompt=f"Khởi tạo luồng làm việc {title}. Chỉ trả lời ngắn gọn: Sẵn sàng.",
+                session_id=sid,
+                stream_timeout=8.0,
+            )
+            await client._conn().request(
+                "POST",
+                "/api/session/rename",
+                {"session_id": sid, "title": title},
+            )
+            _feature_session_cache[key] = sid
+            logger.info(f"[FeatureThreads] Created dedicated thread '{title}' -> {sid}")
+            return sid
+        except Exception as exc:
+            logger.warning(f"[FeatureThreads] Could not create thread '{title}': {exc}")
+            return None
+
+
+async def ensure_all_feature_sessions(client: MuseClient) -> dict[str, str]:
+    created: dict[str, str] = {}
+    for key in FEATURE_THREAD_TITLES:
+        sid = await ensure_feature_session(client, key)
+        if sid:
+            created[key] = sid
+    return created
+
+
 @app.post("/api/auth/request-otp")
 async def request_otp(data: RequestOtpModel):
     global pending_auth, pending_email
@@ -1086,6 +1150,12 @@ async def verify_otp(data: VerifyOtpModel):
                 except Exception:
                     pass
                 active_client = None
+        _feature_session_cache.clear()
+        try:
+            new_client = await get_or_create_client()
+            await ensure_all_feature_sessions(new_client)
+        except Exception as setup_exc:
+            logger.warning(f"[FeatureThreads] Post-login thread setup skipped: {setup_exc}")
 
         return {
             "status": "success",
@@ -1112,6 +1182,7 @@ async def logout():
             except Exception:
                 pass
             active_client = None
+    _feature_session_cache.clear()
 
     for fname in ["cookies.json", "email.txt"]:
         fpath = STATE_DIR / fname
@@ -1119,6 +1190,13 @@ async def logout():
             fpath.unlink()
 
     return {"status": "success", "message": "Đã đăng xuất khỏi 23zô AI."}
+
+
+@app.post("/api/auth/setup-threads")
+async def setup_feature_threads():
+    client = await get_or_create_client()
+    sessions = await ensure_all_feature_sessions(client)
+    return {"status": "success", "threads": sessions, "titles": FEATURE_THREAD_TITLES}
 
 
 @app.post("/api/upload")
@@ -1179,8 +1257,11 @@ async def generate_video(data: VideoGenerateModel):
             is_retry=data.is_retry,
         )
 
-        # Use existing session_id if continuing a video sequence
-        target_session_id = data.session_id if (data.is_continuation and data.session_id) else None
+        # Route to dedicated feature thread (23zôAI Movie or 23zôAI Video)
+        is_movie_req = (data.output_category == "movies" or bool(data.project_name) or bool(data.project_id))
+        target_session_id = await ensure_feature_session(client, "movie" if is_movie_req else "video")
+        if not target_session_id:
+            target_session_id = data.session_id if (data.is_continuation and data.session_id) else None
 
         logger.info(
             f"[VideoGenerate] scene={data.scene_index} cont={data.is_continuation} "
@@ -1410,11 +1491,14 @@ async def generate_image(data: ImageGenerateModel):
             style_preset=data.style_preset,
         )
 
-        baseline_hist = await client.history(limit=50)
+        is_movie_img = (data.output_category == "movies" or bool(data.project_name) or bool(data.project_id))
+        target_session_id = await ensure_feature_session(client, "movie" if is_movie_img else "image")
+        baseline_hist = await client.history(session_id=target_session_id, limit=50)
 
         events = await client.chat_stream(
             prompt=prompt_full,
             images=images,
+            session_id=target_session_id,
             stream_timeout=35.0,
         )
 
@@ -1463,9 +1547,10 @@ async def chat_interaction(data: ChatModel):
             if r and r not in images:
                 images.append(r)
 
+        target_session_id = data.session_id or await ensure_feature_session(client, "chat")
         baseline_ids: set[str] = set()
         try:
-            before_hist = await client.history(session_id=data.session_id, limit=20)
+            before_hist = await client.history(session_id=target_session_id, limit=20)
             chat_events = (before_hist.get("result") or {}).get("chat_events") or []
             for ev in chat_events:
                 if isinstance(ev, dict) and ev.get("message_id"):
@@ -1476,11 +1561,11 @@ async def chat_interaction(data: ChatModel):
         events = await client.chat_stream(
             prompt=data.prompt,
             images=images,
-            session_id=data.session_id,
+            session_id=target_session_id,
             stream_timeout=15.0,
         )
 
-        session_id = data.session_id
+        session_id = target_session_id
         extracted_ids = extract_session_ids(events)
         if extracted_ids:
             session_id = extracted_ids[-1]
@@ -1997,10 +2082,11 @@ async def breakdown_movie(data: MovieBreakdownModel):
     try:
         client = await get_or_create_client()
 
+        target_session_id = await ensure_feature_session(client, "movie")
         # Track existing baseline messages so we don't pick up old messages
         baseline_ids: set[str] = set()
         try:
-            before_hist = await client.history(limit=20)
+            before_hist = await client.history(session_id=target_session_id, limit=20)
             chat_events = (before_hist.get("result") or {}).get("chat_events") or []
             for ev in chat_events:
                 if isinstance(ev, dict) and ev.get("message_id"):
@@ -2072,11 +2158,11 @@ YÊU CẦU ĐẶC BIỆT:
         events = await client.chat_stream(
             prompt=director_prompt,
             images=[],
-            session_id=None,
+            session_id=target_session_id,
             stream_timeout=45.0,
         )
 
-        session_id = None
+        session_id = target_session_id
         extracted_ids = extract_session_ids(events)
         if extracted_ids:
             session_id = extracted_ids[-1]
@@ -2168,11 +2254,13 @@ async def generate_character_portrait_endpoint(data: CharacterPortraitRequest):
             style_preset=data.style_preset,
         )
 
-        baseline_hist = await client.history(limit=50)
+        target_session_id = await ensure_feature_session(client, "character")
+        baseline_hist = await client.history(session_id=target_session_id, limit=50)
 
         events = await client.chat_stream(
             prompt=prompt_full,
             images=[],
+            session_id=target_session_id,
             stream_timeout=35.0,
         )
 
