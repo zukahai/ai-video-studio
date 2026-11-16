@@ -61,7 +61,7 @@ def main() -> None:
             time.sleep(0.2)
 
     webview.create_window(
-        title="HaiAI Studio - Video, Image & AI Director",
+        title="23zô AI Studio - Video, Image & AI Director",
         url=f"http://127.0.0.1:{port}/",
         width=1440,
         height=900,

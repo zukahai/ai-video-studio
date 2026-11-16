@@ -1,12 +1,12 @@
 @echo off
-title HaiAI Studio - Video, Image & AI Director
+title 23zo AI Studio - Video, Image & AI Director
 cd /d "%~dp0"
 
 echo ========================================================
-echo           HAIAI STUDIO (VIDEO - IMAGE - CHAT)
+echo          23ZO AI STUDIO (VIDEO - IMAGE - CHAT)
 echo ========================================================
 echo.
-echo [*] Dang khoi dong HaiAI Studio tai http://localhost:7860 ...
+echo [*] Dang khoi dong 23zo AI Studio tai http://localhost:7860 ...
 echo     (Khong can fake VPN - chay truc tiep)
 echo.
 

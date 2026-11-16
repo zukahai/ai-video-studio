@@ -48,7 +48,7 @@ STATIC_DIR.mkdir(parents=True, exist_ok=True)
 STATE_DIR.mkdir(parents=True, exist_ok=True)
 MOVIES_DIR.mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="H-AI Studio", version="2.0.0")
+app = FastAPI(title="23zô AI Studio", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -158,7 +158,7 @@ async def get_or_create_client() -> MuseClient:
         if not is_authenticated():
             raise HTTPException(
                 status_code=401,
-                detail="Chưa đăng nhập tài khoản H-AI. Vui lòng xác thực OTP trước.",
+                detail="Chưa đăng nhập tài khoản 23zô AI. Vui lòng xác thực OTP trước.",
             )
 
         auth = MuseAuth(state_dir=STATE_DIR)
@@ -813,7 +813,7 @@ async def auth_status(force: bool = False):
     is_alive = False
     viewer_id = None
     context_window = 350000
-    model_name = "Auto (H-AI Engine)"
+    model_name = "Auto (23zô AI Engine)"
     
     if logged_in:
         try:
@@ -857,7 +857,7 @@ async def auth_status(force: bool = False):
         free_usage = live_sub.get("usage") or {}
         pct = free_usage.get("percentUsed", 0)
         tier_obj = live_sub.get("tier") or {}
-        tier_name = str(tier_obj.get("name") or "H-AI Miễn phí").replace("Muse", "H-AI")
+        tier_name = str(tier_obj.get("name") or "23zô AI Miễn phí").replace("Muse", "23zô AI")
 
         raw_topup_label = str(live_sub.get("topupRowValueLabel") or "Đã dùng 0% (Còn 1 tỷ token)")
         topup_capitalized = raw_topup_label.replace("(còn", "(Còn").replace(" còn ", " Còn ")
@@ -978,7 +978,7 @@ async def auth_status(force: bool = False):
     else:
         vip_tokens_str = "982 triệu"
         usage_data = {
-            "tier_name": "H-AI Miễn phí",
+            "tier_name": "23zô AI Miễn phí",
             "free_plan": {
                 "name": "Gói miễn phí",
                 "used_percent": 26,
@@ -1000,7 +1000,7 @@ async def auth_status(force: bool = False):
     res_dict = {
         "authenticated": logged_in,
         "is_alive": is_alive,
-        "email": email or ("Tài khoản H-AI đã kết nối" if logged_in else None),
+        "email": email or ("Tài khoản 23zô AI đã kết nối" if logged_in else None),
         "viewer_id": viewer_id,
         "quota": {
             "tier": usage_data["tier_name"],
@@ -1057,7 +1057,7 @@ async def request_otp(data: RequestOtpModel):
         await auth.close()
         raise HTTPException(
             status_code=500,
-            detail=f"Lỗi gửi OTP từ hệ thống H-AI: {exc}. Hãy đảm bảo bạn đã BẬT VPN sang Mỹ trên máy tính!",
+            detail=f"Lỗi gửi OTP từ hệ thống 23zô AI: {exc}. Hãy đảm bảo bạn đã BẬT VPN sang Mỹ trên máy tính!",
         )
 
 
@@ -1095,7 +1095,7 @@ async def verify_otp(data: VerifyOtpModel):
 
         return {
             "status": "success",
-            "message": "Đăng nhập H-AI thành công! Hệ thống đã lưu phiên làm việc.",
+            "message": "Đăng nhập 23zô AI thành công! Hệ thống đã lưu phiên làm việc.",
             "email": pending_email,
         }
     except Exception as exc:
@@ -1124,7 +1124,7 @@ async def logout():
         if fpath.exists():
             fpath.unlink()
 
-    return {"status": "success", "message": "Đã đăng xuất khỏi H-AI."}
+    return {"status": "success", "message": "Đã đăng xuất khỏi 23zô AI."}
 
 
 @app.post("/api/upload")
@@ -1237,7 +1237,7 @@ async def generate_video(data: VideoGenerateModel):
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Lỗi tạo video từ H-AI: {exc}. Kiểm tra kết nối VPN và thử lại.",
+            detail=f"Lỗi tạo video từ 23zô AI: {exc}. Kiểm tra kết nối VPN và thử lại.",
         )
 
 
@@ -1452,7 +1452,7 @@ async def generate_image(data: ImageGenerateModel):
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Lỗi tạo ảnh từ H-AI: {exc}. Kiểm tra kết nối VPN và thử lại.",
+            detail=f"Lỗi tạo ảnh từ 23zô AI: {exc}. Kiểm tra kết nối VPN và thử lại.",
         )
 
 
@@ -1512,7 +1512,7 @@ async def chat_interaction(data: ChatModel):
             await asyncio.sleep(1.5)
 
         if not reply_text:
-            reply_text = "H-AI đã nhận yêu cầu và đang xử lý!"
+            reply_text = "23zô AI đã nhận yêu cầu và đang xử lý!"
 
         return {
             "status": "success",
@@ -1523,7 +1523,7 @@ async def chat_interaction(data: ChatModel):
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Lỗi chat với H-AI: {exc}",
+            detail=f"Lỗi chat với 23zô AI: {exc}",
         )
 
 
@@ -1671,7 +1671,7 @@ def _format_movie_result(parsed: dict, style_preset: str = "Điện ảnh HD Hol
             })
 
     return {
-        "title": parsed.get("title") or "Phim Điện Ảnh H-AI",
+        "title": parsed.get("title") or "Phim Điện Ảnh 23zô AI",
         "logline": parsed.get("logline") or "",
         "characters": formatted_chars,
         "scenes": formatted_scenes
@@ -2022,7 +2022,7 @@ async def breakdown_movie(data: MovieBreakdownModel):
             else "   - TUYỆT ĐỐI KHÔNG TẠO PHÂN CẢNH DẪN CHUYỆN / THUYẾT MINH: Không dùng 'Người dẫn chuyện:', 'Dẫn chuyện:', hay 'Thuyết minh:'. Nếu là cảnh mở đầu hoặc chuyển cảnh không có nhân vật nói, hãy để 'dialogue' rỗng (\"\") và viết 'prompt' theo cấu trúc điện ảnh tích cực, giàu chi tiết góc máy & ánh sáng (VD: 'Cinematic 3D animation style, vibrant and rich colors, 4K resolution, medium shot. <mô tả hành động và biểu cảm chi tiết>. Highly detailed character expressions, dynamic framing, warm ambient lighting, soft shadows, clean cinematic composition') — TUYỆT ĐỐI KHÔNG ghi các cụm từ phủ định như 'no voiceover', 'no narrator' vào trong 'prompt'!"
         )
 
-        director_prompt = f"""Bạn là một Đạo diễn & Biên kịch điện ảnh chuyên nghiệp (H-AI Movie Director).
+        director_prompt = f"""Bạn là một Đạo diễn & Biên kịch điện ảnh chuyên nghiệp (23zô AI Movie Director).
 {scenes_instruction}
 
 CỐT TRUYỆN / Ý TƯỞNG:
@@ -2185,7 +2185,7 @@ async def generate_character_portrait_endpoint(data: CharacterPortraitRequest):
         found_images = await _poll_for_image_refs(client, baseline_hist, events, timeout=90.0)
 
         if not found_images:
-            raise HTTPException(status_code=504, detail="H-AI chưa trả về ảnh trong thời gian quy định.")
+            raise HTTPException(status_code=504, detail="23zô AI chưa trả về ảnh trong thời gian quy định.")
 
         ref = found_images[0]
         char_dir = get_output_subdir("characters", subfolder=slugify_simple(data.character_name))
@@ -2972,7 +2972,7 @@ async def test_telegram_notification(data: Optional[TelegramSettingsModel] = Non
     if not recipients:
         raise HTTPException(status_code=400, detail="Vui lòng thêm ít nhất 1 Chat ID nhận thông báo.")
 
-    test_text = "🎬 [H-AI Studio] Kết nối thông báo Telegram thành công!"
+    test_text = "🎬 [23zô AI Studio] Kết nối thông báo Telegram thành công!"
     results = []
     sent_count = 0
     for r in recipients:
@@ -3056,7 +3056,7 @@ async def _telegram_start_poller():
                     chat_id = chat.get("id")
                     if chat_id is not None:
                         reply = (
-                            "✅ Đã kết nối với H-AI Studio!\n"
+                            "✅ Đã kết nối với 23zô AI Studio!\n"
                             f"🆔 Chat ID của bạn là: {chat_id}\n"
                             "Hãy copy ID này dán vào mục Danh sách ID cần thông báo trên web."
                         )
@@ -3105,7 +3105,7 @@ async def root():
                 "Expires": "0",
             },
         )
-    return HTMLResponse("<h1>H-AI Studio Backend Ready</h1>")
+    return HTMLResponse("<h1>23zô AI Studio Backend Ready</h1>")
 
 
 if __name__ == "__main__":

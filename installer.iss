@@ -1,7 +1,7 @@
-#define MyAppName "HaiAI Studio"
+#define MyAppName "23zô AI Studio"
 #define MyAppVersion "2.0.0"
-#define MyAppPublisher "HaiAI Studio"
-#define MyAppExeName "HaiAI Studio.exe"
+#define MyAppPublisher "23zô AI Studio"
+#define MyAppExeName "23zo AI Studio.exe"
 
 [Setup]
 AppId={{7B6F5C4E-8F2D-4C9A-9D1E-42A1C7E8F901}
@@ -12,7 +12,9 @@ DefaultDirName={localappdata}\Programs\{#MyAppName}
 DefaultGroupName={#MyAppName}
 PrivilegesRequired=lowest
 OutputDir=dist
-OutputBaseFilename=HaiAI_Studio_Setup
+OutputBaseFilename=23zo_AI_Studio_Setup
+SetupIconFile=static\logo.ico
+UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2/fast
 SolidCompression=yes
 WizardStyle=modern
@@ -25,7 +27,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-Source: "dist\HaiAI Studio\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "dist\23zo AI Studio\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

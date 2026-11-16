@@ -6,13 +6,14 @@ if (-not (Test-Path $pyinstaller)) {
     throw "PyInstaller not found in .venv\Scripts\pyinstaller.exe"
 }
 
-Write-Host "[1/2] Building HaiAI Studio desktop bundle with PyInstaller..."
+Write-Host "[1/2] Building 23zo AI Studio desktop bundle with PyInstaller..."
 & $pyinstaller `
     --noconfirm `
     --clean `
     --windowed `
     --onedir `
-    --name "HaiAI Studio" `
+    --name "23zo AI Studio" `
+    --icon "static\logo.ico" `
     --paths "MuseAI-API" `
     --add-data "static;static" `
     --collect-submodules muse_ai `
@@ -40,10 +41,10 @@ if (-not $iscc) {
     throw "Inno Setup 6 (ISCC.exe) not found."
 }
 
-Write-Host "[2/2] Packaging Windows installer (dist\HaiAI_Studio_Setup.exe)..."
+Write-Host "[2/2] Packaging Windows installer (dist\23zo_AI_Studio_Setup.exe)..."
 & $iscc "installer.iss"
 if ($LASTEXITCODE -ne 0) {
     throw "Inno Setup compilation failed with exit code $LASTEXITCODE"
 }
 
-Write-Host "DONE: dist\HaiAI_Studio_Setup.exe"
+Write-Host "DONE: dist\23zo_AI_Studio_Setup.exe"

@@ -1,4 +1,4 @@
-// H-AI Studio — Frontend State & Logic
+// 23zô AI Studio — Frontend State & Logic
 const state = {
   currentTab: 'dashboard',
   authenticated: false,
@@ -36,11 +36,11 @@ const state = {
 
 const TAB_TITLES = {
   dashboard: 'Tổng quan hệ thống (Dashboard)',
-  video: 'H-AI Video Studio — Sản xuất & Nối tiếp Cảnh quay',
+  video: '23zô AI Video Studio — Sản xuất & Nối tiếp Cảnh quay',
   movie: 'Tạo Phim AI — Tự động Đạo diễn & Sản xuất Phim',
-  image: 'H-AI Image Studio — Sáng tạo Hình ảnh 8K',
-  chat: 'Trợ lý Đạo diễn & Biên kịch H-AI',
-  gallery: 'Thư viện Tác phẩm H-AI',
+  image: '23zô AI Image Studio — Sáng tạo Hình ảnh 8K',
+  chat: 'Trợ lý Đạo diễn & Biên kịch 23zô AI',
+  gallery: 'Thư viện Tác phẩm 23zô AI',
   telegram: 'Thông báo Telegram Bot',
   characters: 'Kho & Quản lý Nhân vật',
 };
@@ -555,7 +555,7 @@ function applyAuthData(data) {
   if (dot && text && btnText) {
     if (state.authenticated) {
       dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400';
-      text.innerText = data.email || 'Đã kết nối H-AI Cloud';
+      text.innerText = data.email || 'Đã kết nối 23zô AI Cloud';
       text.className = 'text-xs font-bold text-emerald-300 truncate';
       btnText.innerText = 'Đổi tài khoản';
     } else {
@@ -735,7 +735,7 @@ async function verifyOtp() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Xác nhận OTP thất bại.');
 
-    showModalMsg('Kết nối H-AI thành công!', false);
+    showModalMsg('Kết nối 23zô AI thành công!', false);
     setTimeout(() => {
       closeAuthModal();
       checkAuthStatus();
@@ -1276,7 +1276,7 @@ async function generateVideo() {
     seconds++;
     timerEl.innerText = seconds;
     if (seconds === 15) {
-      document.getElementById('video-progress-text').innerText = 'H-AI Director đang thiết lập góc máy & đồng nhất nhân vật...';
+      document.getElementById('video-progress-text').innerText = '23zô AI Director đang thiết lập góc máy & đồng nhất nhân vật...';
     } else if (seconds === 50) {
       document.getElementById('video-progress-text').innerText = 'Đang kết xuất chuyển động 4K và tổng hợp âm thanh vòm...';
     } else if (seconds === 110) {
@@ -1345,7 +1345,7 @@ async function generateVideo() {
       document.getElementById('video-result-container').classList.remove('hidden');
       player.play().catch(() => {});
       loadDashboardAndGallery();
-      sendTelegramNotification('single_video_done', `🎬 [H-AI Studio] Đã tạo xong Video đơn lẻ (Cảnh #${currentSceneNumber}, ${state.videoDuration || 5}s).`);
+      sendTelegramNotification('single_video_done', `🎬 [23zô AI Studio] Đã tạo xong Video đơn lẻ (Cảnh #${currentSceneNumber}, ${state.videoDuration || 5}s).`);
 
       // Cập nhật lại Quota & Token live ngay sau khi tạo video xong
       checkAuthStatus(true).catch(e => console.warn('Cập nhật quota thất bại:', e));
@@ -1483,7 +1483,7 @@ async function mergeAndDownloadStoryboard() {
   // If only 1 scene, download it directly
   if (state.storyboard.length === 1) {
     const singleUrl = state.storyboard[0].url;
-    triggerDownload(singleUrl, `H-AI_Scene_1_${Date.now()}.mp4`);
+    triggerDownload(singleUrl, `23zô AI_Scene_1_${Date.now()}.mp4`);
     return;
   }
 
@@ -1515,7 +1515,7 @@ async function mergeAndDownloadStoryboard() {
     }
 
     // Automatically trigger browser download
-    const filename = data.filename || `H-AI_FullMovie_${state.storyboard.length}Scenes_${Date.now()}.mp4`;
+    const filename = data.filename || `23zô AI_FullMovie_${state.storyboard.length}Scenes_${Date.now()}.mp4`;
     triggerDownload(data.url, filename);
 
     await customAlert(`🎬 Đã ghép thành công ${state.storyboard.length} phân cảnh thành 1 bộ phim hoàn chỉnh!\nTrình phát đang chiếu phim ghép và file đang được tự động tải về.`, 'Ghép phim thành công', 'success');
@@ -1639,7 +1639,7 @@ async function generateImage() {
       document.getElementById('image-loading-state').classList.add('hidden');
       document.getElementById('image-result-container').classList.remove('hidden');
       loadDashboardAndGallery();
-      sendTelegramNotification('image_done', `🎨 [H-AI Studio] Đã vẽ xong Ảnh nghệ thuật mới.`);
+      sendTelegramNotification('image_done', `🎨 [23zô AI Studio] Đã vẽ xong Ảnh nghệ thuật mới.`);
 
       // Cập nhật lại Quota & Token live ngay sau khi tạo ảnh xong
       checkAuthStatus(true).catch(e => console.warn('Cập nhật quota thất bại:', e));
@@ -1700,7 +1700,7 @@ async function sendChatMessage(e) {
     </div>
     <div class="bg-surface-800 border border-white/[0.06] rounded-2xl rounded-tl-none p-3.5 max-w-xl text-sm text-slate-400 flex items-center space-x-2">
       <span class="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
-      <span>H-AI đang biên kịch...</span>
+      <span>23zô AI đang biên kịch...</span>
     </div>
   `;
   container.appendChild(typingBubble);
@@ -2145,7 +2145,7 @@ function createMediaCard(item) {
         <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md ${
           item.type === 'video' ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30' : 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
         }">
-          ${item.type === 'video' ? 'H-AI Video' : 'H-AI Image'}
+          ${item.type === 'video' ? '23zô AI Video' : '23zô AI Image'}
         </span>
         <div class="flex items-center space-x-1.5">
           ${item.type === 'video' ? `
@@ -2195,7 +2195,7 @@ function escapeHtml(str) {
 
 
 // ============================================================================
-// ==================== H-AI AUTO MOVIE STUDIO ENGINE =========================
+// ==================== 23zô AI AUTO MOVIE STUDIO ENGINE =========================
 // ============================================================================
 
 const MOVIE_PALETTE = [
@@ -2914,7 +2914,7 @@ async function analyzeAndBreakdownScript() {
       result = data.data || {};
     }
 
-    movieState.title = result.title || 'Phim Điện Ảnh H-AI';
+    movieState.title = result.title || 'Phim Điện Ảnh 23zô AI';
     movieState.logline = result.logline || '';
 
     // Assign characters with distinct colors
@@ -2950,7 +2950,7 @@ async function analyzeAndBreakdownScript() {
     renderMovieScenes();
     renderCharacterLegend();
 
-    sendTelegramNotification('breakdown_done', `📝 [H-AI Studio] Phân tích xong kịch bản "${movieState.title}": ${characters.length} nhân vật, ${scenes.length} phân cảnh.`);
+    sendTelegramNotification('breakdown_done', `📝 [23zô AI Studio] Phân tích xong kịch bản "${movieState.title}": ${characters.length} nhân vật, ${scenes.length} phân cảnh.`);
 
     const autoDrawEnabled = isAutoDrawCharactersEnabled();
     // Auto-generate 3 standard character portraits for any character missing images
@@ -3452,7 +3452,7 @@ async function autoGenerateMissingCharacterPortraits(charsList) {
       }
     }
 
-    sendTelegramNotification('characters_done', `🖼️ [H-AI Studio] Đã vẽ xong ảnh chuẩn cho các nhân vật của phim "${movieState.title}".`);
+    sendTelegramNotification('characters_done', `🖼️ [23zô AI Studio] Đã vẽ xong ảnh chuẩn cho các nhân vật của phim "${movieState.title}".`);
 
     // Check if auto-produce movie is enabled
     if (isAutoProduceEnabled() && movieState.scenes.length > 0 && !movieState.isGenerating) {
@@ -4030,7 +4030,7 @@ async function _requestMovieSceneVideo(scene, idx, forceFreshSession = false, ov
     saveMovieStateCache();
     renderMovieScenes();
     checkAuthStatus(true).catch(() => {});
-    sendTelegramNotification('scene_done', `✅ [H-AI Studio] Đã quay xong Cảnh #${scene.scene_index} (${scene.duration || 8}s) của phim "${movieState.title}".`);
+    sendTelegramNotification('scene_done', `✅ [23zô AI Studio] Đã quay xong Cảnh #${scene.scene_index} (${scene.duration || 8}s) của phim "${movieState.title}".`);
     return true;
   }
   throw new Error('Không nhận được video phân cảnh.');
@@ -4221,7 +4221,7 @@ async function startAutoMovieGeneration() {
       saveMovieStateCache();
       renderMovieScenes();
       showToast(`⚠️ Cảnh #${scene.scene_index} lỗi 2 lần (${lastErrMsg}). Tạm qua cảnh khác, sẽ thử lại sau khi xong cảnh cuối.`, 'error');
-      sendTelegramNotification('scene_error', `⚠️ [H-AI Studio] Cảnh #${scene.scene_index} phim "${movieState.title}" bị lỗi 2 lần (${lastErrMsg}). Đã chuyển cảnh kế và sẽ thử lại sau cảnh cuối.`);
+      sendTelegramNotification('scene_error', `⚠️ [23zô AI Studio] Cảnh #${scene.scene_index} phim "${movieState.title}" bị lỗi 2 lần (${lastErrMsg}). Đã chuyển cảnh kế và sẽ thử lại sau cảnh cuối.`);
     }
   }
 
@@ -4290,7 +4290,7 @@ async function startAutoMovieGeneration() {
   updateMoviePageTitle();
   if (completedCount > 0) {
     playCompletionChime();
-    sendTelegramNotification('movie_done', `🎬 [H-AI Studio] Đã hoàn thành sản xuất phim "${movieState.title}": ${completedCount}/${total} phân cảnh thành công!`);
+    sendTelegramNotification('movie_done', `🎬 [23zô AI Studio] Đã hoàn thành sản xuất phim "${movieState.title}": ${completedCount}/${total} phân cảnh thành công!`);
     const playNow = await customConfirm(
       `🎉 Chúc mừng! Đã hoàn thành ${completedCount}/${total} phân cảnh phim!\nBạn có muốn mở Rạp Chiếu Phim để xem liên tục toàn bộ bộ phim ngay không?`,
       'Hoàn thành bộ phim',
@@ -4408,7 +4408,7 @@ async function openCinemaTheater() {
   if (!modal) return;
 
   modal.classList.remove('hidden');
-  document.getElementById('theater-movie-title').innerText = movieState.title || 'H-AI Cinema Masterpiece';
+  document.getElementById('theater-movie-title').innerText = movieState.title || '23zô AI Cinema Masterpiece';
 
   theaterPlayScene(0);
 }
@@ -4530,7 +4530,7 @@ async function theaterNextScene() {
     // End of movie
     const playAgain = await customConfirm(
       '🎬 Đã chiếu hết toàn bộ các phân cảnh trong bộ phim!\nBạn có muốn phát lại từ đầu không?',
-      'Rạp Chiếu Phim H-AI',
+      'Rạp Chiếu Phim 23zô AI',
       'Phát lại từ đầu',
       'Đóng'
     );
@@ -4608,7 +4608,7 @@ async function mergeAndDownloadMovie(triggerBtn = null) {
   const originalText = btn ? btn.innerHTML : 'Ghép & Tải MP4';
 
   if (readyScenes.length === 1) {
-    triggerDownload(readyScenes[0].video_url, `H-AI_Movie_Scene1_${Date.now()}.mp4`);
+    triggerDownload(readyScenes[0].video_url, `23zô AI_Movie_Scene1_${Date.now()}.mp4`);
     return;
   }
 
@@ -4623,7 +4623,7 @@ async function mergeAndDownloadMovie(triggerBtn = null) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         video_urls: readyScenes.map(s => s.video_url),
-        output_filename: `H-AI_FullMovie_${Date.now()}.mp4`,
+        output_filename: `23zô AI_FullMovie_${Date.now()}.mp4`,
         output_category: 'movies',
         project_id: movieState.id || null,
         project_name: movieState.title || null,
@@ -4643,8 +4643,8 @@ async function mergeAndDownloadMovie(triggerBtn = null) {
       saveCurrentMovieProject(false).catch(() => {});
     }
 
-    triggerDownload(data.url, data.filename || `H-AI_FullMovie_${Date.now()}.mp4`);
-    sendTelegramNotification('merge_done', `🎞️ [H-AI Studio] Đã ghép xong phim "${movieState.title || 'Movie'}" (${readyScenes.length} phân cảnh) thành file MP4!`);
+    triggerDownload(data.url, data.filename || `23zô AI_FullMovie_${Date.now()}.mp4`);
+    sendTelegramNotification('merge_done', `🎞️ [23zô AI Studio] Đã ghép xong phim "${movieState.title || 'Movie'}" (${readyScenes.length} phân cảnh) thành file MP4!`);
     await customAlert(`🎬 Ghép thành công ${readyScenes.length} phân cảnh thành 1 bộ phim hoàn chỉnh!\nTrình duyệt đang tự động tải file MP4 về máy.`, 'Ghép phim hoàn tất', 'success');
   } catch (err) {
     await customAlert('Lỗi ghép phim: ' + err.message, 'Lỗi ghép phim', 'error');
@@ -5500,17 +5500,17 @@ function toggleLibraryCharacterEdit(libId) {
   renderCharacterLibrary();
 }
 
-const DEFAULT_DOC_TITLE = 'H-AI Studio — Nền tảng Sáng tạo Video, Ảnh & Trợ lý AI';
+const DEFAULT_DOC_TITLE = '23zô AI Studio — Nền tảng Sáng tạo Video, Ảnh & Trợ lý AI';
 
 function updateMoviePageTitle() {
   const total = (movieState.scenes || []).length;
   const done = (movieState.scenes || []).filter(s => s.video_url).length;
   if (movieState.isGenerating && total > 0) {
     const movieName = (movieState.title || 'Tạo Phim AI').trim();
-    document.title = `(${done}/${total}) Đang tạo - ${movieName} | H-AI Studio`;
+    document.title = `(${done}/${total}) Đang tạo - ${movieName} | 23zô AI Studio`;
   } else if (state.currentTab === 'movie' && total > 0) {
     const movieName = (movieState.title || 'Tạo Phim AI').trim();
-    document.title = `(${done}/${total}) ${movieName} | H-AI Studio`;
+    document.title = `(${done}/${total}) ${movieName} | 23zô AI Studio`;
   } else {
     document.title = DEFAULT_DOC_TITLE;
   }

@@ -1,5 +1,5 @@
 @echo off
-title HaiAI Studio - Desktop App
+title 23zo AI Studio - Desktop App
 cd /d "%~dp0"
 
 if not exist ".venv\Scripts\python.exe" (
