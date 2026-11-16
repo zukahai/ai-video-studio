@@ -2110,6 +2110,14 @@ function setupDashboardLazyScroll() {
   }
 }
 
+function formatDurationCompact(sec) {
+  const s = Math.max(0, Math.round(Number(sec) || 0));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return rem > 0 ? `${m}p ${rem}s` : `${m}p`;
+}
+
 function renderDashboardMovies() {
   const grid = document.getElementById('dashboard-movies-grid');
   if (!grid) return;
@@ -2127,6 +2135,13 @@ function renderDashboardMovies() {
   grid.innerHTML = movies.map(p => {
     const rendered = p.rendered_count || 0;
     const totalScenes = p.scene_count || 0;
+    const totalDur = p.total_duration_sec || 0;
+    const renderedDur = p.rendered_duration_sec || 0;
+    const durText = totalDur > 0
+      ? (rendered > 0 && rendered < totalScenes
+          ? `${formatDurationCompact(renderedDur)}/${formatDurationCompact(totalDur)}`
+          : formatDurationCompact(totalDur))
+      : '';
     const isCompleted = totalScenes > 0 && rendered === totalScenes;
     const thumbSrc = p.thumbnail_url
       ? (p.thumbnail_url.endsWith('.mp4')
@@ -2181,7 +2196,10 @@ function renderDashboardMovies() {
             ${charsHtml}
           </div>
           <div class="flex items-center justify-between pt-2 border-t border-white/[0.06] text-[11px]">
-            <span class="${isCompleted ? 'text-emerald-400' : 'text-sky-400'} font-semibold">${rendered}/${totalScenes} cảnh</span>
+            <div class="flex items-center space-x-1.5 min-w-0">
+              <span class="${isCompleted ? 'text-emerald-400' : 'text-sky-400'} font-semibold">${rendered}/${totalScenes} cảnh</span>
+              ${durText ? `<span class="text-slate-500">•</span><span class="text-slate-300 font-medium" title="Thời lượng phim">${durText}</span>` : ''}
+            </div>
             ${p.merged_video_url
               ? `<button type="button" onclick="event.stopPropagation(); openMergedMoviePlayer('${escapeHtml(p.merged_video_url)}', '${escapeHtml(p.title || 'Phim')}')" class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold shadow-md shadow-emerald-500/25 flex items-center space-x-1.5 transition cursor-pointer">
                    <i data-lucide="play" class="w-3 h-3 fill-current"></i>
@@ -2964,6 +2982,7 @@ function renderMovieLibraryCards(filterQuery = '') {
               <span class="text-slate-300 font-semibold">${p.character_count || 0} nhân vật</span>
               <span>•</span>
               <span class="text-cyan-400 font-semibold">Đã quay ${rendered}/${totalScenes} cảnh</span>
+              ${p.total_duration_sec ? `<span>•</span><span class="text-slate-300 font-medium">⏱ ${p.rendered_count > 0 && p.rendered_count < totalScenes ? `${formatDurationCompact(p.rendered_duration_sec)}/${formatDurationCompact(p.total_duration_sec)}` : formatDurationCompact(p.total_duration_sec)}</span>` : ''}
               <span>•</span>
               <span>Cập nhật: ${dateStr}</span>
             </div>

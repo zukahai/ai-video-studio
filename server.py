@@ -2725,6 +2725,16 @@ async def list_movie_projects():
             chars = data.get("characters") or []
             scenes = data.get("scenes") or []
             rendered_count = sum(1 for s in scenes if s.get("video_url") or s.get("status") == "done")
+            total_duration_sec = 0
+            rendered_duration_sec = 0
+            for s in scenes:
+                try:
+                    dur = max(0, int(s.get("duration") or 8))
+                except Exception:
+                    dur = 8
+                total_duration_sec += dur
+                if s.get("video_url") or s.get("status") == "done":
+                    rendered_duration_sec += dur
 
             thumbnail_url = data.get("cover_image_url") or None
             if not thumbnail_url:
@@ -2759,6 +2769,8 @@ async def list_movie_projects():
                 ][:5],
                 "scene_count": len(scenes),
                 "rendered_count": rendered_count,
+                "total_duration_sec": total_duration_sec,
+                "rendered_duration_sec": rendered_duration_sec,
                 "thumbnail_url": thumbnail_url,
                 "cover_image_url": data.get("cover_image_url") or None,
                 "merged_video_url": data.get("merged_video_url") or None,
