@@ -301,6 +301,7 @@ function toggleMovieNarration(enabled) {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeImagePreviewModal();
+    closeStudioSettingsModal();
     const dlg = document.getElementById('custom-dialog-modal');
     if (dlg && !dlg.classList.contains('hidden')) {
       const cancelBtn = document.getElementById('dialog-btn-cancel');
@@ -6272,7 +6273,7 @@ function renderThemeMenuList(activeId) {
   list.innerHTML = STUDIO_THEMES.map(t => {
     const isActive = t.id === activeId;
     return `
-      <button type="button" onclick="applyStudioTheme('${t.id}'); toggleThemeMenu(null, false);" class="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left text-xs transition cursor-pointer ${isActive ? 'bg-[#0078d4]/20 border border-[#0078d4]' : 'hover:bg-[#2d2d2d] border border-transparent'}">
+      <button type="button" onclick="applyStudioTheme('${t.id}')" class="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left text-xs transition cursor-pointer ${isActive ? 'bg-[#0078d4]/20 border border-[#0078d4]' : 'hover:bg-[#2d2d2d] border border-transparent'}">
         <span class="flex items-center space-x-2.5 min-w-0">
           <span class="flex items-center -space-x-1 shrink-0">
             <span class="w-4 h-4 rounded-full border border-white/30" style="background:${t.bg}"></span>
@@ -6286,30 +6287,55 @@ function renderThemeMenuList(activeId) {
   }).join('');
 }
 
-function toggleThemeMenu(ev, forceOpen = null) {
-  if (ev) ev.stopPropagation();
-  const pop = document.getElementById('theme-menu-popover');
-  if (!pop) return;
-  if (forceOpen === false) {
-    pop.classList.add('hidden');
-  } else if (forceOpen === true) {
-    pop.classList.remove('hidden');
-  } else {
-    pop.classList.toggle('hidden');
+function applyStudioFontSize(size, save = true) {
+  const px = Math.max(12, Math.min(20, parseInt(size, 10) || 16));
+  document.documentElement.style.fontSize = `${px}px`;
+  const rangeEl = document.getElementById('studio-font-size-range');
+  if (rangeEl) rangeEl.value = String(px);
+  const labelEl = document.getElementById('studio-font-size-label');
+  if (labelEl) labelEl.innerText = px === 16 ? '16px (Mặc định)' : `${px}px`;
+  const badgeEl = document.getElementById('settings-font-badge');
+  if (badgeEl) badgeEl.innerText = `${px}px`;
+
+  document.querySelectorAll('.font-preset-btn').forEach(btn => {
+    const val = parseInt(btn.dataset.fontPreset, 10);
+    const active = val === px;
+    btn.className = active
+      ? 'font-preset-btn py-1.5 rounded-lg bg-[#0078d4] text-white border border-[#0078d4] text-[11px] font-bold cursor-pointer'
+      : 'font-preset-btn py-1.5 rounded-lg bg-[#2d2d2d] border border-[#3c3c3c] text-[11px] font-medium text-slate-200 hover:border-[#0078d4] cursor-pointer';
+  });
+
+  if (save) {
+    localStorage.setItem('23zo_ai_font_size', String(px));
   }
+}
+
+function openStudioSettingsModal() {
+  const modal = document.getElementById('studio-settings-modal');
+  if (!modal) return;
+  const currentTheme = localStorage.getItem('23zo_ai_theme') || 'vscode-dark';
+  const currentFont = localStorage.getItem('23zo_ai_font_size') || '16';
+  renderThemeMenuList(currentTheme);
+  applyStudioFontSize(currentFont, false);
+  modal.classList.remove('hidden');
   if (window.lucide) lucide.createIcons();
 }
 
+function closeStudioSettingsModal() {
+  document.getElementById('studio-settings-modal')?.classList.add('hidden');
+}
+
+function resetStudioAppearance() {
+  applyStudioTheme('vscode-dark', true);
+  applyStudioFontSize(16, true);
+  showToast('Đã đặt lại giao diện và cỡ chữ mặc định.', 'success');
+}
+
 function initThemeSystem() {
-  const saved = localStorage.getItem('23zo_ai_theme') || 'vscode-dark';
-  applyStudioTheme(saved, false);
-  document.addEventListener('click', (e) => {
-    const wrap = document.getElementById('theme-switcher-wrap');
-    const pop = document.getElementById('theme-menu-popover');
-    if (wrap && pop && !pop.classList.contains('hidden') && !wrap.contains(e.target)) {
-      pop.classList.add('hidden');
-    }
-  });
+  const savedTheme = localStorage.getItem('23zo_ai_theme') || 'vscode-dark';
+  const savedFont = localStorage.getItem('23zo_ai_font_size') || '16';
+  applyStudioTheme(savedTheme, false);
+  applyStudioFontSize(savedFont, false);
 }
 
 async function _fetchBrowserGeoIp() {

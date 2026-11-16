@@ -438,6 +438,17 @@
         </div>
 
       </div>
+
+      <button type="button" onclick="openStudioSettingsModal()" id="btn-studio-settings" class="w-full mt-2 px-3 py-2 rounded-xl bg-surface-800/90 hover:bg-surface-700/60 border border-white/[0.06] hover:border-[#0078d4] text-xs font-semibold text-slate-200 flex items-center justify-between transition cursor-pointer" title="Cài đặt giao diện & cỡ chữ">
+        <span class="flex items-center space-x-2">
+          <i data-lucide="settings" class="w-4 h-4 text-[#38bdf8]"></i>
+          <span>Cài đặt</span>
+        </span>
+        <span class="flex items-center space-x-1.5 text-[10px] text-slate-400">
+          <span id="settings-font-badge">16px</span>
+          <span id="theme-active-dot" class="w-2.5 h-2.5 rounded-full bg-[#0078d4] border border-white/30"></span>
+        </span>
+      </button>
     </div>
   </aside>
 
@@ -466,25 +477,6 @@
           <i data-lucide="globe" class="w-3.5 h-3.5 text-[#38bdf8]"></i>
           <span>VPN: <b id="header-vpn-status" class="text-white">Đang kiểm tra...</b></span>
         </button>
-
-        <!-- Theme Switcher Icon (Top Right) -->
-        <div class="relative" id="theme-switcher-wrap">
-          <button type="button" id="btn-theme-switcher" onclick="toggleThemeMenu(event)" class="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md bg-[#252526] border border-[#3c3c3c] hover:border-[#0078d4] text-xs text-[#cccccc] transition cursor-pointer" title="Đổi giao diện (10 Theme)">
-            <i data-lucide="palette" class="w-4 h-4 text-[#38bdf8]"></i>
-            <span id="theme-active-dot" class="w-2.5 h-2.5 rounded-full bg-[#0078d4] border border-white/30"></span>
-          </button>
-          <div id="theme-menu-popover" class="hidden absolute right-0 top-full mt-2 w-72 rounded-xl border border-[#3c3c3c] bg-[#252526] shadow-2xl p-3 z-50">
-            <div class="flex items-center justify-between pb-2 mb-2 border-b border-[#333333]">
-              <span class="text-xs font-bold text-white flex items-center space-x-1.5">
-                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-[#38bdf8]"></i>
-                <span>Chọn Giao Diện (10 Theme)</span>
-              </span>
-            </div>
-            <div id="theme-menu-list" class="grid grid-cols-1 gap-1 max-h-80 overflow-y-auto pr-1">
-              <!-- Populated by JS -->
-            </div>
-          </div>
-        </div>
       </div>
     </header>
 
@@ -1973,6 +1965,60 @@
     </div>
   </div>
 
+  <!-- STUDIO SETTINGS MODAL (Theme + Font Size) -->
+  <div id="studio-settings-modal" class="fixed inset-0 z-[94] bg-black/75 backdrop-blur-sm hidden flex items-center justify-center p-4" onclick="if (event.target === this) closeStudioSettingsModal()">
+    <div class="bg-[#252526] border border-[#3c3c3c] rounded-2xl max-w-lg w-full p-5 shadow-2xl space-y-5">
+      <div class="flex items-center justify-between pb-3 border-b border-[#333333]">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-lg bg-[#0078d4]/15 border border-[#0078d4]/40 flex items-center justify-center text-[#38bdf8]">
+            <i data-lucide="settings" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm text-white">Cài Đặt Giao Diện</h3>
+            <p class="text-[11px] text-slate-400">Đổi màu chủ đề (10 Theme) &amp; cỡ chữ toàn trang</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeStudioSettingsModal()" class="text-slate-400 hover:text-white cursor-pointer">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Font Size Setting -->
+      <div class="space-y-2.5">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-bold text-white flex items-center space-x-1.5">
+            <i data-lucide="type" class="w-3.5 h-3.5 text-[#38bdf8]"></i>
+            <span>Cỡ chữ toàn trang</span>
+          </label>
+          <span id="studio-font-size-label" class="text-xs font-bold text-[#38bdf8]">16px (Mặc định)</span>
+        </div>
+        <input id="studio-font-size-range" type="range" min="12" max="20" step="1" value="16" oninput="applyStudioFontSize(this.value)" class="w-full accent-[#0078d4] cursor-pointer">
+        <div class="grid grid-cols-4 gap-2">
+          <button type="button" onclick="applyStudioFontSize(14)" data-font-preset="14" class="font-preset-btn py-1.5 rounded-lg bg-[#2d2d2d] border border-[#3c3c3c] text-[11px] font-medium text-slate-200 hover:border-[#0078d4] cursor-pointer">Nhỏ (14px)</button>
+          <button type="button" onclick="applyStudioFontSize(16)" data-font-preset="16" class="font-preset-btn py-1.5 rounded-lg bg-[#2d2d2d] border border-[#3c3c3c] text-[11px] font-medium text-slate-200 hover:border-[#0078d4] cursor-pointer">Chuẩn (16px)</button>
+          <button type="button" onclick="applyStudioFontSize(18)" data-font-preset="18" class="font-preset-btn py-1.5 rounded-lg bg-[#2d2d2d] border border-[#3c3c3c] text-[11px] font-medium text-slate-200 hover:border-[#0078d4] cursor-pointer">Lớn (18px)</button>
+          <button type="button" onclick="applyStudioFontSize(20)" data-font-preset="20" class="font-preset-btn py-1.5 rounded-lg bg-[#2d2d2d] border border-[#3c3c3c] text-[11px] font-medium text-slate-200 hover:border-[#0078d4] cursor-pointer">Rất lớn (20px)</button>
+        </div>
+      </div>
+
+      <!-- Theme Selector (10 Themes) -->
+      <div class="space-y-2">
+        <label class="text-xs font-bold text-white flex items-center space-x-1.5">
+          <i data-lucide="palette" class="w-3.5 h-3.5 text-[#38bdf8]"></i>
+          <span>Chọn Giao Diện (10 Theme)</span>
+        </label>
+        <div id="theme-menu-list" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-64 overflow-y-auto pr-1">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-2 border-t border-[#333333]">
+        <button type="button" onclick="resetStudioAppearance()" class="px-3 py-1.5 rounded-lg bg-[#2d2d2d] hover:bg-[#37373d] border border-[#3c3c3c] text-xs text-slate-300 font-medium cursor-pointer">Đặt lại mặc định</button>
+        <button type="button" onclick="closeStudioSettingsModal()" class="px-4 py-1.5 rounded-lg bg-[#0078d4] hover:bg-[#1f8ad2] text-white text-xs font-bold cursor-pointer">Xong</button>
+      </div>
+    </div>
+  </div>
+
   <!-- USA VPN REQUIRED MODAL -->
   <div id="vpn-usa-modal" class="fixed inset-0 z-[95] bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div class="bg-[#252526] border border-amber-500/40 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
@@ -2001,7 +2047,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261116_5"></script>
+  <script src="/static/app.js?v=20261116_6"></script>
   <script>
     lucide.createIcons();
   </script>
