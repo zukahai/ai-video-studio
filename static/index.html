@@ -1485,10 +1485,15 @@
             </div>
           </div>
 
-          <div class="p-4 border-t border-white/[0.06] bg-surface-950/60">
-            <form onsubmit="sendChatMessage(event)" class="flex items-center space-x-2.5">
-              <input type="text" id="chat-input" placeholder="Nhập yêu cầu cho 23zô AI (VD: Viết kịch bản 3 cảnh nối tiếp về chú mèo phiêu lưu trong rừng phép thuật)..." class="flex-1 bg-surface-800 border border-surface-600 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-400 transition">
-              <button type="submit" id="btn-send-chat" class="px-4 py-2.5 bg-[#0078d4] hover:bg-[#1f8ad2] text-white rounded-md font-semibold text-xs transition flex items-center space-x-1.5 shrink-0 shadow-none border border-transparent cursor-pointer">
+          <div class="p-4 border-t border-white/[0.06] bg-surface-950/60 space-y-2.5">
+            <div id="chat-pending-images" class="hidden flex flex-wrap gap-2"></div>
+            <form onsubmit="sendChatMessage(event)" class="flex items-end space-x-2">
+              <input type="file" id="chat-image-file-input" accept="image/*" multiple class="hidden" onchange="handleChatImageSelect(this.files); this.value='';">
+              <button type="button" onclick="document.getElementById('chat-image-file-input').click()" id="btn-chat-pick-image" class="p-3 rounded-xl bg-surface-800 hover:bg-surface-700 border border-surface-600 text-slate-300 hover:text-white transition shrink-0 cursor-pointer" title="Chọn ảnh gửi kèm (hoặc Ctrl+V để dán ảnh)">
+                <i data-lucide="image-plus" class="w-4 h-4 text-[#38bdf8]"></i>
+              </button>
+              <textarea id="chat-input" rows="1" placeholder="Nhập yêu cầu cho 23zô AI (Shift+Enter để xuống dòng, Ctrl+V để dán ảnh)..." class="flex-1 bg-surface-800 border border-surface-600 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-400 transition resize-none max-h-40 overflow-y-auto leading-relaxed"></textarea>
+              <button type="submit" id="btn-send-chat" class="px-4 py-2.5 bg-[#0078d4] hover:bg-[#1f8ad2] text-white rounded-xl font-semibold text-xs transition flex items-center space-x-1.5 shrink-0 shadow-none border border-transparent cursor-pointer h-[42px]">
                 <span>Gửi</span>
                 <i data-lucide="send" class="w-3.5 h-3.5"></i>
               </button>
@@ -2047,7 +2052,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261116_6"></script>
+  <script src="/static/app.js?v=20261116_7"></script>
   <script>
     lucide.createIcons();
   </script>

@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   initThemeSystem();
+  initChatInputEnhancements();
   checkBrowserVpnUsa(false);
   checkAuthStatus();
   setupDropzones();
@@ -742,6 +743,7 @@ async function verifyOtp() {
     setTimeout(() => {
       closeAuthModal();
       initThemeSystem();
+  initChatInputEnhancements();
   checkBrowserVpnUsa(false);
   checkAuthStatus();
     }, 1000);
@@ -1669,11 +1671,88 @@ function useImageForVideo() {
 }
 
 // CHAT ASSISTANT
-async function sendChatMessage(e) {
-  e.preventDefault();
+let chatPendingImages = [];
+
+function autoResizeChatInput(el) {
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+}
+
+function renderChatPendingImages() {
+  const wrap = document.getElementById('chat-pending-images');
+  if (!wrap) return;
+  if (!chatPendingImages.length) {
+    wrap.innerHTML = '';
+    wrap.classList.add('hidden');
+    return;
+  }
+  wrap.classList.remove('hidden');
+  wrap.innerHTML = chatPendingImages.map((img, idx) => `
+    <div class="relative group w-16 h-16 rounded-lg overflow-hidden border border-[#3c3c3c] bg-[#1e1e1e] shrink-0">
+      <img src="${img.url}" alt="${escapeHtml(img.name || 'image')}" class="w-full h-full object-cover">
+      <button type="button" onclick="removeChatPendingImage(${idx})" class="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/80 text-white text-[10px] leading-none flex items-center justify-center hover:bg-rose-600 cursor-pointer" title="Xóa ảnh">×</button>
+    </div>
+  `).join('');
+}
+
+function removeChatPendingImage(idx) {
+  chatPendingImages.splice(idx, 1);
+  renderChatPendingImages();
+}
+
+async function handleChatImageSelect(files) {
+  if (!files || !files.length) return;
+  for (const file of Array.from(files)) {
+    if (!file.type || !file.type.startsWith('image/')) continue;
+    const fd = new FormData();
+    fd.append('file', file, file.name || `pasted_${Date.now()}.png`);
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Upload thất bại');
+      chatPendingImages.push({
+        url: data.url,
+        local_path: data.local_path,
+        name: data.filename || file.name,
+      });
+      renderChatPendingImages();
+    } catch (err) {
+      showToast('Không thể tải ảnh lên: ' + err.message, 'error');
+    }
+  }
+}
+
+function initChatInputEnhancements() {
   const input = document.getElementById('chat-input');
-  const text = input.value.trim();
-  if (!text) return;
+  if (!input) return;
+  input.addEventListener('input', () => autoResizeChatInput(input));
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendChatMessage(e);
+    }
+  });
+  input.addEventListener('paste', (e) => {
+    const items = e.clipboardData && e.clipboardData.items ? Array.from(e.clipboardData.items) : [];
+    const imageFiles = items
+      .filter(it => it.kind === 'file' && it.type.startsWith('image/'))
+      .map(it => it.getAsFile())
+      .filter(Boolean);
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      handleChatImageSelect(imageFiles);
+    }
+  });
+}
+
+async function sendChatMessage(e) {
+  if (e) e.preventDefault();
+  const input = document.getElementById('chat-input');
+  const rawText = input ? input.value.trim() : '';
+  const attached = [...chatPendingImages];
+  if (!rawText && attached.length === 0) return;
+  const text = rawText || 'Phân tích hoặc hỗ trợ tôi với các ảnh đính kèm.';
 
   if (!state.authenticated) {
     openAuthModal();
@@ -1682,18 +1761,28 @@ async function sendChatMessage(e) {
 
   const container = document.getElementById('chat-messages');
 
+  const imgsHtml = attached.length > 0
+    ? `<div class="flex flex-wrap gap-2 mb-2">${attached.map(im => `<img src="${im.url}" class="max-h-36 rounded-lg border border-white/20 object-cover">`).join('')}</div>`
+    : '';
+
   const userBubble = document.createElement('div');
   userBubble.className = 'flex items-start justify-end space-x-3';
   userBubble.innerHTML = `
     <div class="bg-gradient-to-r from-sky-500 to-blue-600 rounded-2xl rounded-tr-none p-3.5 max-w-xl text-sm text-white shadow shadow-sky-600/25">
-      ${escapeHtml(text)}
+      ${imgsHtml}
+      <div class="whitespace-pre-wrap leading-relaxed">${escapeHtml(text)}</div>
     </div>
     <div class="w-8 h-8 rounded-xl bg-surface-700 text-slate-300 flex items-center justify-center shrink-0 border border-white/10">
       <i data-lucide="user" class="w-4 h-4"></i>
     </div>
   `;
   container.appendChild(userBubble);
-  input.value = '';
+  if (input) {
+    input.value = '';
+    input.style.height = 'auto';
+  }
+  chatPendingImages = [];
+  renderChatPendingImages();
   container.scrollTop = container.scrollHeight;
   lucide.createIcons();
 
@@ -1718,6 +1807,7 @@ async function sendChatMessage(e) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt: text,
+        image_paths: attached.map(im => im.local_path || im.url),
         session_id: state.chatSessionId,
       }),
     });
