@@ -1214,7 +1214,8 @@ function showToast(message, type = 'info') {
 window.addEventListener('paste', handleGlobalPaste);
 
 function handleGlobalPaste(event) {
-  if (event._charPasteHandled || state.currentTab === 'movie') return;
+  if (event._charPasteHandled || event._chatPasteHandled) return;
+  if (state.currentTab !== 'video' && state.currentTab !== 'image') return;
   const items = (event.clipboardData || event.originalEvent?.clipboardData)?.items;
   if (!items) return;
 
@@ -1740,7 +1741,9 @@ function initChatInputEnhancements() {
       .map(it => it.getAsFile())
       .filter(Boolean);
     if (imageFiles.length > 0) {
+      e._chatPasteHandled = true;
       e.preventDefault();
+      e.stopPropagation();
       handleChatImageSelect(imageFiles);
     }
   });
