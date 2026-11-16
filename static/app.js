@@ -6315,10 +6315,10 @@ function initThemeSystem() {
 async function _fetchBrowserGeoIp() {
   const providers = [
     async () => {
-      const r = await fetch('https://ipapi.co/json/', { cache: 'no-store' });
-      if (!r.ok) throw new Error('ipapi');
+      const r = await fetch('https://ipinfo.io/json', { cache: 'no-store' });
+      if (!r.ok) throw new Error('ipinfo');
       const d = await r.json();
-      return { country: (d.country_code || d.country || '').toUpperCase(), countryName: d.country_name || '', ip: d.ip || '' };
+      return { country: (d.country || '').toUpperCase(), countryName: d.country === 'US' ? 'United States' : (d.country || ''), ip: d.ip || '' };
     },
     async () => {
       const r = await fetch('https://ipwho.is/', { cache: 'no-store' });
@@ -6332,14 +6332,24 @@ async function _fetchBrowserGeoIp() {
       const d = await r.json();
       return { country: (d.country || '').toUpperCase(), countryName: d.country || '', ip: d.ip || '' };
     },
+    async () => {
+      const r = await fetch('https://ipapi.co/json/', { cache: 'no-store' });
+      if (!r.ok) throw new Error('ipapi');
+      const d = await r.json();
+      return { country: (d.country_code || d.country || '').toUpperCase(), countryName: d.country_name || '', ip: d.ip || '' };
+    },
   ];
+  let firstResult = null;
   for (const fn of providers) {
     try {
       const info = await fn();
-      if (info && info.country) return info;
+      if (info && info.country) {
+        if (info.country === 'US' || info.country === 'USA') return info;
+        if (!firstResult) firstResult = info;
+      }
     } catch (_) {}
   }
-  return null;
+  return firstResult;
 }
 
 function dismissVpnModalTemporarily() {
