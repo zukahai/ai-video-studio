@@ -2137,11 +2137,8 @@ function renderDashboardMovies() {
     const totalScenes = p.scene_count || 0;
     const totalDur = p.total_duration_sec || 0;
     const renderedDur = p.rendered_duration_sec || 0;
-    const durText = totalDur > 0
-      ? (rendered > 0 && rendered < totalScenes
-          ? `${formatDurationCompact(renderedDur)}/${formatDurationCompact(totalDur)}`
-          : formatDurationCompact(totalDur))
-      : '';
+    const durSec = renderedDur > 0 ? renderedDur : totalDur;
+    const durText = durSec > 0 ? formatDurationCompact(durSec) : '';
     const isCompleted = totalScenes > 0 && rendered === totalScenes;
     const thumbSrc = p.thumbnail_url
       ? (p.thumbnail_url.endsWith('.mp4')
@@ -2982,7 +2979,7 @@ function renderMovieLibraryCards(filterQuery = '') {
               <span class="text-slate-300 font-semibold">${p.character_count || 0} nhân vật</span>
               <span>•</span>
               <span class="text-cyan-400 font-semibold">Đã quay ${rendered}/${totalScenes} cảnh</span>
-              ${p.total_duration_sec ? `<span>•</span><span class="text-slate-300 font-medium">⏱ ${p.rendered_count > 0 && p.rendered_count < totalScenes ? `${formatDurationCompact(p.rendered_duration_sec)}/${formatDurationCompact(p.total_duration_sec)}` : formatDurationCompact(p.total_duration_sec)}</span>` : ''}
+              ${(p.rendered_duration_sec || p.total_duration_sec) ? `<span>•</span><span class="text-slate-300 font-medium">${formatDurationCompact(p.rendered_duration_sec > 0 ? p.rendered_duration_sec : p.total_duration_sec)}</span>` : ''}
               <span>•</span>
               <span>Cập nhật: ${dateStr}</span>
             </div>
