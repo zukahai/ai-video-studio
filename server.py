@@ -486,6 +486,11 @@ def build_hidden_video_prompt(
             "KHÔNG được từ chối hay trả lời bằng văn bản rằng đã thử trước đó."
         )
 
+    auto_exec_suffix = (
+        "\n[CHẾ ĐỘ TỰ ĐỘNG - KHÔNG HỎI LẠI]: Thực thi và gọi công cụ tạo video NGAY LẬP TỨC cho yêu cầu này. "
+        "TUYỆT ĐỐI KHÔNG dừng lại hỏi xác nhận người dùng, KHÔNG đề nghị lựa chọn, KHÔNG kiểm tra xem các cảnh trước có bị thiếu hay không — cứ tạo clip mới ngay lập tức."
+    )
+
     if is_continuation:
         return (
             f"{retry_prefix}"
@@ -495,7 +500,7 @@ def build_hidden_video_prompt(
             f"ánh sáng, bảng màu và phong cách góc máy để tạo thành một thước phim liên tục mượt mà. "
             f"Chất lượng điện ảnh HD, chuyển động vật lý tự nhiên, chi tiết sắc nét, âm thanh sống động đồng bộ hoàn hảo, "
             f"{ratio_desc}.{style_part}{dialogue_part}{ref_images_part}\n"
-            f"Diễn biến cảnh tiếp theo: {clean_user_prompt}{retry_suffix}"
+            f"Diễn biến cảnh tiếp theo: {clean_user_prompt}{retry_suffix}{auto_exec_suffix}"
         )
     else:
         return (
@@ -504,7 +509,7 @@ def build_hidden_video_prompt(
             f"Chất lượng điện ảnh HD, bố cục nghệ thuật xuất sắc, "
             f"chuyển động camera và vật lý mượt mà chân thực, ánh sáng điện ảnh có chiều sâu, chi tiết cực kỳ sắc nét, "
             f"kèm âm thanh và hiệu ứng tiếng động sống động đồng bộ hoàn hảo, {ratio_desc}.{style_part}{dialogue_part}{ref_images_part}\n"
-            f"Nội dung cảnh quay: {clean_user_prompt}{retry_suffix}"
+            f"Nội dung cảnh quay: {clean_user_prompt}{retry_suffix}{auto_exec_suffix}"
         )
 
 
@@ -518,7 +523,8 @@ def build_hidden_image_prompt(
     return (
         f"Generate a masterpiece, ultra-detailed professional high-resolution 8K image, "
         f"exceptional lighting, sharp focus, rich textures, professional composition, {ratio_desc}.{style_part} "
-        f"Subject description: {user_prompt.strip()}"
+        f"Subject description: {user_prompt.strip()}\n"
+        f"[CHẾ ĐỘ TỰ ĐỘNG - KHÔNG HỎI LẠI]: Gọi công cụ tạo ảnh ngay lập tức, tuyệt đối không dừng lại hỏi xác nhận."
     )
 
 
