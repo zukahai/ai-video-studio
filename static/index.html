@@ -67,19 +67,78 @@
       --t-text: #e2e8f0;
       --t-muted: #94a3b8;
     }
+    @keyframes viewEnter {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .tab-view:not(.hidden) {
+      animation: viewEnter 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Plus Jakarta Sans', Roboto, sans-serif;
       background-color: var(--t-bg) !important;
       color: var(--t-text) !important;
-      transition: background-color 0.2s ease, color 0.2s ease;
+      transition: background-color 0.22s ease, color 0.22s ease;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
     aside {
       background-color: var(--t-sidebar) !important;
       border-color: var(--t-border) !important;
+      box-shadow: 4px 0 24px -12px rgba(0, 0, 0, 0.35);
     }
     header {
-      background-color: var(--t-header) !important;
+      background-color: color-mix(in srgb, var(--t-header) 88%, transparent) !important;
+      backdrop-filter: blur(12px);
       border-color: var(--t-border) !important;
+      box-shadow: 0 4px 20px -12px rgba(0, 0, 0, 0.3);
+    }
+    .tab-btn {
+      border-radius: 0.6rem !important;
+      transition: background-color 0.16s ease, color 0.16s ease, transform 0.12s ease, border-color 0.16s ease !important;
+    }
+    .tab-btn.bg-\[\#37373d\] {
+      background: color-mix(in srgb, var(--t-accent) 16%, var(--t-elevated)) !important;
+      border-left: 3px solid var(--t-accent) !important;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+    button:active:not(:disabled) {
+      transform: scale(0.985);
+    }
+    input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):focus,
+    textarea:focus,
+    select:focus {
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--t-accent) 22%, transparent);
+    }
+    #dashboard-movies-grid > div,
+    #dashboard-videos-grid > div,
+    #dashboard-images-grid > div,
+    #gallery-grid > div {
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease !important;
+    }
+    #dashboard-movies-grid > div:hover,
+    #dashboard-videos-grid > div:hover,
+    #dashboard-images-grid > div:hover,
+    #gallery-grid > div:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 14px 30px -12px rgba(0, 0, 0, 0.45), 0 0 0 1px color-mix(in srgb, var(--t-accent) 38%, transparent);
+    }
+    .hero-studio-banner {
+      background: linear-gradient(135deg, color-mix(in srgb, var(--t-accent) 18%, var(--t-sidebar)) 0%, var(--t-card) 52%, color-mix(in srgb, var(--t-accent) 10%, var(--t-sidebar)) 100%) !important;
+      border-color: color-mix(in srgb, var(--t-accent) 32%, var(--t-border)) !important;
+    }
+    html[data-theme-mode="light"] .hero-studio-banner {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 55%, #075985 100%) !important;
+      border-color: #38bdf8 !important;
+      box-shadow: 0 16px 32px -12px rgba(2, 132, 199, 0.35) !important;
+    }
+    html[data-theme-mode="light"] .hero-studio-banner * {
+      color: #ffffff !important;
+    }
+    html[data-theme-mode="light"] .hero-studio-banner .hero-primary-btn,
+    html[data-theme-mode="light"] .hero-studio-banner .hero-primary-btn * {
+      background-color: #ffffff !important;
+      color: #0369a1 !important;
     }
     .glass-card,
     .bg-\[\#252526\],
@@ -205,6 +264,10 @@
     }
     .glass-card {
       border: 1px solid var(--t-border);
+      box-shadow: 0 8px 24px -10px rgba(0, 0, 0, 0.35);
+    }
+    html[data-theme-mode="light"] .glass-card {
+      box-shadow: 0 8px 24px -12px rgba(14, 116, 144, 0.16);
     }
     .glow-border:focus-within {
       border-color: var(--t-accent);
@@ -521,7 +584,7 @@
         </div>
 
         <!-- Hero Banner -->
-        <div class="relative rounded-2xl overflow-hidden p-6 sm:p-8 bg-gradient-to-r from-[#0c1524] via-surface-800 to-[#09111e] border border-sky-500/20 shadow-2xl">
+        <div class="hero-studio-banner relative rounded-2xl overflow-hidden p-6 sm:p-8 border shadow-2xl">
           <div class="relative z-10 max-w-2xl space-y-3">
             <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-sky-500/20 border border-sky-400/30 text-sky-300 text-xs font-semibold">
               <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
@@ -534,7 +597,7 @@
               Hệ thống tự động nâng cấp mô tả của bạn thành kịch bản quay phim 4K chuẩn điện ảnh, hỗ trợ đa tỉ lệ khung hình và tạo các cảnh video nối tiếp liền mạch giữ nguyên nhân vật.
             </p>
             <div class="pt-2 flex flex-wrap gap-3">
-              <button onclick="switchTab('video')" class="px-5 py-2.5 rounded-xl bg-white text-slate-950 hover:bg-sky-50 font-bold text-xs flex items-center space-x-2 shadow-lg transition">
+              <button onclick="switchTab('video')" class="hero-primary-btn px-5 py-2.5 rounded-xl bg-white text-slate-950 hover:bg-sky-50 font-bold text-xs flex items-center space-x-2 shadow-lg transition cursor-pointer">
                 <i data-lucide="clapperboard" class="w-4 h-4 text-sky-600"></i>
                 <span>Mở Studio Tạo Video</span>
               </button>
@@ -2052,7 +2115,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261116_13"></script>
+  <script src="/static/app.js?v=20261117_1"></script>
   <script>
     lucide.createIcons();
   </script>
