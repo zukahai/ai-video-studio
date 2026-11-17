@@ -1080,10 +1080,6 @@
                 <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
                 <input id="movie-hub-search" type="text" oninput="renderMovieHubGrid(true)" placeholder="Tìm tên phim, nhân vật..." class="bg-[#141414] border border-[#3c3c3c] focus:border-[#0078d4] rounded-lg pl-8 pr-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none w-52 sm:w-64">
               </div>
-              <button type="button" onclick="createNewMovieProject(true)" id="btn-hub-create-movie" class="px-4 py-2 bg-[#0078d4] hover:bg-[#1f8ad2] text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer shadow-sm">
-                <i data-lucide="plus" class="w-4 h-4"></i>
-                <span>Tạo Phim Mới</span>
-              </button>
             </div>
           </div>
 
@@ -1091,9 +1087,17 @@
             <!-- Rendered by JS with lazy scroll -->
           </div>
 
-          <div id="movie-hub-lazy-sentinel" class="py-4 text-center text-xs text-slate-400">
+          <div id="movie-hub-lazy-sentinel" class="py-6 pb-20 text-center text-xs text-slate-400">
             <span id="movie-hub-lazy-status"></span>
           </div>
+
+          <!-- Fixed Floating CTA: + Tạo Phim Mới -->
+          <button type="button" onclick="createNewMovieProject(true)" id="btn-hub-create-movie" class="fixed bottom-7 right-7 z-40 group px-5 py-3 rounded-full text-white text-xs font-bold flex items-center space-x-2.5 cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 ring-1 ring-white/25 shadow-[0_12px_32px_-6px_rgba(2,132,199,0.65)]" style="background: linear-gradient(135deg, var(--t-accent) 0%, #0ea5e9 100%);">
+            <span class="w-6 h-6 rounded-full bg-white/20 group-hover:bg-white/30 flex items-center justify-center transition">
+              <i data-lucide="plus" class="w-4 h-4 text-white"></i>
+            </span>
+            <span class="tracking-wide text-[13px]">Tạo Phim Mới</span>
+          </button>
         </div>
 
         <!-- MOVIE EDITOR / DETAIL VIEW (Hiển thị khi mở 1 phim hoặc bấm + Tạo Phim Mới) -->
@@ -2170,7 +2174,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261117_3"></script>
+  <script src="/static/app.js?v=20261117_4"></script>
   <script>
     lucide.createIcons();
   </script>
