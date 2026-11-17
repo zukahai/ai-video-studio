@@ -542,7 +542,32 @@
         <h1 id="page-header-title" class="font-bold text-base text-white truncate">Tổng quan (Dashboard)</h1>
       </div>
 
-      <div class="flex items-center space-x-3">
+      <div class="flex items-center space-x-2.5">
+        <!-- Quick Workspace Switcher -->
+        <div class="relative" id="workspace-switcher-wrap">
+          <button type="button" onclick="toggleWorkspaceMenu(event)" id="workspace-switcher-btn" class="flex items-center space-x-2 px-3 py-1.5 rounded-md bg-[#252526] border border-[#3c3c3c] hover:border-[#0078d4] text-xs text-[#cccccc] transition cursor-pointer" title="Đổi không gian người dùng">
+            <i data-lucide="layers" class="w-3.5 h-3.5 text-[#38bdf8]"></i>
+            <span>Không gian: <b id="header-workspace-name" class="text-white font-semibold">default</b></span>
+            <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
+          </button>
+          <div id="workspace-menu-popover" class="hidden absolute right-0 top-full mt-2 w-72 rounded-xl border border-[#3c3c3c] bg-[#252526] shadow-2xl p-3 z-50 space-y-2.5">
+            <div class="flex items-center justify-between pb-2 border-b border-[#333333]">
+              <span class="text-xs font-bold text-white flex items-center space-x-1.5">
+                <i data-lucide="layers" class="w-3.5 h-3.5 text-[#38bdf8]"></i>
+                <span>Không gian người dùng</span>
+              </span>
+              <span class="text-[10px] text-slate-400">outputs/&lt;tên&gt;</span>
+            </div>
+            <div id="workspace-menu-list" class="space-y-1 max-h-56 overflow-y-auto pr-1">
+              <!-- Populated by JS -->
+            </div>
+            <form onsubmit="createAndSwitchWorkspace(event)" class="pt-2 border-t border-[#333333] flex items-center space-x-1.5">
+              <input id="new-workspace-input" type="text" placeholder="Tên không gian mới..." class="flex-1 bg-[#141414] border border-[#3c3c3c] focus:border-[#0078d4] rounded-lg px-2.5 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none">
+              <button type="submit" class="px-2.5 py-1.5 rounded-lg bg-[#0078d4] hover:bg-[#1f8ad2] text-white text-xs font-semibold shrink-0 cursor-pointer">+ Tạo</button>
+            </form>
+          </div>
+        </div>
+
         <!-- Live Token Quota Badge -->
         <div id="header-quota-badge" class="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-md bg-[#252526] border border-[#3c3c3c] text-xs text-[#cccccc]">
           <i data-lucide="zap" class="w-3.5 h-3.5 text-[#38bdf8]"></i>
@@ -2172,7 +2197,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261117_5"></script>
+  <script src="/static/app.js?v=20261118_1"></script>
   <script>
     lucide.createIcons();
   </script>

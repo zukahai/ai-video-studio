@@ -223,6 +223,11 @@ def resolve_media_path(path_str: str) -> Optional[Path]:
     return None
 
 
+WORKSPACE_SUBFOLDERS = ("chat", "images", "movies", "videos", "characters")
+LEGACY_OUTPUT_SUBDIRS = {"chat", "images", "movies", "videos", "characters", "_thumbs"}
+ACTIVE_WORKSPACE_FILE = STATE_DIR / "active_workspace.txt"
+
+
 def _safe_folder_name(name: Optional[str], fallback: str = "default") -> str:
     raw = (name or "").strip()
     if not raw:
@@ -231,29 +236,101 @@ def _safe_folder_name(name: Optional[str], fallback: str = "default") -> str:
     return slug[:64].strip("_") or fallback
 
 
+def ensure_workspace_dirs(ws_name: Optional[str] = None) -> Path:
+    ws_slug = _safe_folder_name(ws_name, fallback="default")
+    if ws_slug in LEGACY_OUTPUT_SUBDIRS:
+        ws_slug = f"ws_{ws_slug}"
+    ws_root = OUTPUTS_DIR / ws_slug
+    ws_root.mkdir(parents=True, exist_ok=True)
+    for sub in WORKSPACE_SUBFOLDERS:
+        (ws_root / sub).mkdir(parents=True, exist_ok=True)
+    return ws_root
+
+
+def get_active_workspace() -> str:
+    ws = "default"
+    if ACTIVE_WORKSPACE_FILE.exists():
+        try:
+            saved = ACTIVE_WORKSPACE_FILE.read_text(encoding="utf-8").strip()
+            if saved:
+                ws = _safe_folder_name(saved, fallback="default")
+        except Exception:
+            pass
+    if ws in LEGACY_OUTPUT_SUBDIRS:
+        ws = "default"
+    ensure_workspace_dirs(ws)
+    return ws
+
+
+def set_active_workspace(ws_name: Optional[str]) -> str:
+    ws_slug = _safe_folder_name(ws_name, fallback="default")
+    if ws_slug in LEGACY_OUTPUT_SUBDIRS:
+        ws_slug = f"ws_{ws_slug}"
+    ensure_workspace_dirs(ws_slug)
+    ACTIVE_WORKSPACE_FILE.write_text(ws_slug, encoding="utf-8")
+    return ws_slug
+
+
+def get_workspace_root(ws: Optional[str] = None) -> Path:
+    return ensure_workspace_dirs(ws or get_active_workspace())
+
+
+def get_workspace_movies_dir(ws: Optional[str] = None) -> Path:
+    return get_workspace_root(ws) / "movies"
+
+
+def list_all_workspaces() -> list[dict]:
+    active = get_active_workspace()
+    ensure_workspace_dirs("default")
+    names: list[str] = ["default"]
+    if OUTPUTS_DIR.exists():
+        for entry in sorted(OUTPUTS_DIR.iterdir(), key=lambda p: p.name.lower()):
+            if entry.is_dir() and entry.name not in LEGACY_OUTPUT_SUBDIRS and entry.name != "default":
+                names.append(entry.name)
+    result = []
+    for name in names:
+        ws_movies = OUTPUTS_DIR / name / "movies"
+        m_count = len(list(ws_movies.glob("*.json"))) if ws_movies.exists() else 0
+        if name == "default" and MOVIES_DIR.exists():
+            legacy_ids = {f.stem for f in MOVIES_DIR.glob("*.json")}
+            ws_ids = {f.stem for f in ws_movies.glob("*.json")} if ws_movies.exists() else set()
+            m_count = len(legacy_ids | ws_ids)
+        result.append({
+            "id": name,
+            "name": name,
+            "is_default": name == "default",
+            "is_active": name == active,
+            "movie_count": m_count,
+        })
+    return result
+
+
 def get_output_subdir(
     category: Optional[str] = None,
     project_name: Optional[str] = None,
     project_id: Optional[str] = None,
     subfolder: Optional[str] = None,
 ) -> Path:
-    """Return organized output directory under outputs/ (movies/<project>/..., videos/, images/, characters/...)."""
+    """Return organized output directory under outputs/<workspace>/ (movies/<project>/..., videos/, images/, characters/, chat/)."""
+    ws_root = get_workspace_root()
     cat = (category or "videos").strip().lower()
     if cat in ("movie", "movies"):
         proj_slug = _safe_folder_name(project_name, fallback=_safe_folder_name(project_id, fallback="untitled_movie"))
-        target = OUTPUTS_DIR / "movies" / proj_slug
+        target = ws_root / "movies" / proj_slug
         if subfolder:
             target = target / _safe_folder_name(subfolder, fallback="misc")
     elif cat in ("image", "images"):
-        target = OUTPUTS_DIR / "images"
+        target = ws_root / "images"
         if subfolder:
             target = target / _safe_folder_name(subfolder, fallback="misc")
     elif cat in ("character", "characters"):
-        target = OUTPUTS_DIR / "characters"
+        target = ws_root / "characters"
         if subfolder:
             target = target / _safe_folder_name(subfolder, fallback="misc")
+    elif cat == "chat":
+        target = ws_root / "chat"
     else:
-        target = OUTPUTS_DIR / "videos"
+        target = ws_root / "videos"
         if subfolder:
             target = target / _safe_folder_name(subfolder, fallback="misc")
     target.mkdir(parents=True, exist_ok=True)
@@ -1622,8 +1699,7 @@ async def chat_interaction(data: ChatModel):
         if not reply_text:
             reply_text = "23zô AI đã nhận yêu cầu và đang xử lý!"
 
-        chat_dir = OUTPUTS_DIR / "chat"
-        chat_dir.mkdir(parents=True, exist_ok=True)
+        chat_dir = get_output_subdir("chat")
         downloaded_images: list[str] = []
         downloaded_videos: list[str] = []
         for idx, ref in enumerate(media_refs):
@@ -1666,8 +1742,7 @@ async def get_chat_history(limit: int = 60):
         hist = await client.history(session_id=sid, limit=limit)
         chat_events = (hist.get("result") or {}).get("chat_events") or []
 
-        chat_dir = OUTPUTS_DIR / "chat"
-        chat_dir.mkdir(parents=True, exist_ok=True)
+        chat_dir = get_output_subdir("chat")
 
         async def _cache_refs(ev_obj: dict) -> tuple[list[str], list[str]]:
             imgs: list[str] = []
@@ -2422,29 +2497,55 @@ async def generate_character_portrait_endpoint(data: CharacterPortraitRequest):
         raise HTTPException(status_code=500, detail=f"Lỗi tạo ảnh nhân vật: {exc}")
 
 
+def _get_workspace_output_files() -> list[Path]:
+    active = get_active_workspace()
+    ws_root = get_workspace_root(active)
+    files: list[Path] = []
+    seen: set[Path] = set()
+    if ws_root.exists():
+        for f in ws_root.rglob("*"):
+            if f.is_file() and "_thumbs" not in f.parts:
+                rp = f.resolve()
+                seen.add(rp)
+                files.append(f)
+    if active == "default" and OUTPUTS_DIR.exists():
+        for entry in OUTPUTS_DIR.iterdir():
+            if entry.is_file():
+                rp = entry.resolve()
+                if rp not in seen:
+                    files.append(entry)
+            elif entry.is_dir() and entry.name in LEGACY_OUTPUT_SUBDIRS and entry.name != "_thumbs":
+                for f in entry.rglob("*"):
+                    if f.is_file() and "_thumbs" not in f.parts:
+                        rp = f.resolve()
+                        if rp not in seen:
+                            seen.add(rp)
+                            files.append(f)
+    return files
+
+
 @app.get("/api/movie/existing_character_images")
 async def get_existing_character_images(name: str):
     slug = slugify_simple(name)
     slug_dash = slug.replace("_", "-")
     found = []
-    if OUTPUTS_DIR.exists():
-        all_files = [f for f in OUTPUTS_DIR.rglob("*") if f.is_file() and "_thumbs" not in f.parts]
-        for file in sorted(all_files, key=lambda f: f.stat().st_mtime, reverse=True):
-            if file.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp"):
-                fname_lower = file.name.lower()
-                # Exclude video frames or full movies
-                if fname_lower.startswith("haiai_movie") or fname_lower.startswith("lastframe_") or "fullmovie" in fname_lower:
-                    continue
-                # Exact word-boundary awareness (e.g. don't mix "nguoi_em" with "vo_nguoi_em")
-                if slug == "nguoi_em" and ("vo_nguoi_em" in fname_lower or "vo-nguoi-em" in fname_lower):
-                    continue
-                if slug in fname_lower or (len(slug) > 3 and slug_dash in fname_lower) or slug in str(file.parent).lower():
-                    found.append({
-                        "id": f"img_{file.stem}",
-                        "name": file.name,
-                        "url": _to_outputs_url(file),
-                        "local_path": str(file.resolve()),
-                    })
+    all_files = _get_workspace_output_files()
+    for file in sorted(all_files, key=lambda f: f.stat().st_mtime, reverse=True):
+        if file.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp"):
+            fname_lower = file.name.lower()
+            # Exclude video frames or full movies
+            if fname_lower.startswith("haiai_movie") or fname_lower.startswith("lastframe_") or "fullmovie" in fname_lower:
+                continue
+            # Exact word-boundary awareness (e.g. don't mix "nguoi_em" with "vo_nguoi_em")
+            if slug == "nguoi_em" and ("vo_nguoi_em" in fname_lower or "vo-nguoi-em" in fname_lower):
+                continue
+            if slug in fname_lower or (len(slug) > 3 and slug_dash in fname_lower) or slug in str(file.parent).lower():
+                found.append({
+                    "id": f"img_{file.stem}",
+                    "name": file.name,
+                    "url": _to_outputs_url(file),
+                    "local_path": str(file.resolve()),
+                })
     return {"status": "success", "images": found[:6]}
 
 
@@ -2711,13 +2812,20 @@ def _seed_initial_movie_projects():
 
 @app.get("/api/movie/projects")
 async def list_movie_projects():
-    MOVIES_DIR.mkdir(parents=True, exist_ok=True)
-    existing_files = list(MOVIES_DIR.glob("*.json"))
-    if not existing_files:
+    active_ws = get_active_workspace()
+    ws_movies_dir = get_workspace_movies_dir(active_ws)
+    ws_movies_dir.mkdir(parents=True, exist_ok=True)
+    project_files: dict[str, Path] = {f.stem: f for f in ws_movies_dir.glob("*.json")}
+    if active_ws == "default" and MOVIES_DIR.exists():
+        for f in MOVIES_DIR.glob("*.json"):
+            if f.stem not in project_files:
+                project_files[f.stem] = f
+    if active_ws == "default" and not project_files:
         _seed_initial_movie_projects()
+        project_files = {f.stem: f for f in MOVIES_DIR.glob("*.json")}
 
     projects = []
-    for file in sorted(MOVIES_DIR.glob("*.json"), key=lambda f: f.stat().st_mtime, reverse=True):
+    for file in sorted(project_files.values(), key=lambda f: f.stat().st_mtime, reverse=True):
         try:
             with open(file, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -2783,10 +2891,22 @@ async def list_movie_projects():
     return {"status": "success", "projects": projects}
 
 
+def _resolve_movie_json_path(project_id: str) -> Optional[Path]:
+    active_ws = get_active_workspace()
+    ws_file = get_workspace_movies_dir(active_ws) / f"{project_id}.json"
+    if ws_file.exists():
+        return ws_file
+    if active_ws == "default":
+        legacy_file = MOVIES_DIR / f"{project_id}.json"
+        if legacy_file.exists():
+            return legacy_file
+    return None
+
+
 @app.get("/api/movie/projects/{project_id}")
 async def get_movie_project(project_id: str):
-    file_path = MOVIES_DIR / f"{project_id}.json"
-    if not file_path.exists():
+    file_path = _resolve_movie_json_path(project_id)
+    if not file_path or not file_path.exists():
         raise HTTPException(status_code=404, detail="Không tìm thấy dự án phim.")
     try:
         with open(file_path, "r", encoding="utf-8") as f:
@@ -2802,8 +2922,8 @@ class MovieCoverUpdateModel(BaseModel):
 
 @app.post("/api/movie/projects/{project_id}/cover")
 async def update_movie_project_cover(project_id: str, body: MovieCoverUpdateModel):
-    file_path = MOVIES_DIR / f"{project_id}.json"
-    if not file_path.exists():
+    file_path = _resolve_movie_json_path(project_id)
+    if not file_path or not file_path.exists():
         raise HTTPException(status_code=404, detail="Không tìm thấy dự án phim.")
     try:
         with open(file_path, "r", encoding="utf-8") as f:
@@ -2833,7 +2953,9 @@ async def save_movie_project(project: MovieProjectModel):
         data["createdAt"] = now_ms
     data["updatedAt"] = now_ms
 
-    file_path = MOVIES_DIR / f"{pid}.json"
+    ws_movies_dir = get_workspace_movies_dir()
+    ws_movies_dir.mkdir(parents=True, exist_ok=True)
+    file_path = ws_movies_dir / f"{pid}.json"
     try:
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -2844,14 +2966,57 @@ async def save_movie_project(project: MovieProjectModel):
 
 @app.delete("/api/movie/projects/{project_id}")
 async def delete_movie_project(project_id: str):
-    file_path = MOVIES_DIR / f"{project_id}.json"
-    if file_path.exists():
-        try:
-            file_path.unlink()
-            return {"status": "success", "deleted_id": project_id}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Lỗi xoá dự án phim: {e}")
-    return {"status": "success", "deleted_id": project_id}
+    deleted = False
+    active_ws = get_active_workspace()
+    candidates = [get_workspace_movies_dir(active_ws) / f"{project_id}.json"]
+    if active_ws == "default":
+        candidates.append(MOVIES_DIR / f"{project_id}.json")
+    for file_path in candidates:
+        if file_path.exists():
+            try:
+                file_path.unlink()
+                deleted = True
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Lỗi xoá dự án phim: {e}")
+    return {"status": "success", "deleted_id": project_id, "deleted": deleted}
+
+
+class WorkspaceActionModel(BaseModel):
+    name: str
+    switch: bool = True
+
+
+@app.get("/api/workspaces")
+async def get_workspaces():
+    return {
+        "status": "success",
+        "active": get_active_workspace(),
+        "workspaces": list_all_workspaces(),
+    }
+
+
+@app.post("/api/workspaces")
+async def create_workspace(body: WorkspaceActionModel):
+    raw = (body.name or "").strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Tên không gian không được để trống.")
+    ws_slug = set_active_workspace(raw) if body.switch else ensure_workspace_dirs(raw).name
+    return {
+        "status": "success",
+        "workspace": ws_slug,
+        "active": get_active_workspace(),
+        "workspaces": list_all_workspaces(),
+    }
+
+
+@app.post("/api/workspaces/switch")
+async def switch_workspace(body: WorkspaceActionModel):
+    ws_slug = set_active_workspace(body.name)
+    return {
+        "status": "success",
+        "active": ws_slug,
+        "workspaces": list_all_workspaces(),
+    }
 
 
 @app.get("/api/gallery")
@@ -2861,31 +3026,30 @@ async def get_gallery():
     image_count = 0
     total_bytes = 0
 
-    if OUTPUTS_DIR.exists():
-        all_files = [
-            f for f in OUTPUTS_DIR.rglob("*")
-            if f.is_file() and "_thumbs" not in f.parts and not f.name.startswith("lastframe_")
-        ]
-        for file in sorted(all_files, key=lambda f: f.stat().st_mtime, reverse=True):
-            ext = file.suffix.lower()
-            is_video = ext in (".mp4", ".webm", ".mov")
-            is_image = ext in (".png", ".jpg", ".jpeg", ".webp", ".gif")
-            if is_video or is_image:
-                fsize = file.stat().st_size
-                total_bytes += fsize
-                if is_video:
-                    video_count += 1
-                else:
-                    image_count += 1
-                rel_folder = file.parent.relative_to(OUTPUTS_DIR).as_posix()
-                items.append({
-                    "name": file.name,
-                    "folder": "" if rel_folder == "." else rel_folder,
-                    "url": _to_outputs_url(file),
-                    "type": "video" if is_video else "image",
-                    "size_mb": round(fsize / (1024 * 1024), 2),
-                    "created_at": file.stat().st_mtime,
-                })
+    all_files = [
+        f for f in _get_workspace_output_files()
+        if not f.name.startswith("lastframe_")
+    ]
+    for file in sorted(all_files, key=lambda f: f.stat().st_mtime, reverse=True):
+        ext = file.suffix.lower()
+        is_video = ext in (".mp4", ".webm", ".mov")
+        is_image = ext in (".png", ".jpg", ".jpeg", ".webp", ".gif")
+        if is_video or is_image:
+            fsize = file.stat().st_size
+            total_bytes += fsize
+            if is_video:
+                video_count += 1
+            else:
+                image_count += 1
+            rel_folder = file.parent.relative_to(OUTPUTS_DIR).as_posix()
+            items.append({
+                "name": file.name,
+                "folder": "" if rel_folder == "." else rel_folder,
+                "url": _to_outputs_url(file),
+                "type": "video" if is_video else "image",
+                "size_mb": round(fsize / (1024 * 1024), 2),
+                "created_at": file.stat().st_mtime,
+            })
 
     return {
         "items": items,

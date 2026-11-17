@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   initThemeSystem();
+  initWorkspaces();
   initChatInputEnhancements();
   checkBrowserVpnUsa(false);
   checkAuthStatus();
@@ -746,6 +747,7 @@ async function verifyOtp() {
     setTimeout(() => {
       closeAuthModal();
       initThemeSystem();
+  initWorkspaces();
   initChatInputEnhancements();
   checkBrowserVpnUsa(false);
   checkAuthStatus();
@@ -6752,5 +6754,144 @@ async function checkBrowserVpnUsa(manual = false) {
       modal.classList.remove('hidden');
       if (window.lucide) lucide.createIcons();
     }
+  }
+}
+
+// ==================== USER WORKSPACES (outputs/<workspace>/) ====================
+let _workspaceState = {
+  active: 'default',
+  list: [],
+};
+
+async function initWorkspaces() {
+  document.addEventListener('click', (e) => {
+    const wrap = document.getElementById('workspace-switcher-wrap');
+    const pop = document.getElementById('workspace-menu-popover');
+    if (wrap && pop && !pop.classList.contains('hidden') && !wrap.contains(e.target)) {
+      pop.classList.add('hidden');
+    }
+  });
+  await loadWorkspacesList();
+}
+
+async function loadWorkspacesList() {
+  try {
+    const res = await fetch('/api/workspaces');
+    if (!res.ok) return;
+    const data = await res.json();
+    _workspaceState.active = data.active || 'default';
+    _workspaceState.list = Array.isArray(data.workspaces) ? data.workspaces : [];
+    const nameEl = document.getElementById('header-workspace-name');
+    if (nameEl) nameEl.innerText = _workspaceState.active;
+    renderWorkspaceMenuList();
+  } catch (err) {
+    console.warn('loadWorkspacesList failed:', err);
+  }
+}
+
+function renderWorkspaceMenuList() {
+  const listEl = document.getElementById('workspace-menu-list');
+  if (!listEl) return;
+  listEl.innerHTML = (_workspaceState.list || []).map(ws => {
+    const isActive = ws.id === _workspaceState.active;
+    return `
+      <button type="button" onclick="switchWorkspace('${escapeHtml(ws.id)}')" class="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left text-xs transition cursor-pointer ${isActive ? 'bg-[#0078d4]/20 border border-[#0078d4]' : 'hover:bg-[#2d2d2d] border border-transparent'}">
+        <span class="flex items-center space-x-2 min-w-0">
+          <i data-lucide="folder" class="w-3.5 h-3.5 ${isActive ? 'text-[#38bdf8]' : 'text-slate-400'} shrink-0"></i>
+          <span class="truncate font-medium ${isActive ? 'font-bold text-white' : 'text-slate-200'}">${escapeHtml(ws.name)}</span>
+          ${ws.is_default ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-[#1e1e1e] text-slate-400 border border-[#3c3c3c]">Mặc định</span>' : ''}
+        </span>
+        <span class="flex items-center space-x-1.5 shrink-0">
+          <span class="text-[10px] text-slate-400 tabular-nums">${ws.movie_count || 0} phim</span>
+          ${isActive ? '<span class="text-[10px] font-bold text-[#38bdf8]">✓</span>' : ''}
+        </span>
+      </button>
+    `;
+  }).join('');
+  if (window.lucide) lucide.createIcons();
+}
+
+function toggleWorkspaceMenu(ev, forceOpen = null) {
+  if (ev) ev.stopPropagation();
+  const pop = document.getElementById('workspace-menu-popover');
+  if (!pop) return;
+  if (forceOpen === false) {
+    pop.classList.add('hidden');
+  } else if (forceOpen === true) {
+    pop.classList.remove('hidden');
+  } else {
+    pop.classList.toggle('hidden');
+  }
+  if (!pop.classList.contains('hidden')) {
+    loadWorkspacesList();
+  }
+}
+
+async function _applyWorkspaceSwitchSideEffects(activeWs) {
+  _workspaceState.active = activeWs;
+  const nameEl = document.getElementById('header-workspace-name');
+  if (nameEl) nameEl.innerText = activeWs;
+
+  movieProjectsState.list = [];
+  movieProjectsState.currentId = null;
+  movieState.id = null;
+  movieState.title = 'Kịch bản Phim Mới';
+  movieState.logline = '';
+  movieState.script = '';
+  movieState.characters = [];
+  movieState.scenes = [];
+  movieState.merged_video_url = null;
+  movieState.cover_image_url = null;
+  state.galleryItems = [];
+
+  await Promise.all([
+    loadWorkspacesList(),
+    loadMovieProjectsList(),
+    loadDashboardAndGallery(),
+  ]);
+
+  if (state.currentTab === 'movie') {
+    showMovieHub(true);
+  }
+}
+
+async function switchWorkspace(name) {
+  if (!name) return;
+  try {
+    const res = await fetch('/api/workspaces/switch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Không thể đổi không gian.');
+    toggleWorkspaceMenu(null, false);
+    await _applyWorkspaceSwitchSideEffects(data.active || name);
+    showToast(`Đã chuyển sang không gian "${data.active || name}".`, 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function createAndSwitchWorkspace(e) {
+  if (e) e.preventDefault();
+  const input = document.getElementById('new-workspace-input');
+  const raw = input ? input.value.trim() : '';
+  if (!raw) return;
+
+  try {
+    const res = await fetch('/api/workspaces', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: raw, switch: true }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Không thể tạo không gian mới.');
+    if (input) input.value = '';
+    toggleWorkspaceMenu(null, false);
+    await _applyWorkspaceSwitchSideEffects(data.active || data.workspace);
+    showToast(`Đã tạo và chuyển sang không gian "${data.active || data.workspace}"!`, 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
   }
 }
