@@ -2202,7 +2202,7 @@ function renderDashboardMovies() {
                    <i data-lucide="play" class="w-3 h-3 fill-current"></i>
                    <span>Xem phim</span>
                  </button>`
-              : `<span class="text-slate-400 group-hover:text-white transition font-medium">Mở phim →</span>`
+              : `<span class="text-slate-400 group-hover:text-white transition font-medium">Mở phim</span>`
             }
           </div>
         </div>
