@@ -16,7 +16,6 @@ if not exist ".venv\Scripts\python.exe" (
     exit /b
 )
 
-timeout /t 2 >nul
-start "" http://localhost:7860
+start "" /b powershell -NoProfile -Command "for ($i=0; $i -lt 80; $i++) { try { $r = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:7860/api/auth/status' -TimeoutSec 1; if ($r.StatusCode -eq 200) { Start-Process 'http://localhost:7860'; break } } catch {}; Start-Sleep -Milliseconds 250 }"
 ".venv\Scripts\python.exe" server.py
 pause
