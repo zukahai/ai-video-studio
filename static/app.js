@@ -6848,6 +6848,7 @@ async function _applyWorkspaceSwitchSideEffects(activeWs) {
     loadWorkspacesList(),
     loadMovieProjectsList(),
     loadDashboardAndGallery(),
+    loadCharacterLibrary(),
   ]);
 
   if (state.currentTab === 'movie') {

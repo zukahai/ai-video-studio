@@ -193,16 +193,24 @@ def resolve_media_path(path_str: str) -> Optional[Path]:
             return p.resolve()
     except Exception:
         pass
-    clean = path_str.replace("\\", "/").lstrip("/")
+    norm = path_str.replace("\\", "/")
+    # Support cross-machine portable paths (e.g. C:\Users\OldPC\...\outputs\default\uploads\x.png)
+    for marker in ("/outputs/", "/uploads/"):
+        idx = norm.lower().find(marker)
+        if idx != -1:
+            norm = norm[idx:]
+            break
+    clean = norm.lstrip("/")
     if clean.startswith("outputs/"):
         rel_out = clean[len("outputs/"):]
-        for target in (OUTPUTS_DIR / rel_out, OUTPUTS_DIR / "default" / rel_out):
+        for target in (OUTPUTS_DIR / rel_out, get_workspace_root() / rel_out, OUTPUTS_DIR / "default" / rel_out):
             if target.exists() and target.is_file():
                 return target.resolve()
     if clean.startswith("uploads/"):
-        target = UPLOADS_DIR / clean[len("uploads/"):]
-        if target.exists() and target.is_file():
-            return target.resolve()
+        rel_up = clean[len("uploads/"):]
+        for target in (get_workspace_root() / "uploads" / rel_up, OUTPUTS_DIR / "default" / "uploads" / rel_up, UPLOADS_DIR / rel_up):
+            if target.exists() and target.is_file():
+                return target.resolve()
     if clean.startswith("static/"):
         target = STATIC_DIR / clean[len("static/"):]
         if target.exists() and target.is_file():
@@ -223,8 +231,8 @@ def resolve_media_path(path_str: str) -> Optional[Path]:
     return None
 
 
-WORKSPACE_SUBFOLDERS = ("chat", "images", "movies", "videos", "characters")
-LEGACY_OUTPUT_SUBDIRS = {"chat", "images", "movies", "videos", "characters", "_thumbs"}
+WORKSPACE_SUBFOLDERS = ("chat", "images", "movies", "videos", "characters", "uploads")
+LEGACY_OUTPUT_SUBDIRS = {"chat", "images", "movies", "videos", "characters", "uploads", "_thumbs"}
 ACTIVE_WORKSPACE_FILE = STATE_DIR / "active_workspace.txt"
 
 
@@ -1286,7 +1294,9 @@ async def setup_feature_threads():
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...)):
     filename = f"{uuid.uuid4().hex[:8]}_{file.filename}"
-    file_path = UPLOADS_DIR / filename
+    ws_uploads = get_workspace_root() / "uploads"
+    ws_uploads.mkdir(parents=True, exist_ok=True)
+    file_path = ws_uploads / filename
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
@@ -1294,7 +1304,7 @@ async def upload_file(file: UploadFile = File(...)):
         "status": "success",
         "filename": filename,
         "local_path": str(file_path),
-        "url": f"/uploads/{filename}",
+        "url": _to_outputs_url(file_path),
     }
 
 
@@ -3062,13 +3072,25 @@ async def get_gallery():
     }
 
 
-CHARACTER_LIBRARY_FILE = STATE_DIR / "character_library.json"
+LEGACY_CHARACTER_LIBRARY_FILE = STATE_DIR / "character_library.json"
+
+
+def _get_character_library_file() -> Path:
+    active = get_active_workspace()
+    ws_file = get_workspace_root(active) / "character_library.json"
+    if active == "default" and not ws_file.exists() and LEGACY_CHARACTER_LIBRARY_FILE.exists():
+        try:
+            shutil.copy2(LEGACY_CHARACTER_LIBRARY_FILE, ws_file)
+        except Exception:
+            pass
+    return ws_file
 
 
 def _load_character_library() -> list[dict]:
-    if CHARACTER_LIBRARY_FILE.exists():
+    lib_file = _get_character_library_file()
+    if lib_file.exists():
         try:
-            data = json.loads(CHARACTER_LIBRARY_FILE.read_text(encoding="utf-8"))
+            data = json.loads(lib_file.read_text(encoding="utf-8"))
             if isinstance(data, list):
                 return data
         except Exception as exc:
@@ -3077,7 +3099,8 @@ def _load_character_library() -> list[dict]:
 
 
 def _save_character_library(items: list[dict]) -> list[dict]:
-    CHARACTER_LIBRARY_FILE.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+    lib_file = _get_character_library_file()
+    lib_file.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
     return items
 
 
@@ -3490,10 +3513,23 @@ class WorkspaceStaticFiles(StaticFiles):
         return full_path, stat_res
 
 
+class WorkspaceUploadsFiles(StaticFiles):
+    def lookup_path(self, path: str):
+        rel = path.replace("\\", "/").lstrip("/")
+        for base in (get_workspace_root() / "uploads", OUTPUTS_DIR / "default" / "uploads", UPLOADS_DIR):
+            cand = base / rel
+            try:
+                if cand.exists() and cand.is_file():
+                    return str(cand.resolve()), cand.stat()
+            except Exception:
+                pass
+        return super().lookup_path(path)
+
+
 # Static mounting
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.mount("/outputs", WorkspaceStaticFiles(directory=str(OUTPUTS_DIR)), name="outputs")
-app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
+app.mount("/uploads", WorkspaceUploadsFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
 
 @app.get("/")
