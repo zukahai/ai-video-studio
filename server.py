@@ -41,7 +41,6 @@ OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
 STATE_DIR.mkdir(parents=True, exist_ok=True)
-MOVIES_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="23zô AI Studio", version="2.0.0")
 
@@ -196,9 +195,10 @@ def resolve_media_path(path_str: str) -> Optional[Path]:
         pass
     clean = path_str.replace("\\", "/").lstrip("/")
     if clean.startswith("outputs/"):
-        target = OUTPUTS_DIR / clean[len("outputs/"):]
-        if target.exists() and target.is_file():
-            return target.resolve()
+        rel_out = clean[len("outputs/"):]
+        for target in (OUTPUTS_DIR / rel_out, OUTPUTS_DIR / "default" / rel_out):
+            if target.exists() and target.is_file():
+                return target.resolve()
     if clean.startswith("uploads/"):
         target = UPLOADS_DIR / clean[len("uploads/"):]
         if target.exists() and target.is_file():
@@ -3469,9 +3469,30 @@ async def stop_background_tasks():
         _telegram_poller_task = None
 
 
+class WorkspaceStaticFiles(StaticFiles):
+    def lookup_path(self, path: str):
+        full_path, stat_res = super().lookup_path(path)
+        if stat_res is not None:
+            return full_path, stat_res
+        rel = path.replace("\\", "/").lstrip("/")
+        default_root = OUTPUTS_DIR / "default"
+        candidates = [default_root / rel]
+        fname = Path(rel).name
+        if fname and "/" not in rel:
+            for sub in ("videos", "images", "characters", "chat"):
+                candidates.append(default_root / sub / fname)
+        for cand in candidates:
+            try:
+                if cand.exists() and cand.is_file():
+                    return str(cand.resolve()), cand.stat()
+            except Exception:
+                pass
+        return full_path, stat_res
+
+
 # Static mounting
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-app.mount("/outputs", StaticFiles(directory=str(OUTPUTS_DIR)), name="outputs")
+app.mount("/outputs", WorkspaceStaticFiles(directory=str(OUTPUTS_DIR)), name="outputs")
 app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
 
