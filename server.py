@@ -3328,4 +3328,15 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server:app", host="127.0.0.1", port=7860, reload=True)
+    is_windowless = (sys.stdout is None or sys.stderr is None)
+    if is_windowless:
+        log_file = open(BASE_DIR / "server.log", "a", encoding="utf-8")
+        sys.stdout = log_file
+        sys.stderr = log_file
+    uvicorn.run(
+        "server:app",
+        host="127.0.0.1",
+        port=7860,
+        reload=not is_windowless,
+        use_colors=not is_windowless,
+    )
