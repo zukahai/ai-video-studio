@@ -79,6 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
   checkAuthStatus();
   setupDropzones();
   setupDashboardLazyScroll();
+  setupMovieHubLazyScroll();
   restoreMovieStateCache();
   loadMovieProjectsList();
   loadDashboardAndGallery();
@@ -107,7 +108,11 @@ function updateUrlParams() {
       url.searchParams.delete('duration');
       url.searchParams.delete('movie');
     } else if (state.currentTab === 'movie') {
-      if (movieState.id) url.searchParams.set('movie', movieState.id);
+      if (_movieViewMode === 'detail' && movieState.id) {
+        url.searchParams.set('movie', movieState.id);
+      } else {
+        url.searchParams.delete('movie');
+      }
       url.searchParams.delete('mode');
       url.searchParams.delete('style');
       url.searchParams.delete('duration');
@@ -367,6 +372,14 @@ function restoreFromUrlParams() {
 
     // Switch to target tab
     switchTab(targetTab, false);
+    if (targetTab === 'movie') {
+      const urlMovieId = params.get('movie');
+      if (urlMovieId) {
+        showMovieEditor(urlMovieId);
+      } else {
+        showMovieHub(false);
+      }
+    }
   } catch (err) {
     console.warn('Lỗi đọc URL params:', err);
     switchTab('dashboard', false);
@@ -421,21 +434,8 @@ function switchTab(tabId, syncUrl = true) {
     loadCharacterLibrary();
   }
   if (tabId === 'movie') {
-    renderMovieCharacters();
-    renderMovieScenes();
-    renderCharacterLegend();
-    renderMovieProjectsRibbon();
-    updateMovieActiveDisplay();
-    healMovieCharactersCache().then(() => {
-      if (isAutoDrawCharactersEnabled()) {
-        const charsNeedingImages = (movieState.characters || []).filter(
-          c => !c._isGenerating && (!c.images || c.images.length === 0)
-        );
-        if (charsNeedingImages.length > 0) {
-          autoGenerateMissingCharacterPortraits(charsNeedingImages);
-        }
-      }
-    });
+    showMovieHub(false);
+    renderMovieHubGrid(true);
     loadMovieProjectsList();
   } else {
     updateMoviePageTitle();
@@ -2118,6 +2118,93 @@ function formatDurationCompact(sec) {
   return rem > 0 ? `${m} phút ${rem} giây` : `${m} phút`;
 }
 
+let _movieViewMode = 'hub';
+let _movieHubVisibleCount = 12;
+const MOVIE_HUB_BATCH_SIZE = 12;
+let _movieHubObserver = null;
+
+function renderMovieCardHtml(p, options = {}) {
+  const showDelete = Boolean(options.showDelete);
+  const rendered = p.rendered_count || 0;
+  const totalScenes = p.scene_count || 0;
+  const totalDur = p.total_duration_sec || 0;
+  const renderedDur = p.rendered_duration_sec || 0;
+  const durSec = renderedDur > 0 ? renderedDur : totalDur;
+  const durText = durSec > 0 ? formatDurationCompact(durSec) : '';
+  const isCompleted = totalScenes > 0 && rendered === totalScenes;
+  const thumbSrc = p.thumbnail_url
+    ? (p.thumbnail_url.endsWith('.mp4')
+        ? `/api/video/thumbnail?url=${encodeURIComponent(p.thumbnail_url)}`
+        : p.thumbnail_url)
+    : '';
+  const thumbHtml = thumbSrc
+    ? `<img src="${escapeHtml(thumbSrc)}" loading="lazy" decoding="async" alt="${escapeHtml(p.title || 'Phim')}" onerror="this.style.display='none'" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">`
+    : `<div class="w-full h-full bg-[#1e1e1e] flex items-center justify-center text-[#38bdf8]/70">
+         <i data-lucide="clapperboard" class="w-8 h-8"></i>
+       </div>`;
+
+  const charPalette = ['#38bdf8', '#a78bfa', '#34d399', '#fbbf24', '#f472b6', '#fb7185', '#2dd4bf'];
+  const rawDetail = Array.isArray(p.characters_detail) && p.characters_detail.length > 0
+    ? p.characters_detail
+    : (Array.isArray(p.characters_summary) ? p.characters_summary.map(n => ({ name: n, color: '', avatar_url: null })) : []);
+  const totalChars = p.character_count || rawDetail.length;
+  const visibleChars = rawDetail.slice(0, 4);
+  const extraChars = Math.max(0, totalChars - visibleChars.length);
+  const charsHtml = visibleChars.length > 0
+    ? `<div class="flex flex-wrap items-center gap-1.5 pt-0.5">
+         ${visibleChars.map((ch, idx) => {
+           const hex = (ch.color && /^#[0-9a-fA-F]{6}$/.test(ch.color)) ? ch.color : charPalette[idx % charPalette.length];
+           const avatar = ch.avatar_url
+             ? `<img src="${escapeHtml(ch.avatar_url)}" loading="lazy" decoding="async" alt="${escapeHtml(ch.name)}" onerror="this.style.display='none'" class="w-4 h-4 rounded-full object-cover shrink-0 border border-white/25">`
+             : `<span class="w-2 h-2 rounded-full shrink-0" style="background:${hex}"></span>`;
+           return `<span class="inline-flex items-center space-x-1 text-[10px] font-medium pl-1 pr-2 py-0.5 rounded-full" style="background:${hex}1f; border:1px solid ${hex}55; color:${hex}">
+             ${avatar}
+             <span class="truncate max-w-[95px]">${escapeHtml(ch.name)}</span>
+           </span>`;
+         }).join('')}
+         ${extraChars > 0 ? `<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-sky-500/15 border border-sky-400/25 text-sky-300 font-semibold">+${extraChars}</span>` : ''}
+       </div>`
+    : '';
+  const loglineHtml = p.logline
+    ? `<p class="text-[11px] text-slate-400 leading-relaxed line-clamp-2">${escapeHtml(p.logline)}</p>`
+    : '';
+
+  return `
+    <div onclick="openMovieFromDashboard('${escapeHtml(p.id)}')" class="glass-card rounded-2xl overflow-hidden shadow-lg group hover:border-sky-400/40 transition cursor-pointer flex flex-col">
+      <div class="aspect-video bg-black/60 flex items-center justify-center overflow-hidden relative shrink-0">
+        ${thumbHtml}
+        <button type="button" onclick="event.stopPropagation(); openMovieCoverModal('${escapeHtml(p.id)}')" title="Chọn hoặc tạo ảnh đại diện phim" class="absolute top-2 left-2 p-1.5 rounded-lg bg-black/70 hover:bg-black/90 border border-white/15 text-slate-200 hover:text-amber-300 opacity-85 group-hover:opacity-100 transition cursor-pointer">
+          <i data-lucide="image" class="w-3.5 h-3.5"></i>
+        </button>
+        <div class="absolute top-2 right-2 flex items-center space-x-1">
+          <span class="text-[10px] px-2 py-0.5 rounded bg-black/75 border border-white/10 text-slate-200 font-semibold">${escapeHtml(p.aspectRatio || '16:9')}</span>
+          ${showDelete ? `<button type="button" onclick="deleteMovieProject('${escapeHtml(p.id)}', event)" title="Xoá phim này" class="p-1 rounded bg-black/75 hover:bg-rose-600/90 border border-white/15 text-slate-200 hover:text-white opacity-0 group-hover:opacity-100 transition cursor-pointer"><i data-lucide="trash-2" class="w-3 h-3"></i></button>` : ''}
+        </div>
+      </div>
+      <div class="p-3.5 flex-1 flex flex-col justify-between gap-2.5">
+        <div class="space-y-1.5">
+          <div class="font-bold text-[13px] text-white leading-snug break-words">${escapeHtml(p.title || 'Phim chưa đặt tên')}</div>
+          ${loglineHtml}
+          ${charsHtml}
+        </div>
+        <div class="flex items-center justify-between pt-2 border-t border-white/[0.06] text-[11px]">
+          <div class="flex items-center space-x-1.5 min-w-0">
+            <span class="${isCompleted ? 'text-emerald-400' : 'text-sky-400'} font-semibold">${rendered}/${totalScenes} cảnh</span>
+            ${durText ? `<span class="text-slate-500">•</span><span class="text-slate-300 font-medium" title="Thời lượng phim">${durText}</span>` : ''}
+          </div>
+          ${p.merged_video_url
+            ? `<button type="button" onclick="event.stopPropagation(); openMergedMoviePlayer('${escapeHtml(p.merged_video_url)}', '${escapeHtml(p.title || 'Phim')}')" class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold shadow-md shadow-emerald-500/25 flex items-center space-x-1.5 transition cursor-pointer">
+                 <i data-lucide="play" class="w-3 h-3 fill-current"></i>
+                 <span>Xem phim</span>
+               </button>`
+            : `<span class="text-slate-400 group-hover:text-white transition font-medium">Mở phim</span>`
+          }
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function renderDashboardMovies() {
   const grid = document.getElementById('dashboard-movies-grid');
   if (!grid) return;
@@ -2126,97 +2213,151 @@ function renderDashboardMovies() {
   if (movies.length === 0) {
     grid.innerHTML = `
       <div class="col-span-full py-8 text-center text-slate-500 text-xs glass-card rounded-2xl">
-        Chưa có dự án phim nào. Bấm <button type="button" onclick="switchTab('movie')" class="text-sky-400 hover:underline font-semibold cursor-pointer">Tạo Phim AI</button> để bắt đầu!
+        Chưa có dự án phim nào. Bấm <button type="button" onclick="switchTab('movie'); createNewMovieProject(true);" class="text-sky-400 hover:underline font-semibold cursor-pointer">Tạo Phim AI</button> để bắt đầu!
       </div>
     `;
     return;
   }
 
-  grid.innerHTML = movies.map(p => {
-    const rendered = p.rendered_count || 0;
-    const totalScenes = p.scene_count || 0;
-    const totalDur = p.total_duration_sec || 0;
-    const renderedDur = p.rendered_duration_sec || 0;
-    const durSec = renderedDur > 0 ? renderedDur : totalDur;
-    const durText = durSec > 0 ? formatDurationCompact(durSec) : '';
-    const isCompleted = totalScenes > 0 && rendered === totalScenes;
-    const thumbSrc = p.thumbnail_url
-      ? (p.thumbnail_url.endsWith('.mp4')
-          ? `/api/video/thumbnail?url=${encodeURIComponent(p.thumbnail_url)}`
-          : p.thumbnail_url)
-      : '';
-    const thumbHtml = thumbSrc
-      ? `<img src="${escapeHtml(thumbSrc)}" loading="lazy" decoding="async" alt="${escapeHtml(p.title || 'Phim')}" onerror="this.style.display='none'" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">`
-      : `<div class="w-full h-full bg-[#1e1e1e] flex items-center justify-center text-[#38bdf8]/70">
-           <i data-lucide="clapperboard" class="w-8 h-8"></i>
-         </div>`;
+  grid.innerHTML = movies.map(p => renderMovieCardHtml(p, { showDelete: false })).join('');
+  if (window.lucide) lucide.createIcons();
+}
 
-    const charPalette = ['#38bdf8', '#a78bfa', '#34d399', '#fbbf24', '#f472b6', '#fb7185', '#2dd4bf'];
-    const rawDetail = Array.isArray(p.characters_detail) && p.characters_detail.length > 0
-      ? p.characters_detail
-      : (Array.isArray(p.characters_summary) ? p.characters_summary.map(n => ({ name: n, color: '', avatar_url: null })) : []);
-    const totalChars = p.character_count || rawDetail.length;
-    const visibleChars = rawDetail.slice(0, 4);
-    const extraChars = Math.max(0, totalChars - visibleChars.length);
-    const charsHtml = visibleChars.length > 0
-      ? `<div class="flex flex-wrap items-center gap-1.5 pt-0.5">
-           ${visibleChars.map((ch, idx) => {
-             const hex = (ch.color && /^#[0-9a-fA-F]{6}$/.test(ch.color)) ? ch.color : charPalette[idx % charPalette.length];
-             const avatar = ch.avatar_url
-               ? `<img src="${escapeHtml(ch.avatar_url)}" loading="lazy" decoding="async" alt="${escapeHtml(ch.name)}" onerror="this.style.display='none'" class="w-4 h-4 rounded-full object-cover shrink-0 border border-white/25">`
-               : `<span class="w-2 h-2 rounded-full shrink-0" style="background:${hex}"></span>`;
-             return `<span class="inline-flex items-center space-x-1 text-[10px] font-medium pl-1 pr-2 py-0.5 rounded-full" style="background:${hex}1f; border:1px solid ${hex}55; color:${hex}">
-               ${avatar}
-               <span class="truncate max-w-[95px]">${escapeHtml(ch.name)}</span>
-             </span>`;
-           }).join('')}
-           ${extraChars > 0 ? `<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-sky-500/15 border border-sky-400/25 text-sky-300 font-semibold">+${extraChars}</span>` : ''}
-         </div>`
-      : '';
-    const loglineHtml = p.logline
-      ? `<p class="text-[11px] text-slate-400 leading-relaxed line-clamp-2">${escapeHtml(p.logline)}</p>`
-      : '';
+function _getFilteredMovieHubList() {
+  const q = (document.getElementById('movie-hub-search')?.value || '').trim().toLowerCase();
+  const list = movieProjectsState.list || [];
+  if (!q) return list;
+  return list.filter(p => {
+    const title = (p.title || '').toLowerCase();
+    const logline = (p.logline || '').toLowerCase();
+    const chars = (p.characters_summary || []).join(' ').toLowerCase();
+    return title.includes(q) || logline.includes(q) || chars.includes(q);
+  });
+}
 
-    return `
-      <div onclick="openMovieFromDashboard('${escapeHtml(p.id)}')" class="glass-card rounded-2xl overflow-hidden shadow-lg group hover:border-sky-400/40 transition cursor-pointer flex flex-col">
-        <div class="aspect-video bg-black/60 flex items-center justify-center overflow-hidden relative shrink-0">
-          ${thumbHtml}
-          <button type="button" onclick="event.stopPropagation(); openMovieCoverModal('${escapeHtml(p.id)}')" title="Chọn hoặc tạo ảnh đại diện phim" class="absolute top-2 left-2 p-1.5 rounded-lg bg-black/70 hover:bg-black/90 border border-white/15 text-slate-200 hover:text-amber-300 opacity-85 group-hover:opacity-100 transition cursor-pointer">
-            <i data-lucide="image" class="w-3.5 h-3.5"></i>
-          </button>
-          <span class="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded bg-black/75 border border-white/10 text-slate-200 font-semibold">${escapeHtml(p.aspectRatio || '16:9')}</span>
-        </div>
-        <div class="p-3.5 flex-1 flex flex-col justify-between gap-2.5">
-          <div class="space-y-1.5">
-            <div class="font-bold text-[13px] text-white leading-snug break-words">${escapeHtml(p.title || 'Phim chưa đặt tên')}</div>
-            ${loglineHtml}
-            ${charsHtml}
-          </div>
-          <div class="flex items-center justify-between pt-2 border-t border-white/[0.06] text-[11px]">
-            <div class="flex items-center space-x-1.5 min-w-0">
-              <span class="${isCompleted ? 'text-emerald-400' : 'text-sky-400'} font-semibold">${rendered}/${totalScenes} cảnh</span>
-              ${durText ? `<span class="text-slate-500">•</span><span class="text-slate-300 font-medium" title="Thời lượng phim">${durText}</span>` : ''}
-            </div>
-            ${p.merged_video_url
-              ? `<button type="button" onclick="event.stopPropagation(); openMergedMoviePlayer('${escapeHtml(p.merged_video_url)}', '${escapeHtml(p.title || 'Phim')}')" class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold shadow-md shadow-emerald-500/25 flex items-center space-x-1.5 transition cursor-pointer">
-                   <i data-lucide="play" class="w-3 h-3 fill-current"></i>
-                   <span>Xem phim</span>
-                 </button>`
-              : `<span class="text-slate-400 group-hover:text-white transition font-medium">Mở phim</span>`
-            }
-          </div>
-        </div>
+function renderMovieHubGrid(resetCount = false) {
+  const grid = document.getElementById('movie-hub-grid');
+  const countEl = document.getElementById('movie-hub-count');
+  const statusEl = document.getElementById('movie-hub-lazy-status');
+  if (!grid) return;
+
+  if (resetCount) {
+    _movieHubVisibleCount = MOVIE_HUB_BATCH_SIZE;
+  }
+
+  const filtered = _getFilteredMovieHubList();
+  if (countEl) {
+    countEl.innerText = `${filtered.length} phim`;
+  }
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `
+      <div class="col-span-full py-12 text-center glass-card rounded-2xl space-y-3">
+        <p class="text-xs text-slate-400">Không tìm thấy dự án phim nào phù hợp.</p>
+        <button type="button" onclick="createNewMovieProject(true)" class="px-4 py-2 bg-[#0078d4] hover:bg-[#1f8ad2] text-white rounded-lg text-xs font-bold inline-flex items-center space-x-1.5 cursor-pointer">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>Tạo Phim Mới</span>
+        </button>
       </div>
     `;
-  }).join('');
+    if (statusEl) statusEl.innerText = '';
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  const visible = filtered.slice(0, _movieHubVisibleCount);
+  grid.innerHTML = visible.map(p => renderMovieCardHtml(p, { showDelete: true })).join('');
+
+  if (statusEl) {
+    if (visible.length < filtered.length) {
+      statusEl.innerText = `Đang hiện ${visible.length}/${filtered.length} phim — cuộn xuống để xem thêm...`;
+    } else {
+      statusEl.innerText = `Đã hiển thị tất cả ${filtered.length} phim`;
+    }
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
+function loadMoreMovieHubCards() {
+  if (state.currentTab !== 'movie' || _movieViewMode !== 'hub') return;
+  const filtered = _getFilteredMovieHubList();
+  if (_movieHubVisibleCount >= filtered.length) return;
+  _movieHubVisibleCount = Math.min(filtered.length, _movieHubVisibleCount + MOVIE_HUB_BATCH_SIZE);
+  renderMovieHubGrid(false);
+}
+
+function setupMovieHubLazyScroll() {
+  const sentinel = document.getElementById('movie-hub-lazy-sentinel');
+  const scrollContainer = document.querySelector('main');
+
+  if (sentinel && 'IntersectionObserver' in window) {
+    _movieHubObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && state.currentTab === 'movie' && _movieViewMode === 'hub') {
+          loadMoreMovieHubCards();
+        }
+      });
+    }, {
+      root: scrollContainer,
+      rootMargin: '160px',
+      threshold: 0.05,
+    });
+    _movieHubObserver.observe(sentinel);
+  }
+
+  if (scrollContainer) {
+    scrollContainer.addEventListener('scroll', () => {
+      if (state.currentTab !== 'movie' || _movieViewMode !== 'hub') return;
+      if (scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight <= 200) {
+        loadMoreMovieHubCards();
+      }
+    });
+  }
+}
+
+function showMovieHub(updateUrl = true) {
+  _movieViewMode = 'hub';
+  document.getElementById('movie-hub-view')?.classList.remove('hidden');
+  document.getElementById('movie-editor-view')?.classList.add('hidden');
+  renderMovieHubGrid(true);
+  if (updateUrl) {
+    updateUrlParams();
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
+async function showMovieEditor(projectId = null) {
+  _movieViewMode = 'detail';
+  document.getElementById('movie-hub-view')?.classList.add('hidden');
+  document.getElementById('movie-editor-view')?.classList.remove('hidden');
+  if (projectId) {
+    await switchMovieProject(projectId, true);
+  } else {
+    renderMovieCharacters();
+    renderMovieScenes();
+    renderCharacterLegend();
+    renderMovieProjectsRibbon();
+    updateMovieActiveDisplay();
+    updateUrlParams();
+  }
+  healMovieCharactersCache().then(() => {
+    if (isAutoDrawCharactersEnabled()) {
+      const charsNeedingImages = (movieState.characters || []).filter(
+        c => !c._isGenerating && (!c.images || c.images.length === 0)
+      );
+      if (charsNeedingImages.length > 0) {
+        autoGenerateMissingCharacterPortraits(charsNeedingImages);
+      }
+    }
+  });
   if (window.lucide) lucide.createIcons();
 }
 
 function openMovieFromDashboard(projectId) {
-  switchTab('movie');
-  if (projectId) {
-    switchMovieProject(projectId);
+  if (state.currentTab !== 'movie') {
+    switchTab('movie', false);
   }
+  showMovieEditor(projectId || null);
 }
 
 function renderDashboardVideos() {
@@ -2529,6 +2670,9 @@ async function loadMovieProjectsList(autoSelectId = null) {
       movieProjectsState.list = data.projects || [];
       renderMovieProjectsRibbon();
       renderDashboardMovies();
+      if (state.currentTab === 'movie' && _movieViewMode === 'hub') {
+        renderMovieHubGrid(false);
+      }
       updateMovieLibraryCount();
 
       // Determine which movie to load
@@ -2843,8 +2987,8 @@ async function saveCurrentMovieProject(showToast = true) {
   }
 }
 
-async function createNewMovieProject() {
-  if (movieState.characters.length > 0 || movieState.scenes.length > 0) {
+async function createNewMovieProject(fromHub = false) {
+  if (!fromHub && (movieState.characters.length > 0 || movieState.scenes.length > 0)) {
     const ok = await customConfirm('Tạo một dự án phim mới? Phim hiện tại của bạn đã được lưu an toàn trong danh sách.', 'Tạo Phim Mới', 'Tạo phim mới', 'Đóng');
     if (!ok) return;
   }
@@ -2859,6 +3003,8 @@ async function createNewMovieProject() {
   movieState.scenes = [];
   movieState.sessionId = null;
   movieState.targetScenes = 'auto';
+  movieState.merged_video_url = null;
+  movieState.cover_image_url = null;
   movieState.createdAt = Date.now();
   movieState.updatedAt = Date.now();
 
@@ -2867,11 +3013,7 @@ async function createNewMovieProject() {
   const scenesTarget = document.getElementById('movie-scenes-target');
   if (scenesTarget) scenesTarget.value = 'auto';
 
-  renderMovieCharacters();
-  renderMovieScenes();
-  renderCharacterLegend();
-  updateMovieActiveDisplay();
-  renderMovieProjectsRibbon();
+  await showMovieEditor(null);
   closeMovieLibraryModal();
 
   const url = new URL(window.location.href);
@@ -2879,6 +3021,7 @@ async function createNewMovieProject() {
   url.searchParams.set('movie', newId);
   window.history.replaceState({}, '', url);
 
+  if (scriptInput) scriptInput.focus();
   showToast('Đã tạo dự án phim mới! Nhập kịch bản để bắt đầu.');
 }
 
@@ -2896,6 +3039,8 @@ async function deleteMovieProject(projectId, event = null) {
 
     movieProjectsState.list = movieProjectsState.list.filter(p => p.id !== projectId);
     renderMovieProjectsRibbon();
+    renderDashboardMovies();
+    renderMovieHubGrid(false);
     updateMovieLibraryCount();
     renderMovieLibraryCards();
 

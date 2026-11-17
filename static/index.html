@@ -111,12 +111,14 @@
       box-shadow: 0 0 0 3px color-mix(in srgb, var(--t-accent) 22%, transparent);
     }
     #dashboard-movies-grid > div,
+    #movie-hub-grid > div,
     #dashboard-videos-grid > div,
     #dashboard-images-grid > div,
     #gallery-grid > div {
       transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
     }
     #dashboard-movies-grid > div:hover,
+    #movie-hub-grid > div:hover,
     #dashboard-videos-grid > div:hover,
     #dashboard-images-grid > div:hover,
     #gallery-grid > div:hover {
@@ -1057,16 +1059,60 @@
       <!-- ==================== VIEW 1.5: MOVIE STUDIO (TẠO PHIM TỰ ĐỘNG) ==================== -->
       <div id="view-movie" class="tab-view hidden max-w-7xl mx-auto space-y-6">
 
+        <!-- MOVIE HUB VIEW (Danh sách phim dạng card + lazy scroll + nút Tạo Phim Mới) -->
+        <div id="movie-hub-view" class="space-y-5">
+          <div class="glass-card rounded-xl p-4 flex flex-wrap items-center justify-between gap-4 border border-[#333333] bg-[#252526]">
+            <div class="flex items-center space-x-3">
+              <div class="w-10 h-10 rounded-lg bg-[#1e1e1e] border border-[#3c3c3c] flex items-center justify-center text-[#38bdf8] shrink-0">
+                <i data-lucide="clapperboard" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <div class="flex items-center space-x-2">
+                  <h2 class="font-bold text-base text-white tracking-tight">Kho Dự Án Phim AI</h2>
+                  <span id="movie-hub-count" class="text-[11px] px-2 py-0.5 rounded-full bg-[#1e1e1e] text-[#38bdf8] border border-[#3c3c3c] font-semibold tabular-nums">0 phim</span>
+                </div>
+                <p class="text-xs text-slate-400">Chọn một bộ phim để xem hoặc chỉnh sửa tiếp, hoặc tạo dự án phim mới</p>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2.5">
+              <div class="relative">
+                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                <input id="movie-hub-search" type="text" oninput="renderMovieHubGrid(true)" placeholder="Tìm tên phim, nhân vật..." class="bg-[#141414] border border-[#3c3c3c] focus:border-[#0078d4] rounded-lg pl-8 pr-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none w-52 sm:w-64">
+              </div>
+              <button type="button" onclick="createNewMovieProject(true)" id="btn-hub-create-movie" class="px-4 py-2 bg-[#0078d4] hover:bg-[#1f8ad2] text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer shadow-sm">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                <span>Tạo Phim Mới</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="movie-hub-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Rendered by JS with lazy scroll -->
+          </div>
+
+          <div id="movie-hub-lazy-sentinel" class="py-4 text-center text-xs text-slate-400">
+            <span id="movie-hub-lazy-status"></span>
+          </div>
+        </div>
+
+        <!-- MOVIE EDITOR / DETAIL VIEW (Hiển thị khi mở 1 phim hoặc bấm + Tạo Phim Mới) -->
+        <div id="movie-editor-view" class="hidden space-y-6">
+
         <!-- Top Header & Actions -->
         <div class="glass-card rounded-xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-4 border border-[#333333] bg-[#252526]">
           <div class="flex items-center space-x-3.5">
+            <button type="button" onclick="showMovieHub()" class="px-2.5 py-2 rounded-lg bg-[#1e1e1e] hover:bg-[#2d2d2d] border border-[#3c3c3c] text-xs font-semibold text-slate-200 flex items-center space-x-1.5 transition cursor-pointer shrink-0" title="Quay lại danh sách các phim">
+              <i data-lucide="arrow-left" class="w-3.5 h-3.5 text-[#38bdf8]"></i>
+              <span>Danh sách phim</span>
+            </button>
             <div class="w-10 h-10 rounded-lg bg-[#1e1e1e] border border-[#3c3c3c] flex items-center justify-center text-[#38bdf8] shrink-0">
               <i data-lucide="clapperboard" class="w-5 h-5"></i>
             </div>
             <div>
               <div class="flex items-center space-x-2">
                 <h2 class="font-bold text-sm text-white tracking-tight">23zô AI Auto Movie Studio</h2>
-                <span class="text-[9px] px-2 py-0.5 rounded bg-[#1e1e1e] text-[#38bdf8] border border-[#3c3c3c] font-semibold uppercase tracking-wider">Đạo Diễn Tự Động</span>
+                <span class="text-[9px] px-2 py-0.5 rounded bg-[#1e1e1e] text-[#38bdf8] border border-[#3c3c3c] font-semibold">Đạo Diễn Tự Động</span>
               </div>
               <p class="text-xs text-slate-400">Nhập kịch bản, tự động phân tích nhân vật và quay phim nối tiếp giữ trọn vẹn đặc trưng</p>
             </div>
@@ -1385,6 +1431,7 @@
 
           </div>
 
+        </div>
         </div>
 
       </div>
@@ -2123,7 +2170,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261117_2"></script>
+  <script src="/static/app.js?v=20261117_3"></script>
   <script>
     lucide.createIcons();
   </script>
