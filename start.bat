@@ -23,6 +23,23 @@ Write-Host ("  [*] Khong gian : " + $ws + " (outputs\" + $ws + ")") -ForegroundC
 Write-Host "  [*] Dia chi web: http://localhost:7860" -ForegroundColor Cyan
 Write-Host ""
 
+try {
+    $programsDir = [Environment]::GetFolderPath('Programs')
+    $lnkPath = Join-Path $programsDir "23zo AI Studio.lnk"
+    $targetBat = Join-Path (Get-Location).Path "start.bat"
+    $iconPath = Join-Path (Get-Location).Path "static\logo.ico"
+    $wsh = New-Object -ComObject WScript.Shell
+    $sc = $wsh.CreateShortcut($lnkPath)
+    if ($sc.TargetPath -ne $targetBat -or $sc.WorkingDirectory -ne (Get-Location).Path) {
+        $sc.TargetPath = $targetBat
+        $sc.WorkingDirectory = (Get-Location).Path
+        $sc.Description = "Khoi dong 23zo AI Studio"
+        if (Test-Path $iconPath) { $sc.IconLocation = $iconPath }
+        $sc.Save()
+        Write-Host "  [OK] Da tao shortcut trong Windows Search: '23zo AI Studio'" -ForegroundColor Green
+    }
+} catch {}
+
 function Find-SystemPython {
     $candidates = @()
     foreach ($cmdName in @('python', 'python3')) {
