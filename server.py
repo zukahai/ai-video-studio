@@ -130,36 +130,208 @@ class CharacterPortraitRequest(BaseModel):
     angle_index: int = 1  # 1: Cận cảnh mặt, 2: Bán thân 3/4, 3: Toàn thân đứng
 
 
+ACCOUNTS_DIR = STATE_DIR / "accounts"
+ACCOUNTS_CONFIG_FILE = STATE_DIR / "accounts_config.json"
+ACCOUNT_FEATURES = [
+    {"id": "chat", "label": "Chat / Trợ lý Đạo diễn", "icon": "sparkles"},
+    {"id": "video", "label": "Tạo Video AI", "icon": "clapperboard"},
+    {"id": "image", "label": "Tạo Ảnh Nghệ Thuật", "icon": "palette"},
+    {"id": "script", "label": "Viết Kịch Bản / Phim AI", "icon": "film"},
+]
+ACCOUNT_FEATURE_IDS = [f["id"] for f in ACCOUNT_FEATURES]
+_clients_pool: dict[str, MuseClient] = {}
+_account_quota_cache: dict[str, dict[str, Any]] = {}
+
+
+def _safe_account_id(email_or_name: Optional[str]) -> str:
+    raw = (email_or_name or "").strip().lower()
+    raw = raw.replace("@", "_at_").replace(".", "_")
+    slug = re.sub(r"[^a-z0-9_-]+", "_", raw).strip("_-")
+    return slug or f"acc_{int(time.time())}"
+
+
+def get_account_state_dir(acc_id: str) -> Path:
+    ACCOUNTS_DIR.mkdir(parents=True, exist_ok=True)
+    d = ACCOUNTS_DIR / _safe_account_id(acc_id)
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _is_account_dir_authenticated(acc_dir: Path) -> bool:
+    c = acc_dir / "cookies.json"
+    return c.exists() and c.stat().st_size > 10
+
+
+def list_saved_account_ids() -> list[str]:
+    ACCOUNTS_DIR.mkdir(parents=True, exist_ok=True)
+    ids = []
+    for entry in sorted(ACCOUNTS_DIR.iterdir(), key=lambda p: p.name.lower()):
+        if entry.is_dir() and _is_account_dir_authenticated(entry):
+            ids.append(entry.name)
+    return ids
+
+
+def _migrate_legacy_account_if_needed() -> None:
+    ACCOUNTS_DIR.mkdir(parents=True, exist_ok=True)
+    if list_saved_account_ids():
+        return
+    legacy_cookie = STATE_DIR / "cookies.json"
+    if not (legacy_cookie.exists() and legacy_cookie.stat().st_size > 10):
+        return
+    legacy_email_file = STATE_DIR / "email.txt"
+    email = legacy_email_file.read_text(encoding="utf-8").strip() if legacy_email_file.exists() else "primary"
+    acc_id = _safe_account_id(email)
+    dest = get_account_state_dir(acc_id)
+    for fname in ("cookies.json", "device.json", "email.txt"):
+        src = STATE_DIR / fname
+        if src.exists():
+            shutil.copy2(src, dest / fname)
+    if not (dest / "email.txt").exists():
+        (dest / "email.txt").write_text(email, encoding="utf-8")
+
+
+def load_accounts_config() -> dict[str, Any]:
+    _migrate_legacy_account_if_needed()
+    saved_ids = list_saved_account_ids()
+    cfg: dict[str, Any] = {"active_account": "", "priorities": {fid: [] for fid in ACCOUNT_FEATURE_IDS}}
+    if ACCOUNTS_CONFIG_FILE.exists():
+        try:
+            loaded = json.loads(ACCOUNTS_CONFIG_FILE.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                cfg["active_account"] = str(loaded.get("active_account") or "")
+                raw_prio = loaded.get("priorities") or {}
+                if isinstance(raw_prio, dict):
+                    for fid in ACCOUNT_FEATURE_IDS:
+                        arr = raw_prio.get(fid)
+                        if isinstance(arr, list):
+                            cfg["priorities"][fid] = [x for x in arr if x in saved_ids]
+        except Exception:
+            pass
+
+    if cfg["active_account"] not in saved_ids:
+        cfg["active_account"] = saved_ids[0] if saved_ids else ""
+    for fid in ACCOUNT_FEATURE_IDS:
+        cur = [x for x in cfg["priorities"].get(fid, []) if x in saved_ids]
+        for aid in saved_ids:
+            if aid not in cur:
+                cur.append(aid)
+        cfg["priorities"][fid] = cur
+    return cfg
+
+
+def save_accounts_config(cfg: dict[str, Any]) -> None:
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    ACCOUNTS_CONFIG_FILE.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def get_active_account_id() -> str:
+    return load_accounts_config().get("active_account") or ""
+
+
+def get_active_account_dir() -> Path:
+    aid = get_active_account_id()
+    if aid:
+        return get_account_state_dir(aid)
+    return STATE_DIR
+
+
+def get_priority_accounts_for_feature(feature: str) -> list[str]:
+    cfg = load_accounts_config()
+    saved = list_saved_account_ids()
+    fid = feature if feature in ACCOUNT_FEATURE_IDS else "chat"
+    ordered = [x for x in cfg["priorities"].get(fid, []) if x in saved]
+    for aid in saved:
+        if aid not in ordered:
+            ordered.append(aid)
+    return ordered
+
+
 def is_authenticated() -> bool:
-    cookie_file = STATE_DIR / "cookies.json"
-    return cookie_file.exists() and cookie_file.stat().st_size > 10
+    _migrate_legacy_account_if_needed()
+    return len(list_saved_account_ids()) > 0
+
+
+async def get_client_for_account(acc_id: Optional[str] = None) -> MuseClient:
+    aid = acc_id or get_active_account_id()
+    if not aid:
+        raise HTTPException(
+            status_code=401,
+            detail="Chưa đăng nhập tài khoản 23zô AI. Vui lòng xác thực OTP trước.",
+        )
+    acc_dir = get_account_state_dir(aid)
+    if not _is_account_dir_authenticated(acc_dir):
+        raise HTTPException(
+            status_code=401,
+            detail=f"Tài khoản '{aid}' chưa có phiên đăng nhập hợp lệ.",
+        )
+
+    async with client_lock:
+        existing = _clients_pool.get(aid)
+        if existing is not None and existing.conn is not None:
+            try:
+                await existing.ping()
+                return existing
+            except Exception:
+                try:
+                    await existing.close()
+                except Exception:
+                    pass
+                _clients_pool.pop(aid, None)
+
+        auth = MuseAuth(state_dir=acc_dir)
+        client = MuseClient(auth, state_dir=acc_dir)
+        await client.connect()
+        setattr(client, "_acc_id", aid)
+        _clients_pool[aid] = client
+        return client
 
 
 async def get_or_create_client() -> MuseClient:
-    global active_client
+    return await get_client_for_account(get_active_account_id())
+
+
+async def _evict_client(acc_id: str) -> None:
     async with client_lock:
-        if active_client is not None and active_client.conn is not None:
+        cli = _clients_pool.pop(acc_id, None)
+        if cli is not None:
             try:
-                await active_client.ping()
-                return active_client
+                await cli.close()
             except Exception:
-                try:
-                    await active_client.close()
-                except Exception:
-                    pass
-                active_client = None
+                pass
 
-        if not is_authenticated():
-            raise HTTPException(
-                status_code=401,
-                detail="Chưa đăng nhập tài khoản 23zô AI. Vui lòng xác thực OTP trước.",
-            )
 
-        auth = MuseAuth(state_dir=STATE_DIR)
-        client = MuseClient(auth, state_dir=STATE_DIR)
-        await client.connect()
-        active_client = client
-        return active_client
+async def run_with_account_failover(feature: str, fn):
+    candidates = get_priority_accounts_for_feature(feature)
+    if not candidates:
+        raise HTTPException(
+            status_code=401,
+            detail="Chưa đăng nhập tài khoản 23zô AI nào. Vui lòng thêm tài khoản trong mục Quản lý Tài khoản.",
+        )
+
+    last_exc: Optional[Exception] = None
+    for idx, acc_id in enumerate(candidates):
+        try:
+            client = await get_client_for_account(acc_id)
+            result = await fn(client, acc_id)
+            if idx > 0:
+                logger.info(f"[Failover] Feature '{feature}' succeeded with fallback account '{acc_id}' (attempt #{idx + 1}).")
+            if isinstance(result, dict):
+                result.setdefault("account_used", acc_id)
+                if idx > 0:
+                    result["failover_used"] = True
+            return result
+        except Exception as exc:
+            last_exc = exc
+            logger.warning(f"[Failover] Account '{acc_id}' failed for '{feature}' (attempt {idx + 1}/{len(candidates)}): {exc}")
+            await _evict_client(acc_id)
+            continue
+
+    if isinstance(last_exc, HTTPException):
+        raise last_exc
+    raise HTTPException(
+        status_code=500,
+        detail=f"Tất cả {len(candidates)} tài khoản ưu tiên cho '{feature}' đều lỗi: {last_exc}",
+    )
 
 
 # Hidden Prompt Builders (Server-side only, completely invisible to user)
@@ -875,7 +1047,7 @@ async def fetch_live_subscription(auth: Optional[MuseAuth] = None) -> Optional[d
 
         should_close = False
         if auth is None:
-            auth = MuseAuth(state_dir=STATE_DIR)
+            auth = MuseAuth(state_dir=get_active_account_dir())
             await auth.load_cookies()
             should_close = True
 
@@ -960,8 +1132,9 @@ async def auth_status(force: bool = False):
     if force:
         invalidate_subscription_cache()
     logged_in = is_authenticated()
+    acc_dir = get_active_account_dir()
     email = None
-    email_file = STATE_DIR / "email.txt"
+    email_file = acc_dir / "email.txt"
     if email_file.exists():
         email = email_file.read_text(encoding="utf-8").strip()
 
@@ -972,7 +1145,7 @@ async def auth_status(force: bool = False):
     
     if logged_in:
         try:
-            auth = MuseAuth(state_dir=STATE_DIR)
+            auth = MuseAuth(state_dir=acc_dir)
             await auth.load_cookies()
             check = await auth.auth_check()
             is_alive = check.get("ok") is True
@@ -1200,7 +1373,8 @@ async def find_existing_feature_session(client: MuseClient, feature_key: str) ->
     if not base_title:
         return None
     ws = get_active_workspace()
-    cache_key = f"{ws}:{key}"
+    acc_id = getattr(client, "_acc_id", None) or get_active_account_id() or "default"
+    cache_key = f"{acc_id}:{ws}:{key}"
     if cache_key in _feature_session_cache:
         return _feature_session_cache[cache_key]
     title = base_title if ws == "default" else f"{base_title} [{ws}]"
@@ -1225,7 +1399,8 @@ async def ensure_feature_session(client: MuseClient, feature_key: str) -> Option
     if not base_title:
         return None
     ws = get_active_workspace()
-    cache_key = f"{ws}:{key}"
+    acc_id = getattr(client, "_acc_id", None) or get_active_account_id() or "default"
+    cache_key = f"{acc_id}:{ws}:{key}"
     if cache_key in _feature_session_cache:
         return _feature_session_cache[cache_key]
     title = base_title if ws == "default" else f"{base_title} [{ws}]"
@@ -1266,6 +1441,9 @@ async def ensure_all_feature_sessions(client: MuseClient) -> dict[str, str]:
     return created
 
 
+PENDING_LOGIN_DIR = STATE_DIR / "_pending_login"
+
+
 @app.post("/api/auth/request-otp")
 async def request_otp(data: RequestOtpModel):
     global pending_auth, pending_email
@@ -1280,7 +1458,11 @@ async def request_otp(data: RequestOtpModel):
             pass
         pending_auth = None
 
-    auth = MuseAuth(state_dir=STATE_DIR)
+    if PENDING_LOGIN_DIR.exists():
+        shutil.rmtree(PENDING_LOGIN_DIR, ignore_errors=True)
+    PENDING_LOGIN_DIR.mkdir(parents=True, exist_ok=True)
+
+    auth = MuseAuth(state_dir=PENDING_LOGIN_DIR)
     try:
         await auth.restart_login()
         res = await auth.send_otp(email, region=data.region)
@@ -1320,27 +1502,36 @@ async def verify_otp(data: VerifyOtpModel):
             raise MuseAuthError(f"Xác thực tài khoản thất bại: {check}")
         await pending_auth.save_cookies()
 
-        if pending_email:
-            (STATE_DIR / "email.txt").write_text(pending_email, encoding="utf-8")
+        email_str = (pending_email or "").strip() or str(check.get("viewer_id") or "account")
+        acc_id = _safe_account_id(email_str)
+        dest_dir = get_account_state_dir(acc_id)
+        for fname in ("cookies.json", "device.json"):
+            src = PENDING_LOGIN_DIR / fname
+            if src.exists():
+                shutil.copy2(src, dest_dir / fname)
+        (dest_dir / "email.txt").write_text(email_str, encoding="utf-8")
 
-        async with client_lock:
-            if active_client is not None:
-                try:
-                    await active_client.close()
-                except Exception:
-                    pass
-                active_client = None
-        _feature_session_cache.clear()
+        await _evict_client(acc_id)
+        cfg = load_accounts_config()
+        cfg["active_account"] = acc_id
+        for fid in ACCOUNT_FEATURE_IDS:
+            if acc_id not in cfg["priorities"].get(fid, []):
+                cfg["priorities"].setdefault(fid, []).append(acc_id)
+        save_accounts_config(cfg)
+        invalidate_subscription_cache()
+        _auth_status_cache["data"] = None
+
         try:
-            new_client = await get_or_create_client()
+            new_client = await get_client_for_account(acc_id)
             await ensure_all_feature_sessions(new_client)
         except Exception as setup_exc:
             logger.warning(f"[FeatureThreads] Post-login thread setup skipped: {setup_exc}")
 
         return {
             "status": "success",
-            "message": "Đăng nhập 23zô AI thành công! Hệ thống đã lưu phiên làm việc.",
-            "email": pending_email,
+            "message": f"Đăng nhập tài khoản {email_str} thành công! Hệ thống đã lưu vào danh sách.",
+            "email": email_str,
+            "account_id": acc_id,
         }
     except Exception as exc:
         raise HTTPException(
@@ -1354,22 +1545,135 @@ async def verify_otp(data: VerifyOtpModel):
 
 @app.post("/api/auth/logout")
 async def logout():
-    global active_client
-    async with client_lock:
-        if active_client is not None:
-            try:
-                await active_client.close()
-            except Exception:
-                pass
-            active_client = None
+    acc_id = get_active_account_id()
+    if acc_id:
+        await _evict_client(acc_id)
+        acc_dir = ACCOUNTS_DIR / acc_id
+        if acc_dir.exists():
+            shutil.rmtree(acc_dir, ignore_errors=True)
+    cfg = load_accounts_config()
+    save_accounts_config(cfg)
     _feature_session_cache.clear()
+    invalidate_subscription_cache()
+    _auth_status_cache["data"] = None
 
     for fname in ["cookies.json", "email.txt"]:
         fpath = STATE_DIR / fname
         if fpath.exists():
             fpath.unlink()
 
-    return {"status": "success", "message": "Đã đăng xuất khỏi 23zô AI."}
+    return {"status": "success", "message": "Đã đăng xuất tài khoản hiện tại.", "active_account": cfg.get("active_account", "")}
+
+
+class AccountSwitchModel(BaseModel):
+    account_id: str
+
+
+class AccountPriorityModel(BaseModel):
+    feature: str
+    order: list[str]
+
+
+async def _inspect_single_account(acc_id: str, active_id: str, live: bool = False) -> dict[str, Any]:
+    acc_dir = get_account_state_dir(acc_id)
+    email_file = acc_dir / "email.txt"
+    email = email_file.read_text(encoding="utf-8").strip() if email_file.exists() else acc_id
+    cached = _account_quota_cache.get(acc_id, {})
+    info: dict[str, Any] = {
+        "id": acc_id,
+        "email": email,
+        "is_active": acc_id == active_id,
+        "authenticated": _is_account_dir_authenticated(acc_dir),
+        "is_alive": cached.get("is_alive"),
+        "viewer_id": cached.get("viewer_id"),
+        "vip_tokens": cached.get("vip_tokens", "—"),
+        "remaining_percent": cached.get("remaining_percent"),
+        "free_label": cached.get("free_label", ""),
+    }
+    if live and info["authenticated"]:
+        auth = MuseAuth(state_dir=acc_dir)
+        try:
+            await auth.load_cookies()
+            check = await auth.auth_check()
+            info["is_alive"] = check.get("ok") is True
+            info["viewer_id"] = check.get("viewer_id")
+            sub = await fetch_live_subscription(auth)
+            if sub:
+                info["vip_tokens"] = sub.get("vip_tokens", "—")
+                info["remaining_percent"] = sub.get("remaining_percent")
+                info["free_label"] = sub.get("free_label", "")
+            _account_quota_cache[acc_id] = dict(info)
+        except Exception:
+            info["is_alive"] = False
+        finally:
+            try:
+                await auth.close()
+            except Exception:
+                pass
+    return info
+
+
+@app.get("/api/accounts")
+async def list_accounts(live: bool = False):
+    cfg = load_accounts_config()
+    saved_ids = list_saved_account_ids()
+    active_id = cfg.get("active_account", "")
+    items = await asyncio.gather(*[_inspect_single_account(aid, active_id, live=live) for aid in saved_ids])
+    return {
+        "status": "success",
+        "active_account": active_id,
+        "accounts": list(items),
+        "priorities": cfg.get("priorities", {}),
+        "features": ACCOUNT_FEATURES,
+    }
+
+
+@app.post("/api/accounts/switch")
+async def switch_active_account(body: AccountSwitchModel):
+    aid = _safe_account_id(body.account_id)
+    saved = list_saved_account_ids()
+    if aid not in saved:
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy tài khoản '{aid}'.")
+    cfg = load_accounts_config()
+    cfg["active_account"] = aid
+    save_accounts_config(cfg)
+    invalidate_subscription_cache()
+    _auth_status_cache["data"] = None
+    return {"status": "success", "active_account": aid, "priorities": cfg.get("priorities", {})}
+
+
+@app.delete("/api/accounts/{acc_id}")
+async def delete_saved_account(acc_id: str):
+    aid = _safe_account_id(acc_id)
+    await _evict_client(aid)
+    acc_dir = ACCOUNTS_DIR / aid
+    if not acc_dir.exists():
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy tài khoản '{aid}'.")
+    shutil.rmtree(acc_dir, ignore_errors=True)
+    _account_quota_cache.pop(aid, None)
+    for k in [key for key in _feature_session_cache if key.startswith(f"{aid}:")]:
+        _feature_session_cache.pop(k, None)
+    cfg = load_accounts_config()
+    save_accounts_config(cfg)
+    invalidate_subscription_cache()
+    _auth_status_cache["data"] = None
+    return {"status": "success", "deleted": aid, "active_account": cfg.get("active_account", ""), "priorities": cfg.get("priorities", {})}
+
+
+@app.post("/api/accounts/priorities")
+async def update_account_priorities(body: AccountPriorityModel):
+    fid = (body.feature or "").strip().lower()
+    if fid not in ACCOUNT_FEATURE_IDS:
+        raise HTTPException(status_code=400, detail=f"Tính năng '{fid}' không hợp lệ.")
+    saved = list_saved_account_ids()
+    new_order = [x for x in body.order if x in saved]
+    for aid in saved:
+        if aid not in new_order:
+            new_order.append(aid)
+    cfg = load_accounts_config()
+    cfg["priorities"][fid] = new_order
+    save_accounts_config(cfg)
+    return {"status": "success", "feature": fid, "order": new_order, "priorities": cfg["priorities"]}
 
 
 @app.post("/api/auth/setup-threads")
@@ -1401,8 +1705,7 @@ async def generate_video(data: VideoGenerateModel):
     if not data.prompt.strip():
         raise HTTPException(status_code=400, detail="Mô tả video không được để trống.")
 
-    client = await get_or_create_client()
-    try:
+    async def _run_attempt(client: MuseClient, _acc_id: str):
         # Resolve all provided image paths reliably (supports /outputs/, /uploads/, /static/, and absolute paths)
         resolved_images: list[Path] = []
         for p in data.image_paths:
@@ -1491,11 +1794,8 @@ async def generate_video(data: VideoGenerateModel):
             "is_continuation": data.is_continuation,
             "errors": result.download_errors,
         }
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Lỗi tạo video từ 23zô AI: {exc}. Kiểm tra kết nối VPN và thử lại.",
-        )
+
+    return await run_with_account_failover("video", _run_attempt)
 
 
 _thumb_semaphore = asyncio.Semaphore(4)
@@ -1658,8 +1958,7 @@ async def generate_image(data: ImageGenerateModel):
     if not data.prompt.strip():
         raise HTTPException(status_code=400, detail="Mô tả ảnh không được để trống.")
 
-    client = await get_or_create_client()
-    try:
+    async def _run_attempt(client: MuseClient, _acc_id: str):
         images = []
         for p in data.image_paths:
             r = resolve_media_path(p)
@@ -1709,11 +2008,8 @@ async def generate_image(data: ImageGenerateModel):
             "count": len(downloaded_urls),
             "events_count": len(events),
         }
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Lỗi tạo ảnh từ 23zô AI: {exc}. Kiểm tra kết nối VPN và thử lại.",
-        )
+
+    return await run_with_account_failover("image", _run_attempt)
 
 
 @app.post("/api/chat")
@@ -1721,8 +2017,7 @@ async def chat_interaction(data: ChatModel):
     if not data.prompt.strip():
         raise HTTPException(status_code=400, detail="Nội dung chat không được để trống.")
 
-    client = await get_or_create_client()
-    try:
+    async def _run_attempt(client: MuseClient, _acc_id: str):
         images = []
         for p in data.image_paths:
             r = resolve_media_path(p)
@@ -1823,11 +2118,8 @@ async def chat_interaction(data: ChatModel):
             "videos": downloaded_videos,
             "events": len(events),
         }
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Lỗi chat với 23zô AI: {exc}",
-        )
+
+    return await run_with_account_failover("chat", _run_attempt)
 
 
 @app.get("/api/chat/history")
@@ -2377,9 +2669,8 @@ async def breakdown_movie(data: MovieBreakdownModel):
             "Không sợ quá nhiều phân cảnh, hãy chia đầy đủ và chi tiết từng câu thoại!"
         )
 
-    # Try AI Director breakdown via client
-    try:
-        client = await get_or_create_client()
+    # Try AI Director breakdown via client with multi-account failover
+    async def _run_attempt(client: MuseClient, _acc_id: str):
 
         target_session_id = await ensure_feature_session(client, "movie")
         # Track existing baseline messages so we don't pick up old messages
@@ -2517,14 +2808,8 @@ YÊU CẦU ĐẶC BIỆT:
             status_code=504,
             detail="MuseAI chưa trả về kịch bản JSON hoàn chỉnh trong thời gian chờ (150s). Vui lòng kiểm tra trạng thái MuseAI và bấm Phân Tích Kịch Bản lại."
         )
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.warning(f"AI director breakdown error: {exc}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Lỗi phân tích kịch bản từ MuseAI: {exc}"
-        )
+
+    return await run_with_account_failover("script", _run_attempt)
 
 
 @app.post("/api/movie/generate_character_portrait")
@@ -2532,8 +2817,7 @@ async def generate_character_portrait_endpoint(data: CharacterPortraitRequest):
     if not data.character_name.strip():
         raise HTTPException(status_code=400, detail="Tên nhân vật không được để trống.")
 
-    client = await get_or_create_client()
-    try:
+    async def _run_attempt(client: MuseClient, _acc_id: str):
         angle_info = {
             1: ("Cận cảnh mặt", "Chân dung cận cảnh khuôn mặt (close-up face portrait), nhìn trực diện máy quay, nét mặt rõ ràng, đôi mắt chân thực giàu cảm xúc, chi tiết tóc, làn da và phụ kiện sắc nét."),
             2: ("Bán thân 3/4", "Chân dung trung cảnh bán thân góc nghiêng 3/4 (medium half-body portrait), giữ nguyên hoàn toàn khuôn mặt và kiểu tóc từ góc cận cảnh. Rõ nét trang phục, màu sắc áo quần và tư thế tự nhiên."),
@@ -2591,10 +2875,8 @@ async def generate_character_portrait_endpoint(data: CharacterPortraitRequest):
                 "local_path": str(dest_path),
             }
         }
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Lỗi tạo ảnh nhân vật: {exc}")
+
+    return await run_with_account_failover("image", _run_attempt)
 
 
 def _get_workspace_output_files() -> list[Path]:

@@ -43,6 +43,7 @@ const TAB_TITLES = {
   gallery: 'Thư viện Tác phẩm 23zô AI',
   telegram: 'Thông báo Telegram Bot',
   characters: 'Kho & Quản lý Nhân vật',
+  accounts: 'Quản lý Tài khoản MuseAI & Thứ tự Ưu tiên',
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -455,6 +456,9 @@ function switchTab(tabId, syncUrl = true) {
   if (tabId === 'characters') {
     loadCharacterLibrary();
   }
+  if (tabId === 'accounts') {
+    loadAccountsManager(false);
+  }
   if (tabId === 'movie') {
     showMovieHub(false);
     renderMovieHubGrid(true);
@@ -791,7 +795,8 @@ async function verifyOtp() {
   initWorkspaces();
   initChatInputEnhancements();
   checkBrowserVpnUsa(false);
-  checkAuthStatus();
+  checkAuthStatus(true);
+  loadAccountsManager(true);
     }, 1000);
   } catch (err) {
     showModalMsg(err.message);
@@ -7099,3 +7104,260 @@ async function createAndSwitchWorkspace(e) {
     showToast(err.message, 'error');
   }
 }
+
+
+// ==================== MULTI-ACCOUNT MANAGER & DRAG-AND-DROP PRIORITY ====================
+const _accountsState = {
+  active: '',
+  accounts: [],
+  priorities: {},
+  features: [],
+  dragFeature: '',
+  dragAccId: '',
+};
+
+async function loadAccountsManager(live = false) {
+  const btn = document.getElementById('btn-refresh-accounts');
+  if (btn && live) {
+    btn.disabled = true;
+    btn.classList.add('opacity-60');
+  }
+  try {
+    const res = await fetch(`/api/accounts?live=${live ? 'true' : 'false'}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Không tải được danh sách tài khoản.');
+    _accountsState.active = data.active_account || '';
+    _accountsState.accounts = data.accounts || [];
+    _accountsState.priorities = data.priorities || {};
+    _accountsState.features = data.features || [];
+
+    const countEl = document.getElementById('sidebar-accounts-count');
+    if (countEl) countEl.innerText = _accountsState.accounts.length;
+    const totalBadge = document.getElementById('accounts-total-badge');
+    if (totalBadge) totalBadge.innerText = `${_accountsState.accounts.length} tài khoản`;
+
+    renderAccountsList();
+    renderAccountPriorities();
+  } catch (err) {
+    console.warn('loadAccountsManager failed:', err);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove('opacity-60');
+    }
+  }
+}
+
+function renderAccountsList() {
+  const grid = document.getElementById('accounts-list-grid');
+  if (!grid) return;
+  const list = _accountsState.accounts || [];
+  if (!list.length) {
+    grid.innerHTML = `
+      <div class="col-span-full py-8 text-center text-xs text-slate-400 border border-dashed border-[#3c3c3c] rounded-xl">
+        Chưa có tài khoản MuseAI nào. Hãy bấm <b>+ Thêm tài khoản</b> để đăng nhập bằng OTP.
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map(acc => {
+    const isActive = acc.id === _accountsState.active || acc.is_active;
+    const pct = typeof acc.remaining_percent === 'number' ? Math.max(0, Math.min(100, acc.remaining_percent)) : null;
+    const statusBadge = acc.is_alive === false
+      ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30">Hết hạn / Lỗi</span>'
+      : isActive
+        ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">Đang dùng chính</span>'
+        : '<span class="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30">Sẵn sàng</span>';
+
+    return `
+      <div class="p-3.5 rounded-xl bg-[#1e1e1e] border ${isActive ? 'border-emerald-500/60 shadow-sm shadow-emerald-500/10' : 'border-[#333333]'} space-y-2.5">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <div class="text-xs font-bold text-white truncate" title="${escapeHtml(acc.email)}">${escapeHtml(acc.email)}</div>
+            <div class="text-[10px] text-slate-400 mt-0.5">Token VIP: <b class="text-[#38bdf8]">${escapeHtml(acc.vip_tokens || '—')}</b>${pct !== null ? ` (${pct}%)` : ''}</div>
+          </div>
+          ${statusBadge}
+        </div>
+        ${pct !== null ? `
+          <div class="w-full h-1.5 rounded-full bg-[#141414] overflow-hidden border border-white/[0.05]">
+            <div class="h-full rounded-full ${pct < 20 ? 'bg-rose-500' : pct < 50 ? 'bg-amber-400' : 'bg-emerald-400'}" style="width: ${pct}%"></div>
+          </div>
+        ` : ''}
+        <div class="flex items-center justify-between pt-1 gap-2">
+          ${!isActive
+            ? `<button type="button" onclick="switchMuseAccount('${escapeHtml(acc.id)}')" class="flex-1 py-1.5 px-2.5 rounded-lg bg-[#2d2d2d] hover:bg-[#0078d4] text-[11px] font-semibold text-slate-200 hover:text-white transition cursor-pointer">Đặt làm chính</button>`
+            : `<span class="flex-1 py-1.5 px-2.5 rounded-lg bg-emerald-500/10 text-[11px] font-semibold text-emerald-400 text-center">✓ Tài khoản chính</span>`}
+          <button type="button" onclick="deleteMuseAccount('${escapeHtml(acc.id)}', '${escapeHtml(acc.email)}')" class="p-1.5 rounded-lg bg-[#2d2d2d] hover:bg-rose-600/30 text-slate-400 hover:text-rose-400 transition cursor-pointer" title="Xóa tài khoản này">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+  if (window.lucide) lucide.createIcons();
+}
+
+function renderAccountPriorities() {
+  const grid = document.getElementById('accounts-priority-grid');
+  if (!grid) return;
+  const accMap = {};
+  (_accountsState.accounts || []).forEach(a => { accMap[a.id] = a; });
+  const features = _accountsState.features || [];
+
+  grid.innerHTML = features.map(feat => {
+    const order = (_accountsState.priorities && _accountsState.priorities[feat.id]) || [];
+    const itemsHtml = order.length
+      ? order.map((aid, idx) => {
+          const acc = accMap[aid] || { id: aid, email: aid, vip_tokens: '—' };
+          return `
+            <div draggable="true"
+                 data-feature="${escapeHtml(feat.id)}"
+                 data-acc-id="${escapeHtml(aid)}"
+                 ondragstart="onPriorityDragStart(event, '${escapeHtml(feat.id)}', '${escapeHtml(aid)}')"
+                 ondragover="onPriorityDragOver(event)"
+                 ondragleave="onPriorityDragLeave(event)"
+                 ondrop="onPriorityDrop(event, '${escapeHtml(feat.id)}', '${escapeHtml(aid)}')"
+                 ondragend="onPriorityDragEnd(event)"
+                 class="priority-drag-item flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[#1e1e1e] border border-[#333333] hover:border-[#0078d4]/60 cursor-grab active:cursor-grabbing transition select-none">
+              <div class="flex items-center space-x-2.5 min-w-0">
+                <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-500 shrink-0"></i>
+                <span class="w-6 h-6 rounded-md text-[11px] font-bold flex items-center justify-center shrink-0 ${idx === 0 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-[#2d2d2d] text-slate-300 border border-[#3c3c3c]'}">#${idx + 1}</span>
+                <div class="min-w-0">
+                  <div class="text-xs font-semibold text-slate-100 truncate">${escapeHtml(acc.email)}</div>
+                  <div class="text-[10px] text-slate-400">Token: ${escapeHtml(acc.vip_tokens || '—')}</div>
+                </div>
+              </div>
+              <div class="flex items-center space-x-1 shrink-0">
+                <button type="button" onclick="moveAccountPriority('${escapeHtml(feat.id)}', ${idx}, -1)" ${idx === 0 ? 'disabled' : ''} class="p-1 rounded bg-[#2d2d2d] hover:bg-[#37373d] disabled:opacity-30 text-slate-300 cursor-pointer" title="Đưa lên">
+                  <i data-lucide="chevron-up" class="w-3.5 h-3.5"></i>
+                </button>
+                <button type="button" onclick="moveAccountPriority('${escapeHtml(feat.id)}', ${idx}, 1)" ${idx === order.length - 1 ? 'disabled' : ''} class="p-1 rounded bg-[#2d2d2d] hover:bg-[#37373d] disabled:opacity-30 text-slate-300 cursor-pointer" title="Đưa xuống">
+                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('')
+      : `<div class="text-xs text-slate-500 py-4 text-center">Chưa có tài khoản nào</div>`;
+
+    return `
+      <div class="p-4 rounded-xl bg-[#1a1c20] border border-[#333333] space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="${escapeHtml(feat.icon || 'layers')}" class="w-4 h-4 text-[#38bdf8]"></i>
+            <span class="text-xs font-bold text-white">${escapeHtml(feat.label)}</span>
+          </div>
+          <span class="text-[10px] text-slate-400">${order.length} nick</span>
+        </div>
+        <div class="space-y-1.5">
+          ${itemsHtml}
+        </div>
+      </div>
+    `;
+  }).join('');
+  if (window.lucide) lucide.createIcons();
+}
+
+function onPriorityDragStart(ev, feature, accId) {
+  _accountsState.dragFeature = feature;
+  _accountsState.dragAccId = accId;
+  ev.dataTransfer.effectAllowed = 'move';
+  ev.dataTransfer.setData('text/plain', accId);
+  ev.currentTarget.classList.add('opacity-50');
+}
+
+function onPriorityDragOver(ev) {
+  ev.preventDefault();
+  ev.dataTransfer.dropEffect = 'move';
+  ev.currentTarget.classList.add('border-[#38bdf8]', 'bg-[#0078d4]/15');
+}
+
+function onPriorityDragLeave(ev) {
+  ev.currentTarget.classList.remove('border-[#38bdf8]', 'bg-[#0078d4]/15');
+}
+
+function onPriorityDragEnd(ev) {
+  ev.currentTarget.classList.remove('opacity-50');
+  document.querySelectorAll('.priority-drag-item').forEach(el => {
+    el.classList.remove('border-[#38bdf8]', 'bg-[#0078d4]/15');
+  });
+}
+
+async function onPriorityDrop(ev, feature, targetAccId) {
+  ev.preventDefault();
+  ev.currentTarget.classList.remove('border-[#38bdf8]', 'bg-[#0078d4]/15');
+  const srcAccId = _accountsState.dragAccId;
+  const srcFeature = _accountsState.dragFeature;
+  if (!srcAccId || srcFeature !== feature || srcAccId === targetAccId) return;
+
+  const list = [...(_accountsState.priorities[feature] || [])];
+  const fromIdx = list.indexOf(srcAccId);
+  const toIdx = list.indexOf(targetAccId);
+  if (fromIdx < 0 || toIdx < 0) return;
+
+  list.splice(fromIdx, 1);
+  list.splice(toIdx, 0, srcAccId);
+  await _saveAccountPriorityOrder(feature, list);
+}
+
+async function moveAccountPriority(feature, index, delta) {
+  const list = [...(_accountsState.priorities[feature] || [])];
+  const target = index + delta;
+  if (target < 0 || target >= list.length) return;
+  const [item] = list.splice(index, 1);
+  list.splice(target, 0, item);
+  await _saveAccountPriorityOrder(feature, list);
+}
+
+async function _saveAccountPriorityOrder(feature, order) {
+  _accountsState.priorities[feature] = order;
+  renderAccountPriorities();
+  try {
+    const res = await fetch('/api/accounts/priorities', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature, order }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Không lưu được thứ tự ưu tiên.');
+    _accountsState.priorities = data.priorities || _accountsState.priorities;
+    showToast('Đã cập nhật thứ tự ưu tiên tài khoản!', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function switchMuseAccount(accId) {
+  try {
+    const res = await fetch('/api/accounts/switch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ account_id: accId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Không đổi được tài khoản.');
+    showToast('Đã chuyển tài khoản chính!', 'success');
+    await checkAuthStatus(true);
+    await loadAccountsManager(true);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function deleteMuseAccount(accId, email) {
+  if (!confirm(`Xóa tài khoản "${email}" khỏi danh sách đã lưu?`)) return;
+  try {
+    const res = await fetch(`/api/accounts/${encodeURIComponent(accId)}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Không xóa được tài khoản.');
+    showToast(`Đã xóa tài khoản ${email}.`, 'success');
+    await checkAuthStatus(true);
+    await loadAccountsManager(false);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadAccountsManager(false);
+});
