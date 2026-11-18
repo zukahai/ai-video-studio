@@ -3116,6 +3116,7 @@ async def delete_workspace(ws_id: str):
     if not ws_dir.exists() or not ws_dir.is_dir():
         raise HTTPException(status_code=404, detail=f"Không tìm thấy không gian '{ws_slug}'.")
 
+    was_active = (get_active_workspace() == ws_slug)
     try:
         shutil.rmtree(ws_dir)
     except Exception as exc:
@@ -3124,7 +3125,7 @@ async def delete_workspace(ws_id: str):
     for k in [key for key in _feature_session_cache if key.startswith(f"{ws_slug}:")]:
         _feature_session_cache.pop(k, None)
 
-    if get_active_workspace() == ws_slug:
+    if was_active:
         set_active_workspace("default")
 
     return {
