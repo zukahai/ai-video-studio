@@ -1424,7 +1424,7 @@ async def get_video_thumbnail(url: str):
     if not video_path or not video_path.exists():
         raise HTTPException(status_code=404, detail="Không tìm thấy video.")
 
-    thumbs_dir = OUTPUTS_DIR / "_thumbs"
+    thumbs_dir = get_workspace_root() / "_thumbs"
     thumbs_dir.mkdir(parents=True, exist_ok=True)
     thumb_path = thumbs_dir / f"{clean_name}.jpg"
 
