@@ -101,6 +101,52 @@
       background: color-mix(in srgb, var(--t-accent) 10%, rgba(255, 255, 255, 0.04)) !important;
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
+    #left-sidebar {
+      transition: width 0.2s ease;
+    }
+    #left-sidebar.sidebar-collapsed {
+      width: 4.5rem !important;
+    }
+    #left-sidebar.sidebar-collapsed .sidebar-hide-collapsed {
+      display: none !important;
+    }
+    #left-sidebar.sidebar-collapsed .sidebar-brand-row {
+      height: auto;
+      flex-direction: column;
+      gap: 0.45rem;
+      padding: 0.65rem 0.5rem;
+      justify-content: center;
+    }
+    #left-sidebar.sidebar-collapsed .sidebar-nav-list {
+      padding: 0.5rem;
+    }
+    #left-sidebar.sidebar-collapsed .tab-btn {
+      justify-content: center !important;
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+    }
+    #left-sidebar.sidebar-collapsed .tab-btn > div {
+      gap: 0 !important;
+    }
+    #left-sidebar.sidebar-collapsed .tab-btn > div > span,
+    #left-sidebar.sidebar-collapsed .tab-btn > span {
+      display: none !important;
+    }
+    #left-sidebar.sidebar-collapsed .tab-btn svg {
+      margin: 0 !important;
+      width: 1.15rem;
+      height: 1.15rem;
+    }
+    #left-sidebar.sidebar-collapsed .sidebar-bottom-wrap {
+      padding: 0.5rem;
+    }
+    #left-sidebar.sidebar-collapsed .sidebar-account-header {
+      justify-content: center;
+      padding: 0.5rem;
+    }
+    #left-sidebar.sidebar-collapsed #sidebar-quota-details {
+      display: none !important;
+    }
     button:active:not(:disabled) {
       transform: scale(0.985);
     }
@@ -386,88 +432,93 @@
 <body class="text-slate-100 min-h-screen flex overflow-hidden selection:bg-sky-500 selection:text-white">
 
   <!-- LEFT SIDEBAR NAVIGATION -->
-  <aside class="w-64 h-screen overflow-y-auto bg-surface-900 border-r border-white/[0.06] flex flex-col justify-between shrink-0 select-none z-30">
+  <aside id="left-sidebar" class="w-64 h-screen overflow-y-auto bg-surface-900 border-r border-white/[0.06] flex flex-col justify-between shrink-0 select-none z-30">
     <!-- Top Brand -->
     <div>
-      <div class="h-16 px-4 flex items-center space-x-3 border-b border-white/[0.06]">
-        <img src="/static/logo.png?v=20261118_1" alt="23zô AI Logo" class="h-11 w-11 object-contain bg-white rounded-xl p-0.5 border border-sky-400/30 shadow-lg shadow-sky-500/20 shrink-0">
-        <div class="min-w-0">
-          <div class="flex items-center space-x-1.5">
-            <span class="brand-title-gradient font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-sky-100 to-cyan-300 bg-clip-text text-transparent">23zô AI</span>
-            <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-sky-500/15 text-sky-300 font-bold border border-sky-500/30">PRO</span>
+      <div class="sidebar-brand-row h-16 px-3.5 flex items-center justify-between border-b border-white/[0.06]">
+        <div class="flex items-center space-x-3 min-w-0">
+          <img src="/static/logo.png?v=20261118_1" alt="23zô AI Logo" class="h-10 w-10 object-contain bg-white rounded-xl p-0.5 border border-sky-400/30 shadow-lg shadow-sky-500/20 shrink-0">
+          <div class="min-w-0 sidebar-hide-collapsed">
+            <div class="flex items-center space-x-1.5">
+              <span class="brand-title-gradient font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-sky-100 to-cyan-300 bg-clip-text text-transparent">23zô AI</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-sky-500/15 text-sky-300 font-bold border border-sky-500/30">PRO</span>
+            </div>
+            <p class="text-[11px] text-slate-400 truncate">Creative AI Studio</p>
           </div>
-          <p class="text-[11px] text-slate-400 truncate">Creative AI Studio</p>
         </div>
+        <button type="button" onclick="toggleSidebarCollapse()" id="sidebar-collapse-btn" class="w-7 h-7 rounded-lg bg-surface-800/80 hover:bg-surface-700 border border-white/[0.06] text-slate-400 hover:text-white flex items-center justify-center shrink-0 transition cursor-pointer" title="Thu gọn thanh bên">
+          <i id="sidebar-collapse-icon" data-lucide="panel-left-close" class="w-4 h-4"></i>
+        </button>
       </div>
 
       <!-- Menu List -->
-      <div class="p-3 space-y-1">
-        <p class="px-3 py-1.5 text-[11px] font-semibold text-slate-400">Không gian làm việc</p>
+      <div class="sidebar-nav-list p-3 space-y-1">
+        <p class="sidebar-hide-collapsed px-3 py-1.5 text-[11px] font-semibold text-slate-400">Không gian làm việc</p>
 
-        <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="tab-btn w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-semibold transition text-white bg-[#37373d]">
-          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+        <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" title="Tổng quan (Dashboard)" class="tab-btn w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-semibold transition text-white bg-[#37373d]">
+          <i data-lucide="layout-dashboard" class="w-4 h-4 shrink-0"></i>
           <span>Tổng quan (Dashboard)</span>
         </button>
 
-        <button onclick="switchTab('video')" id="tab-btn-video" class="tab-btn w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
+        <button onclick="switchTab('video')" id="tab-btn-video" title="Tạo Video AI (Nối tiếp)" class="tab-btn w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
           <div class="flex items-center space-x-2.5">
-            <i data-lucide="clapperboard" class="w-4 h-4"></i>
+            <i data-lucide="clapperboard" class="w-4 h-4 shrink-0"></i>
             <span>Tạo Video AI</span>
           </div>
           <span class="text-[9px] px-1.5 py-0.5 rounded bg-[#2d2d2d] text-[#38bdf8] border border-[#3c3c3c]">Nối tiếp</span>
         </button>
 
-        <button onclick="switchTab('movie')" id="tab-btn-movie" class="tab-btn w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
-          <i data-lucide="film" class="w-4 h-4 text-[#38bdf8]"></i>
+        <button onclick="switchTab('movie')" id="tab-btn-movie" title="Tạo Phim AI" class="tab-btn w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
+          <i data-lucide="film" class="w-4 h-4 text-[#38bdf8] shrink-0"></i>
           <span>Tạo Phim AI</span>
         </button>
 
-        <button onclick="switchTab('characters')" id="tab-btn-characters" class="tab-btn w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
+        <button onclick="switchTab('characters')" id="tab-btn-characters" title="Quản lý Nhân vật" class="tab-btn w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
           <div class="flex items-center space-x-2.5">
-            <i data-lucide="users" class="w-4 h-4 text-[#4ec9b0]"></i>
+            <i data-lucide="users" class="w-4 h-4 text-[#4ec9b0] shrink-0"></i>
             <span>Quản lý Nhân vật</span>
           </div>
           <span id="sidebar-characters-count" class="text-[10px] px-2 py-0.5 rounded-full bg-[#2d2d2d] text-[#cccccc] border border-[#3c3c3c]">0</span>
         </button>
 
-        <button onclick="switchTab('image')" id="tab-btn-image" class="tab-btn w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
-          <i data-lucide="palette" class="w-4 h-4"></i>
+        <button onclick="switchTab('image')" id="tab-btn-image" title="Tạo Ảnh Nghệ Thuật" class="tab-btn w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
+          <i data-lucide="palette" class="w-4 h-4 shrink-0"></i>
           <span>Tạo Ảnh Nghệ Thuật</span>
         </button>
 
-        <button onclick="switchTab('chat')" id="tab-btn-chat" class="tab-btn w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
-          <i data-lucide="sparkles" class="w-4 h-4"></i>
+        <button onclick="switchTab('chat')" id="tab-btn-chat" title="Trợ lý Đạo diễn 23zô AI" class="tab-btn w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
+          <i data-lucide="sparkles" class="w-4 h-4 shrink-0"></i>
           <span>Trợ lý Đạo diễn 23zô AI</span>
         </button>
 
-        <button onclick="switchTab('gallery')" id="tab-btn-gallery" class="tab-btn w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
+        <button onclick="switchTab('gallery')" id="tab-btn-gallery" title="Thư viện sản phẩm" class="tab-btn w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
           <div class="flex items-center space-x-2.5">
-            <i data-lucide="folder-heart" class="w-4 h-4"></i>
+            <i data-lucide="folder-heart" class="w-4 h-4 shrink-0"></i>
             <span>Thư viện sản phẩm</span>
           </div>
           <span id="sidebar-gallery-count" class="text-[10px] px-2 py-0.5 rounded-full bg-[#2d2d2d] text-[#cccccc] border border-[#3c3c3c]">0</span>
         </button>
 
-        <button onclick="switchTab('telegram')" id="tab-btn-telegram" class="tab-btn w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
-          <i data-lucide="send" class="w-4 h-4 text-[#38bdf8]"></i>
+        <button onclick="switchTab('telegram')" id="tab-btn-telegram" title="Thông báo Tele" class="tab-btn w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
+          <i data-lucide="send" class="w-4 h-4 text-[#38bdf8] shrink-0"></i>
           <span>Thông báo Tele</span>
         </button>
       </div>
     </div>
 
     <!-- Bottom Account Card (Compact Summary, Click to Expand) -->
-    <div class="p-3 border-t border-white/[0.06] bg-surface-950/40">
+    <div class="sidebar-bottom-wrap p-3 border-t border-white/[0.06] bg-surface-950/40">
       <div class="rounded-xl bg-surface-800/90 border border-white/[0.06] hover:border-cyan-500/30 transition shadow-sm overflow-hidden">
         
         <!-- Compact Summary Header (Always visible, Clickable to toggle details) -->
-        <div onclick="toggleSidebarQuotaDetails(event)" class="p-2.5 cursor-pointer select-none flex items-center gap-2.5 group hover:bg-surface-700/50 transition" title="Bấm để xem chi tiết quota và tài khoản">
+        <div onclick="toggleSidebarQuotaDetails(event)" class="sidebar-account-header p-2.5 cursor-pointer select-none flex items-center gap-2.5 group hover:bg-surface-700/50 transition" title="Bấm để xem chi tiết quota và tài khoản">
           <button type="button" onclick="event.stopPropagation(); openStudioSettingsModal()" id="btn-studio-settings" class="relative w-9 h-9 rounded-lg bg-surface-700/70 hover:bg-[#0078d4]/25 border border-white/[0.08] hover:border-[#38bdf8]/60 text-[#38bdf8] flex items-center justify-center shrink-0 transition cursor-pointer" title="Cài đặt giao diện & cỡ chữ">
             <i data-lucide="settings" class="w-4 h-4"></i>
             <span id="theme-active-dot" class="hidden"></span>
             <span id="settings-font-badge" class="hidden">16px</span>
           </button>
 
-          <div class="min-w-0 flex-1">
+          <div class="min-w-0 flex-1 sidebar-hide-collapsed">
             <div class="flex items-center space-x-1.5">
               <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
               <div id="status-text" class="text-xs font-bold text-slate-200 truncate group-hover:text-cyan-300 transition">Đang kiểm tra...</div>
@@ -479,7 +530,7 @@
             </div>
           </div>
           
-          <div class="w-6 h-6 rounded-lg bg-surface-700/60 group-hover:bg-cyan-500/20 text-slate-400 group-hover:text-cyan-300 flex items-center justify-center shrink-0 transition">
+          <div class="sidebar-hide-collapsed w-6 h-6 rounded-lg bg-surface-700/60 group-hover:bg-cyan-500/20 text-slate-400 group-hover:text-cyan-300 flex items-center justify-center shrink-0 transition">
             <i id="sidebar-quota-chevron" data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform duration-200"></i>
           </div>
         </div>
@@ -2257,7 +2308,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261118_16"></script>
+  <script src="/static/app.js?v=20261118_17"></script>
   <script>
     lucide.createIcons();
   </script>

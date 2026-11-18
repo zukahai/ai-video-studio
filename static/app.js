@@ -388,6 +388,31 @@ function restoreFromUrlParams() {
 }
 
 // Navigation
+function toggleSidebarCollapse(forceState) {
+  const sidebar = document.getElementById('left-sidebar');
+  if (!sidebar) return;
+  const shouldCollapse = typeof forceState === 'boolean'
+    ? forceState
+    : !sidebar.classList.contains('sidebar-collapsed');
+  sidebar.classList.toggle('sidebar-collapsed', shouldCollapse);
+  const btn = document.getElementById('sidebar-collapse-btn');
+  const icon = document.getElementById('sidebar-collapse-icon');
+  if (btn) btn.title = shouldCollapse ? 'Mở rộng thanh bên' : 'Thu gọn thanh bên';
+  if (icon) {
+    icon.setAttribute('data-lucide', shouldCollapse ? 'panel-left-open' : 'panel-left-close');
+    if (window.lucide) lucide.createIcons();
+  }
+  try { localStorage.setItem('studio_sidebar_collapsed', shouldCollapse ? '1' : '0'); } catch (_) {}
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    if (localStorage.getItem('studio_sidebar_collapsed') === '1') {
+      toggleSidebarCollapse(true);
+    }
+  } catch (_) {}
+});
+
 function switchTab(tabId, syncUrl = true) {
   state.currentTab = tabId;
   document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
