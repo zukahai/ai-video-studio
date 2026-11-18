@@ -2169,6 +2169,70 @@
     </div>
   </div>
 
+  <!-- WORKSPACE RENAME MODAL -->
+  <div id="workspace-rename-modal" class="fixed inset-0 z-[96] bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4" onclick="if (event.target === this) closeWorkspaceRenameModal()">
+    <div class="bg-[#252526] border border-[#3c3c3c] rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-2.5 border-b border-[#333333]">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="pencil" class="w-4 h-4 text-[#38bdf8]"></i>
+          <h3 class="font-bold text-sm text-white">Đổi tên không gian</h3>
+        </div>
+        <button type="button" onclick="closeWorkspaceRenameModal()" class="text-slate-400 hover:text-white cursor-pointer">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <form onsubmit="submitWorkspaceRename(event)" class="space-y-3">
+        <input type="hidden" id="ws-rename-old">
+        <div class="space-y-1.5">
+          <label class="block text-xs font-semibold text-slate-300">Tên không gian mới:</label>
+          <input id="ws-rename-new" type="text" required placeholder="Nhập tên không gian mới..." class="w-full bg-[#141414] border border-[#3c3c3c] focus:border-[#0078d4] rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none">
+        </div>
+        <div class="flex items-center justify-end space-x-2 pt-1">
+          <button type="button" onclick="closeWorkspaceRenameModal()" class="px-3.5 py-2 rounded-lg bg-[#2d2d2d] hover:bg-[#37373d] border border-[#3c3c3c] text-xs text-slate-300 font-medium cursor-pointer">Huỷ</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-[#0078d4] hover:bg-[#1f8ad2] text-white text-xs font-bold cursor-pointer">Lưu tên mới</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- WORKSPACE DELETE DANGER MODAL (CAPTCHA CONFIRM) -->
+  <div id="workspace-delete-modal" class="fixed inset-0 z-[97] bg-black/85 backdrop-blur-sm hidden flex items-center justify-center p-4" onclick="if (event.target === this) closeWorkspaceDeleteModal()">
+    <div class="bg-[#252526] border border-rose-500/50 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-400 flex items-center justify-center shrink-0">
+          <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-sm text-white">Cảnh báo: Xóa vĩnh viễn không gian</h3>
+          <p class="text-[11px] text-rose-300 font-medium">Hành động cực kỳ nguy hiểm — không thể hoàn tác!</p>
+        </div>
+      </div>
+
+      <div class="p-3 rounded-xl bg-rose-950/35 border border-rose-500/30 text-xs text-rose-100 leading-relaxed space-y-1">
+        <p>Bạn chuẩn bị xóa không gian: <b id="ws-delete-target-name" class="text-white">...</b></p>
+        <p class="text-[11px] text-rose-200/90">Toàn bộ <b>phim, cảnh quay, poster, video, ảnh, nhân vật, lịch sử chat và file upload</b> bên trong thư mục không gian này sẽ bị xóa sạch vĩnh viễn khỏi ổ cứng.</p>
+      </div>
+
+      <form onsubmit="submitWorkspaceDelete(event)" class="space-y-3">
+        <input type="hidden" id="ws-delete-target-id">
+        <div class="space-y-1.5">
+          <label class="block text-xs font-semibold text-slate-300">Nhập đúng mã Captcha bên dưới để xác nhận xóa:</label>
+          <div class="flex items-center space-x-2">
+            <div id="ws-delete-captcha-code" class="px-4 py-2 rounded-lg bg-[#141414] border border-amber-400/40 font-mono text-base font-extrabold tracking-[0.3em] text-amber-300 select-none">AB12C</div>
+            <button type="button" onclick="refreshWorkspaceDeleteCaptcha()" class="p-2 rounded-lg bg-[#2d2d2d] hover:bg-[#37373d] border border-[#3c3c3c] text-slate-300 hover:text-white cursor-pointer" title="Đổi mã Captcha khác">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <input id="ws-delete-captcha-input" type="text" required autocomplete="off" placeholder="Nhập mã Captcha..." class="w-full bg-[#141414] border border-[#3c3c3c] focus:border-rose-500 rounded-lg px-3 py-2 text-xs text-slate-100 font-mono tracking-widest uppercase focus:outline-none">
+        </div>
+        <div class="flex items-center justify-end space-x-2 pt-1">
+          <button type="button" onclick="closeWorkspaceDeleteModal()" class="px-3.5 py-2 rounded-lg bg-[#2d2d2d] hover:bg-[#37373d] border border-[#3c3c3c] text-xs text-slate-300 font-medium cursor-pointer">Huỷ an toàn</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold cursor-pointer">Xóa vĩnh viễn</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- USA VPN REQUIRED MODAL -->
   <div id="vpn-usa-modal" class="fixed inset-0 z-[95] bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div class="bg-[#252526] border border-amber-500/40 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
@@ -2197,7 +2261,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261118_3"></script>
+  <script src="/static/app.js?v=20261118_4"></script>
   <script>
     lucide.createIcons();
   </script>

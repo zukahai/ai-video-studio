@@ -6794,21 +6794,128 @@ function renderWorkspaceMenuList() {
   if (!listEl) return;
   listEl.innerHTML = (_workspaceState.list || []).map(ws => {
     const isActive = ws.id === _workspaceState.active;
+    const actionsHtml = !ws.is_default
+      ? `<span class="flex items-center space-x-1 ml-1" onclick="event.stopPropagation()">
+           <button type="button" onclick="openWorkspaceRenameModal('${escapeHtml(ws.id)}', event)" title="Đổi tên không gian" class="p-1 rounded hover:bg-[#37373d] text-slate-400 hover:text-[#38bdf8] cursor-pointer"><i data-lucide="pencil" class="w-3 h-3"></i></button>
+           <button type="button" onclick="openWorkspaceDeleteModal('${escapeHtml(ws.id)}', event)" title="Xóa không gian" class="p-1 rounded hover:bg-rose-600/25 text-slate-400 hover:text-rose-400 cursor-pointer"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+         </span>`
+      : '';
     return `
-      <button type="button" onclick="switchWorkspace('${escapeHtml(ws.id)}')" class="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left text-xs transition cursor-pointer ${isActive ? 'bg-[#0078d4]/20 border border-[#0078d4]' : 'hover:bg-[#2d2d2d] border border-transparent'}">
+      <div onclick="switchWorkspace('${escapeHtml(ws.id)}')" class="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left text-xs transition cursor-pointer ${isActive ? 'bg-[#0078d4]/20 border border-[#0078d4]' : 'hover:bg-[#2d2d2d] border border-transparent'}">
         <span class="flex items-center space-x-2 min-w-0">
           <i data-lucide="folder" class="w-3.5 h-3.5 ${isActive ? 'text-[#38bdf8]' : 'text-slate-400'} shrink-0"></i>
           <span class="truncate font-medium ${isActive ? 'font-bold text-white' : 'text-slate-200'}">${escapeHtml(ws.name)}</span>
           ${ws.is_default ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-[#1e1e1e] text-slate-400 border border-[#3c3c3c]">Mặc định</span>' : ''}
         </span>
-        <span class="flex items-center space-x-1.5 shrink-0">
+        <span class="flex items-center space-x-1 shrink-0">
           <span class="text-[10px] text-slate-400 tabular-nums">${ws.movie_count || 0} phim</span>
           ${isActive ? '<span class="text-[10px] font-bold text-[#38bdf8]">✓</span>' : ''}
+          ${actionsHtml}
         </span>
-      </button>
+      </div>
     `;
   }).join('');
   if (window.lucide) lucide.createIcons();
+}
+
+function openWorkspaceRenameModal(wsId, ev) {
+  if (ev) ev.stopPropagation();
+  toggleWorkspaceMenu(null, false);
+  const oldEl = document.getElementById('ws-rename-old');
+  const newEl = document.getElementById('ws-rename-new');
+  const modal = document.getElementById('workspace-rename-modal');
+  if (oldEl) oldEl.value = wsId;
+  if (newEl) {
+    newEl.value = wsId;
+    setTimeout(() => { newEl.focus(); newEl.select(); }, 30);
+  }
+  if (modal) {
+    modal.classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+function closeWorkspaceRenameModal() {
+  document.getElementById('workspace-rename-modal')?.classList.add('hidden');
+}
+
+async function submitWorkspaceRename(e) {
+  if (e) e.preventDefault();
+  const oldName = document.getElementById('ws-rename-old')?.value || '';
+  const newName = (document.getElementById('ws-rename-new')?.value || '').trim();
+  if (!oldName || !newName) return;
+  try {
+    const res = await fetch('/api/workspaces/rename', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ old_name: oldName, new_name: newName }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Không thể đổi tên không gian.');
+    closeWorkspaceRenameModal();
+    await _applyWorkspaceSwitchSideEffects(data.active || data.workspace);
+    showToast(`Đã đổi tên "${oldName}" thành "${data.workspace}".`, 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+let _wsDeleteCaptcha = '';
+
+function refreshWorkspaceDeleteCaptcha() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 5; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  _wsDeleteCaptcha = code;
+  const codeEl = document.getElementById('ws-delete-captcha-code');
+  if (codeEl) codeEl.innerText = code;
+  const inpEl = document.getElementById('ws-delete-captcha-input');
+  if (inpEl) inpEl.value = '';
+}
+
+function openWorkspaceDeleteModal(wsId, ev) {
+  if (ev) ev.stopPropagation();
+  toggleWorkspaceMenu(null, false);
+  const nameEl = document.getElementById('ws-delete-target-name');
+  const idEl = document.getElementById('ws-delete-target-id');
+  const modal = document.getElementById('workspace-delete-modal');
+  if (nameEl) nameEl.innerText = wsId;
+  if (idEl) idEl.value = wsId;
+  refreshWorkspaceDeleteCaptcha();
+  if (modal) {
+    modal.classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+  setTimeout(() => document.getElementById('ws-delete-captcha-input')?.focus(), 40);
+}
+
+function closeWorkspaceDeleteModal() {
+  document.getElementById('workspace-delete-modal')?.classList.add('hidden');
+}
+
+async function submitWorkspaceDelete(e) {
+  if (e) e.preventDefault();
+  const wsId = document.getElementById('ws-delete-target-id')?.value || '';
+  const entered = (document.getElementById('ws-delete-captcha-input')?.value || '').trim().toUpperCase();
+  if (!wsId) return;
+  if (!entered || entered !== _wsDeleteCaptcha) {
+    showToast('Mã Captcha không đúng! Vui lòng nhập chính xác để xác nhận xóa.', 'error');
+    refreshWorkspaceDeleteCaptcha();
+    document.getElementById('ws-delete-captcha-input')?.focus();
+    return;
+  }
+  try {
+    const res = await fetch(`/api/workspaces/${encodeURIComponent(wsId)}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Không thể xóa không gian.');
+    closeWorkspaceDeleteModal();
+    await _applyWorkspaceSwitchSideEffects(data.active || 'default');
+    showToast(`Đã xóa vĩnh viễn không gian "${wsId}".`, 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
 }
 
 function toggleWorkspaceMenu(ev, forceOpen = null) {

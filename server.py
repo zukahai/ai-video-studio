@@ -3050,6 +3050,91 @@ async def switch_workspace(body: WorkspaceActionModel):
     }
 
 
+class WorkspaceRenameModel(BaseModel):
+    old_name: str
+    new_name: str
+
+
+@app.post("/api/workspaces/rename")
+async def rename_workspace(body: WorkspaceRenameModel):
+    old_slug = _safe_folder_name(body.old_name, fallback="")
+    new_slug = _safe_folder_name(body.new_name, fallback="")
+    if not old_slug or not new_slug:
+        raise HTTPException(status_code=400, detail="Tên không gian không hợp lệ.")
+    if old_slug == "default":
+        raise HTTPException(status_code=400, detail="Không thể đổi tên không gian mặc định (default).")
+    if new_slug in LEGACY_OUTPUT_SUBDIRS or new_slug == "default":
+        new_slug = f"ws_{new_slug}"
+    if old_slug == new_slug:
+        return {"status": "success", "workspace": new_slug, "active": get_active_workspace(), "workspaces": list_all_workspaces()}
+
+    old_dir = OUTPUTS_DIR / old_slug
+    new_dir = OUTPUTS_DIR / new_slug
+    if not old_dir.exists() or not old_dir.is_dir():
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy không gian '{old_slug}'.")
+    if new_dir.exists():
+        raise HTTPException(status_code=409, detail=f"Không gian '{new_slug}' đã tồn tại.")
+
+    old_dir.rename(new_dir)
+
+    # Rewrite internal /outputs/<old_slug>/ references inside JSON data files so media URLs remain portable
+    old_prefix = f"/outputs/{old_slug}/"
+    new_prefix = f"/outputs/{new_slug}/"
+    json_targets = list((new_dir / "movies").glob("*.json")) if (new_dir / "movies").exists() else []
+    char_json = new_dir / "character_library.json"
+    if char_json.exists():
+        json_targets.append(char_json)
+    for jf in json_targets:
+        try:
+            txt = jf.read_text(encoding="utf-8")
+            if old_prefix in txt:
+                jf.write_text(txt.replace(old_prefix, new_prefix), encoding="utf-8")
+        except Exception as exc:
+            logger.warning(f"Failed rewriting URLs in {jf}: {exc}")
+
+    # Update active workspace & session cache
+    if get_active_workspace() == old_slug:
+        ACTIVE_WORKSPACE_FILE.write_text(new_slug, encoding="utf-8")
+    for k in [key for key in _feature_session_cache if key.startswith(f"{old_slug}:")]:
+        _feature_session_cache.pop(k, None)
+
+    return {
+        "status": "success",
+        "old_name": old_slug,
+        "workspace": new_slug,
+        "active": get_active_workspace(),
+        "workspaces": list_all_workspaces(),
+    }
+
+
+@app.delete("/api/workspaces/{ws_id}")
+async def delete_workspace(ws_id: str):
+    ws_slug = _safe_folder_name(ws_id, fallback="")
+    if not ws_slug or ws_slug == "default" or ws_slug in LEGACY_OUTPUT_SUBDIRS:
+        raise HTTPException(status_code=400, detail="Không thể xóa không gian mặc định (default).")
+    ws_dir = OUTPUTS_DIR / ws_slug
+    if not ws_dir.exists() or not ws_dir.is_dir():
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy không gian '{ws_slug}'.")
+
+    try:
+        shutil.rmtree(ws_dir)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi xóa thư mục không gian: {exc}")
+
+    for k in [key for key in _feature_session_cache if key.startswith(f"{ws_slug}:")]:
+        _feature_session_cache.pop(k, None)
+
+    if get_active_workspace() == ws_slug:
+        set_active_workspace("default")
+
+    return {
+        "status": "success",
+        "deleted": ws_slug,
+        "active": get_active_workspace(),
+        "workspaces": list_all_workspaces(),
+    }
+
+
 @app.get("/api/gallery")
 async def get_gallery():
     items = []
