@@ -6837,11 +6837,8 @@ function renderWorkspaceMenuList() {
     const up = bd.uploads || { count: 0, bytes: 0 };
     const th = bd._thumbs || { count: 0, bytes: 0 };
 
-    const renameBtnHtml = !ws.is_default
-      ? `<button type="button" onclick="openWorkspaceRenameModal('${escapeHtml(ws.id)}', event)" title="Đổi tên không gian" class="p-1.5 rounded-lg hover:bg-[#37373d] text-slate-400 hover:text-[#38bdf8] cursor-pointer"><i data-lucide="pencil" class="w-4 h-4"></i></button>`
-      : '';
     const actionsHtml = `<span class="flex items-center space-x-1 ml-1" onclick="event.stopPropagation()">
-           ${renameBtnHtml}
+           <button type="button" onclick="openWorkspaceRenameModal('${escapeHtml(ws.id)}', event)" title="Đổi tên không gian" class="p-1.5 rounded-lg hover:bg-[#37373d] text-slate-400 hover:text-[#38bdf8] cursor-pointer"><i data-lucide="pencil" class="w-4 h-4"></i></button>
            <button type="button" onclick="openWorkspaceDeleteModal('${escapeHtml(ws.id)}', event)" title="Xóa không gian" class="p-1.5 rounded-lg hover:bg-rose-600/25 text-slate-400 hover:text-rose-400 cursor-pointer"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
          </span>`;
     return `

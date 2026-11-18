@@ -3130,9 +3130,9 @@ async def rename_workspace(body: WorkspaceRenameModel):
     new_slug = _safe_folder_name(body.new_name, fallback="")
     if not old_slug or not new_slug:
         raise HTTPException(status_code=400, detail="Tên không gian không hợp lệ.")
-    if old_slug == "default":
-        raise HTTPException(status_code=400, detail="Không thể đổi tên không gian mặc định (default).")
-    if new_slug in LEGACY_OUTPUT_SUBDIRS or new_slug == "default":
+    if old_slug in LEGACY_OUTPUT_SUBDIRS:
+        raise HTTPException(status_code=400, detail="Không gian không hợp lệ.")
+    if new_slug in LEGACY_OUTPUT_SUBDIRS:
         new_slug = f"ws_{new_slug}"
     if old_slug == new_slug:
         return {"status": "success", "workspace": new_slug, "active": get_active_workspace(), "workspaces": list_all_workspaces()}
