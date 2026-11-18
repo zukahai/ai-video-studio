@@ -543,7 +543,9 @@ function applyAuthData(data) {
     if (sTokensVip) sTokensVip.innerText = vipTokens;
 
     const sTokensVipCompact = document.getElementById('sidebar-tokens-vip-compact');
-    if (sTokensVipCompact) sTokensVipCompact.innerText = vipTokens;
+    if (sTokensVipCompact) {
+      sTokensVipCompact.innerText = String(vipTokens).replace(/\/[\d.,]+/, '').replace(/\s+/g, ' ').trim();
+    }
 
     const remPct = typeof add.remaining_percent === 'number'
       ? add.remaining_percent
