@@ -1125,29 +1125,48 @@ _feature_session_cache: dict[str, str] = {}
 _feature_session_lock = asyncio.Lock()
 
 
-async def ensure_feature_session(client: MuseClient, feature_key: str) -> Optional[str]:
-    """Ensure a dedicated Muse thread exists for each feature (1 feature = 1 thread)."""
+async def find_existing_feature_session(client: MuseClient, feature_key: str) -> Optional[str]:
     key = (feature_key or "").strip().lower()
-    title = FEATURE_THREAD_TITLES.get(key)
-    if not title:
+    base_title = FEATURE_THREAD_TITLES.get(key)
+    if not base_title:
         return None
-    if key in _feature_session_cache:
-        return _feature_session_cache[key]
+    ws = get_active_workspace()
+    cache_key = f"{ws}:{key}"
+    if cache_key in _feature_session_cache:
+        return _feature_session_cache[cache_key]
+    title = base_title if ws == "default" else f"{base_title} [{ws}]"
+    try:
+        sessions_resp = await client.sessions_list()
+        sessions = (sessions_resp.get("result") or {}).get("sessions") or []
+        for s in sessions:
+            if s.get("is_thread") and (s.get("title") or "").strip().lower() == title.lower():
+                sid = s.get("session_id")
+                if sid:
+                    _feature_session_cache[cache_key] = sid
+                    return sid
+    except Exception as exc:
+        logger.warning(f"[FeatureThreads] sessions_list failed: {exc}")
+    return None
+
+
+async def ensure_feature_session(client: MuseClient, feature_key: str) -> Optional[str]:
+    """Ensure a dedicated Muse thread exists for each feature & workspace."""
+    key = (feature_key or "").strip().lower()
+    base_title = FEATURE_THREAD_TITLES.get(key)
+    if not base_title:
+        return None
+    ws = get_active_workspace()
+    cache_key = f"{ws}:{key}"
+    if cache_key in _feature_session_cache:
+        return _feature_session_cache[cache_key]
+    title = base_title if ws == "default" else f"{base_title} [{ws}]"
 
     async with _feature_session_lock:
-        if key in _feature_session_cache:
-            return _feature_session_cache[key]
-        try:
-            sessions_resp = await client.sessions_list()
-            sessions = (sessions_resp.get("result") or {}).get("sessions") or []
-            for s in sessions:
-                if s.get("is_thread") and (s.get("title") or "").strip().lower() == title.lower():
-                    sid = s.get("session_id")
-                    if sid:
-                        _feature_session_cache[key] = sid
-                        return sid
-        except Exception as exc:
-            logger.warning(f"[FeatureThreads] sessions_list failed: {exc}")
+        if cache_key in _feature_session_cache:
+            return _feature_session_cache[cache_key]
+        existing_sid = await find_existing_feature_session(client, key)
+        if existing_sid:
+            return existing_sid
 
         sid = str(uuid.uuid4())
         try:
@@ -1161,7 +1180,7 @@ async def ensure_feature_session(client: MuseClient, feature_key: str) -> Option
                 "/api/session/rename",
                 {"session_id": sid, "title": title},
             )
-            _feature_session_cache[key] = sid
+            _feature_session_cache[cache_key] = sid
             logger.info(f"[FeatureThreads] Created dedicated thread '{title}' -> {sid}")
             return sid
         except Exception as exc:
@@ -1748,7 +1767,9 @@ async def get_chat_history(limit: int = 60):
         return {"status": "ok", "messages": [], "session_id": None}
     client = await get_or_create_client()
     try:
-        sid = await ensure_feature_session(client, "chat")
+        sid = await find_existing_feature_session(client, "chat")
+        if not sid:
+            return {"status": "success", "session_id": None, "messages": []}
         hist = await client.history(session_id=sid, limit=limit)
         chat_events = (hist.get("result") or {}).get("chat_events") or []
 

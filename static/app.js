@@ -6844,6 +6844,22 @@ async function _applyWorkspaceSwitchSideEffects(activeWs) {
   movieState.cover_image_url = null;
   state.galleryItems = [];
 
+  _chatHistoryLoaded = false;
+  state.chatSessionId = null;
+  const chatBox = document.getElementById('chat-messages');
+  if (chatBox) {
+    chatBox.innerHTML = `
+      <div class="flex items-start space-x-3">
+        <div class="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center shrink-0 border border-sky-400/30">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+        </div>
+        <div class="bg-surface-800 border border-white/[0.06] rounded-2xl rounded-tl-none p-4 max-w-2xl text-sm text-slate-200 leading-relaxed">
+          Xin chào! Tôi là <b>23zô AI Assistant</b>. Bạn muốn tôi viết kịch bản gồm nhiều cảnh nối tiếp hay gợi ý ý tưởng quay video hôm nay?
+        </div>
+      </div>
+    `;
+  }
+
   await Promise.all([
     loadWorkspacesList(),
     loadMovieProjectsList(),
@@ -6853,6 +6869,8 @@ async function _applyWorkspaceSwitchSideEffects(activeWs) {
 
   if (state.currentTab === 'movie') {
     showMovieHub(true);
+  } else if (state.currentTab === 'chat') {
+    loadChatHistory(true);
   }
 }
 
