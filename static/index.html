@@ -558,19 +558,19 @@
           <i data-lucide="send" class="w-4 h-4 text-[#38bdf8] shrink-0"></i>
           <span>Thông báo Tele</span>
         </button>
-
-        <button onclick="switchTab('accounts')" id="tab-btn-accounts" title="Quản lý Tài khoản MuseAI" class="tab-btn w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
-          <div class="flex items-center space-x-2.5">
-            <i data-lucide="user-cog" class="w-4 h-4 text-emerald-400 shrink-0"></i>
-            <span>Quản lý Tài khoản</span>
-          </div>
-          <span id="sidebar-accounts-count" class="text-[10px] px-2 py-0.5 rounded-full bg-[#2d2d2d] text-[#cccccc] border border-[#3c3c3c]">1</span>
-        </button>
       </div>
     </div>
 
     <!-- Bottom Account Card (Compact Summary, Click to Expand) -->
-    <div class="sidebar-bottom-wrap p-3 border-t border-white/[0.06]">
+    <div class="sidebar-bottom-wrap p-3 border-t border-white/[0.06] space-y-2">
+      <button onclick="switchTab('accounts')" id="tab-btn-accounts" title="Quản lý Tài khoản MuseAI" class="tab-btn w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
+        <div class="flex items-center space-x-2.5">
+          <i data-lucide="user-cog" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+          <span>Quản lý Tài khoản</span>
+        </div>
+        <span id="sidebar-accounts-count" class="text-[10px] px-2 py-0.5 rounded-full bg-[#2d2d2d] text-[#cccccc] border border-[#3c3c3c]">1</span>
+      </button>
+
       <div class="sidebar-account-card rounded-xl border transition shadow-sm overflow-hidden">
         
         <!-- Compact Summary Header (Always visible, Clickable to toggle details) -->
@@ -2418,7 +2418,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261118_22"></script>
+  <script src="/static/app.js?v=20261118_23"></script>
   <script>
     lucide.createIcons();
   </script>
