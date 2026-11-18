@@ -3075,6 +3075,7 @@ async def rename_workspace(body: WorkspaceRenameModel):
     if new_dir.exists():
         raise HTTPException(status_code=409, detail=f"Không gian '{new_slug}' đã tồn tại.")
 
+    was_active = (get_active_workspace() == old_slug)
     old_dir.rename(new_dir)
 
     # Rewrite internal /outputs/<old_slug>/ references inside JSON data files so media URLs remain portable
@@ -3093,7 +3094,7 @@ async def rename_workspace(body: WorkspaceRenameModel):
             logger.warning(f"Failed rewriting URLs in {jf}: {exc}")
 
     # Update active workspace & session cache
-    if get_active_workspace() == old_slug:
+    if was_active:
         ACTIVE_WORKSPACE_FILE.write_text(new_slug, encoding="utf-8")
     for k in [key for key in _feature_session_cache if key.startswith(f"{old_slug}:")]:
         _feature_session_cache.pop(k, None)
