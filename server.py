@@ -255,19 +255,40 @@ def ensure_workspace_dirs(ws_name: Optional[str] = None) -> Path:
     return ws_root
 
 
+def _scan_existing_workspace_names() -> list[str]:
+    if not OUTPUTS_DIR.exists():
+        return []
+    found = [
+        entry.name
+        for entry in sorted(OUTPUTS_DIR.iterdir(), key=lambda p: p.name.lower())
+        if entry.is_dir() and entry.name not in LEGACY_OUTPUT_SUBDIRS
+    ]
+    if "default" in found:
+        found = ["default"] + [n for n in found if n != "default"]
+    return found
+
+
 def get_active_workspace() -> str:
-    ws = "default"
+    ws = ""
     if ACTIVE_WORKSPACE_FILE.exists():
         try:
             saved = ACTIVE_WORKSPACE_FILE.read_text(encoding="utf-8").strip()
             if saved:
-                ws = _safe_folder_name(saved, fallback="default")
+                ws = _safe_folder_name(saved, fallback="")
         except Exception:
             pass
-    if ws in LEGACY_OUTPUT_SUBDIRS:
-        ws = "default"
-    ensure_workspace_dirs(ws)
-    return ws
+    if ws and ws not in LEGACY_OUTPUT_SUBDIRS and (OUTPUTS_DIR / ws).is_dir():
+        ensure_workspace_dirs(ws)
+        return ws
+
+    existing = _scan_existing_workspace_names()
+    chosen = existing[0] if existing else "default"
+    ensure_workspace_dirs(chosen)
+    try:
+        ACTIVE_WORKSPACE_FILE.write_text(chosen, encoding="utf-8")
+    except Exception:
+        pass
+    return chosen
 
 
 def set_active_workspace(ws_name: Optional[str]) -> str:
@@ -289,12 +310,10 @@ def get_workspace_movies_dir(ws: Optional[str] = None) -> Path:
 
 def list_all_workspaces() -> list[dict]:
     active = get_active_workspace()
-    ensure_workspace_dirs("default")
-    names: list[str] = ["default"]
-    if OUTPUTS_DIR.exists():
-        for entry in sorted(OUTPUTS_DIR.iterdir(), key=lambda p: p.name.lower()):
-            if entry.is_dir() and entry.name not in LEGACY_OUTPUT_SUBDIRS and entry.name != "default":
-                names.append(entry.name)
+    names = _scan_existing_workspace_names()
+    if not names:
+        ensure_workspace_dirs("default")
+        names = ["default"]
     result = []
     for name in names:
         ws_dir = OUTPUTS_DIR / name
@@ -3161,8 +3180,8 @@ async def rename_workspace(body: WorkspaceRenameModel):
 @app.delete("/api/workspaces/{ws_id}")
 async def delete_workspace(ws_id: str):
     ws_slug = _safe_folder_name(ws_id, fallback="")
-    if not ws_slug or ws_slug == "default" or ws_slug in LEGACY_OUTPUT_SUBDIRS:
-        raise HTTPException(status_code=400, detail="Không thể xóa không gian mặc định (default).")
+    if not ws_slug or ws_slug in LEGACY_OUTPUT_SUBDIRS:
+        raise HTTPException(status_code=400, detail="Tên không gian không hợp lệ.")
     ws_dir = OUTPUTS_DIR / ws_slug
     if not ws_dir.exists() or not ws_dir.is_dir():
         raise HTTPException(status_code=404, detail=f"Không tìm thấy không gian '{ws_slug}'.")
@@ -3176,8 +3195,11 @@ async def delete_workspace(ws_id: str):
     for k in [key for key in _feature_session_cache if key.startswith(f"{ws_slug}:")]:
         _feature_session_cache.pop(k, None)
 
-    if was_active:
+    remaining = _scan_existing_workspace_names()
+    if not remaining:
         set_active_workspace("default")
+    elif was_active:
+        set_active_workspace(remaining[0])
 
     return {
         "status": "success",

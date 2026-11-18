@@ -6837,12 +6837,13 @@ function renderWorkspaceMenuList() {
     const up = bd.uploads || { count: 0, bytes: 0 };
     const th = bd._thumbs || { count: 0, bytes: 0 };
 
-    const actionsHtml = !ws.is_default
-      ? `<span class="flex items-center space-x-1 ml-1" onclick="event.stopPropagation()">
-           <button type="button" onclick="openWorkspaceRenameModal('${escapeHtml(ws.id)}', event)" title="Đổi tên không gian" class="p-1.5 rounded-lg hover:bg-[#37373d] text-slate-400 hover:text-[#38bdf8] cursor-pointer"><i data-lucide="pencil" class="w-4 h-4"></i></button>
-           <button type="button" onclick="openWorkspaceDeleteModal('${escapeHtml(ws.id)}', event)" title="Xóa không gian" class="p-1.5 rounded-lg hover:bg-rose-600/25 text-slate-400 hover:text-rose-400 cursor-pointer"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-         </span>`
+    const renameBtnHtml = !ws.is_default
+      ? `<button type="button" onclick="openWorkspaceRenameModal('${escapeHtml(ws.id)}', event)" title="Đổi tên không gian" class="p-1.5 rounded-lg hover:bg-[#37373d] text-slate-400 hover:text-[#38bdf8] cursor-pointer"><i data-lucide="pencil" class="w-4 h-4"></i></button>`
       : '';
+    const actionsHtml = `<span class="flex items-center space-x-1 ml-1" onclick="event.stopPropagation()">
+           ${renameBtnHtml}
+           <button type="button" onclick="openWorkspaceDeleteModal('${escapeHtml(ws.id)}', event)" title="Xóa không gian" class="p-1.5 rounded-lg hover:bg-rose-600/25 text-slate-400 hover:text-rose-400 cursor-pointer"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+         </span>`;
     return `
       <div onclick="switchWorkspace('${escapeHtml(ws.id)}')" class="w-full p-3.5 rounded-xl text-left transition cursor-pointer space-y-3 ${isActive ? 'bg-[#0078d4]/20 border border-[#0078d4]' : 'hover:bg-[#2d2d2d] border border-[#333333]/80'}">
         <div class="flex items-center justify-between gap-2">
