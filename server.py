@@ -297,18 +297,29 @@ def list_all_workspaces() -> list[dict]:
                 names.append(entry.name)
     result = []
     for name in names:
-        ws_movies = OUTPUTS_DIR / name / "movies"
+        ws_dir = OUTPUTS_DIR / name
+        ws_movies = ws_dir / "movies"
         m_count = len(list(ws_movies.glob("*.json"))) if ws_movies.exists() else 0
         if name == "default" and MOVIES_DIR.exists():
             legacy_ids = {f.stem for f in MOVIES_DIR.glob("*.json")}
             ws_ids = {f.stem for f in ws_movies.glob("*.json")} if ws_movies.exists() else set()
             m_count = len(legacy_ids | ws_ids)
+        size_bytes = 0
+        if ws_dir.exists():
+            for f in ws_dir.rglob("*"):
+                if f.is_file():
+                    try:
+                        size_bytes += f.stat().st_size
+                    except Exception:
+                        pass
         result.append({
             "id": name,
             "name": name,
             "is_default": name == "default",
             "is_active": name == active,
             "movie_count": m_count,
+            "size_bytes": size_bytes,
+            "size_mb": round(size_bytes / (1024 * 1024), 2),
         })
     return result
 

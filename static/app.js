@@ -6774,6 +6774,16 @@ async function initWorkspaces() {
   await loadWorkspacesList();
 }
 
+function formatWorkspaceSize(bytes) {
+  const b = Math.max(0, Number(bytes) || 0);
+  if (b === 0) return '0 MB';
+  const kb = b / 1024;
+  if (kb < 1024) return `${Math.max(1, Math.round(kb))} KB`;
+  const mb = kb / 1024;
+  if (mb < 1024) return `${mb.toFixed(1)} MB`;
+  return `${(mb / 1024).toFixed(2)} GB`;
+}
+
 async function loadWorkspacesList() {
   try {
     const res = await fetch('/api/workspaces');
@@ -6783,6 +6793,11 @@ async function loadWorkspacesList() {
     _workspaceState.list = Array.isArray(data.workspaces) ? data.workspaces : [];
     const nameEl = document.getElementById('header-workspace-name');
     if (nameEl) nameEl.innerText = _workspaceState.active;
+    const activeWsObj = _workspaceState.list.find(w => w.id === _workspaceState.active);
+    const sizeEl = document.getElementById('header-workspace-size');
+    if (sizeEl) {
+      sizeEl.innerText = activeWsObj ? `(${formatWorkspaceSize(activeWsObj.size_bytes)})` : '';
+    }
     renderWorkspaceMenuList();
   } catch (err) {
     console.warn('loadWorkspacesList failed:', err);
@@ -6794,6 +6809,7 @@ function renderWorkspaceMenuList() {
   if (!listEl) return;
   listEl.innerHTML = (_workspaceState.list || []).map(ws => {
     const isActive = ws.id === _workspaceState.active;
+    const sizeLabel = formatWorkspaceSize(ws.size_bytes);
     const actionsHtml = !ws.is_default
       ? `<span class="flex items-center space-x-1 ml-1" onclick="event.stopPropagation()">
            <button type="button" onclick="openWorkspaceRenameModal('${escapeHtml(ws.id)}', event)" title="Đổi tên không gian" class="p-1 rounded hover:bg-[#37373d] text-slate-400 hover:text-[#38bdf8] cursor-pointer"><i data-lucide="pencil" class="w-3 h-3"></i></button>
@@ -6807,8 +6823,8 @@ function renderWorkspaceMenuList() {
           <span class="truncate font-medium ${isActive ? 'font-bold text-white' : 'text-slate-200'}">${escapeHtml(ws.name)}</span>
           ${ws.is_default ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-[#1e1e1e] text-slate-400 border border-[#3c3c3c]">Mặc định</span>' : ''}
         </span>
-        <span class="flex items-center space-x-1 shrink-0">
-          <span class="text-[10px] text-slate-400 tabular-nums">${ws.movie_count || 0} phim</span>
+        <span class="flex items-center space-x-1.5 shrink-0">
+          <span class="text-[10px] text-slate-400 tabular-nums">${ws.movie_count || 0} phim • ${sizeLabel}</span>
           ${isActive ? '<span class="text-[10px] font-bold text-[#38bdf8]">✓</span>' : ''}
           ${actionsHtml}
         </span>
@@ -6879,9 +6895,12 @@ function openWorkspaceDeleteModal(wsId, ev) {
   if (ev) ev.stopPropagation();
   toggleWorkspaceMenu(null, false);
   const nameEl = document.getElementById('ws-delete-target-name');
+  const sizeEl = document.getElementById('ws-delete-target-size');
   const idEl = document.getElementById('ws-delete-target-id');
   const modal = document.getElementById('workspace-delete-modal');
+  const wsObj = (_workspaceState.list || []).find(w => w.id === wsId);
   if (nameEl) nameEl.innerText = wsId;
+  if (sizeEl) sizeEl.innerText = wsObj ? formatWorkspaceSize(wsObj.size_bytes) : '0 MB';
   if (idEl) idEl.value = wsId;
   refreshWorkspaceDeleteCaptcha();
   if (modal) {
