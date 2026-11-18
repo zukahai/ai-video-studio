@@ -396,8 +396,6 @@ function switchTab(tabId, syncUrl = true) {
     btn.classList.remove(
       'text-white',
       'bg-[#37373d]',
-      'border-l-2',
-      'border-[#0078d4]',
       'font-semibold'
     );
     btn.classList.add('text-[#cccccc]', 'hover:text-white', 'hover:bg-[#2a2d2e]', 'font-medium');
@@ -411,8 +409,6 @@ function switchTab(tabId, syncUrl = true) {
     activeBtn.classList.add(
       'text-white',
       'bg-[#37373d]',
-      'border-l-2',
-      'border-[#0078d4]',
       'font-semibold'
     );
   }
