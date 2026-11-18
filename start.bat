@@ -23,13 +23,92 @@ Write-Host ("  [*] Khong gian : " + $ws + " (outputs\" + $ws + ")") -ForegroundC
 Write-Host "  [*] Dia chi web: http://localhost:7860" -ForegroundColor Cyan
 Write-Host ""
 
-Write-Host "  [ 15%] [###-----------------] Kiem tra moi truong ao .venv..." -ForegroundColor DarkCyan
+function Find-SystemPython {
+    $candidates = @()
+    foreach ($cmdName in @('python', 'python3')) {
+        $cmd = Get-Command $cmdName -ErrorAction SilentlyContinue
+        if ($cmd -and $cmd.Source -and ($cmd.Source -notmatch 'WindowsApps')) {
+            $candidates += $cmd.Source
+        }
+    }
+    $searchRoots = @(
+        "$env:LOCALAPPDATA\Programs\Python\Python3*\python.exe",
+        "C:\Python3*\python.exe",
+        "C:\Program Files\Python3*\python.exe"
+    )
+    foreach ($pattern in $searchRoots) {
+        $found = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue | Sort-Object FullName -Descending
+        foreach ($f in $found) { $candidates += $f.FullName }
+    }
+    foreach ($exe in ($candidates | Select-Object -Unique)) {
+        try {
+            $ver = & $exe -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>$null
+            if ($ver -match '^3\.(\d+)$' -and [int]$Matches[1] -ge 10) {
+                return $exe
+            }
+        } catch {}
+    }
+    return $null
+}
+
+Write-Host "  [ 10%] [##------------------] Kiem tra moi truong ao .venv..." -ForegroundColor DarkCyan
 $pyw = ".venv\Scripts\pythonw.exe"
 $py  = ".venv\Scripts\python.exe"
+
 if (-not (Test-Path $pyw) -and -not (Test-Path $py)) {
-    Write-Host "  [LOI] Khong tim thay .venv! Hay cai dat moi truong Python truoc." -ForegroundColor Red
-    try { Read-Host "  Nhan Enter de thoat" } catch {}
-    exit 1
+    Write-Host "  [!] Chua co .venv - Bat dau tu dong cai dat moi truong tu dau..." -ForegroundColor Yellow
+    $sysPy = Find-SystemPython
+
+    if (-not $sysPy) {
+        Write-Host "  [ 15%] [###-----------------] May chua co Python 3.10+. Dang tu dong tai & cai dat..." -ForegroundColor Magenta
+        $winget = Get-Command winget -ErrorAction SilentlyContinue
+        if ($winget) {
+            Write-Host "         -> Dang cai Python 3.12 qua winget (vui long cho)..." -ForegroundColor Gray
+            & winget install -e --id Python.Python.3.12 --silent --accept-package-agreements --accept-source-agreements --scope user | Out-Null
+            $sysPy = Find-SystemPython
+        }
+        if (-not $sysPy) {
+            $pyUrl = "https://www.python.org/ftp/python/3.12.8/python-3.12.8-amd64.exe"
+            $installer = Join-Path $env:TEMP "python-3.12.8-amd64.exe"
+            Write-Host "         -> Dang tai bo cai Python 3.12.8 tu python.org..." -ForegroundColor Gray
+            try {
+                [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+                Invoke-WebRequest -UseBasicParsing -Uri $pyUrl -OutFile $installer -TimeoutSec 120
+                Write-Host "         -> Dang cai dat Python 3.12.8 (che do tu dong)..." -ForegroundColor Gray
+                $proc = Start-Process -FilePath $installer -ArgumentList "/quiet InstallAllUsers=0 PrependPath=1 Include_test=0" -Wait -PassThru
+                Remove-Item $installer -Force -ErrorAction SilentlyContinue
+                $sysPy = Find-SystemPython
+            } catch {
+                Write-Host ("  [LOI] Khong tai duoc Python: " + $_.Exception.Message) -ForegroundColor Red
+            }
+        }
+        if (-not $sysPy) {
+            Write-Host "  [LOI] Khong the tu dong cai Python. Hay kiem tra ket noi mang hoac cai Python 3.11+ thu cong." -ForegroundColor Red
+            try { Read-Host "  Nhan Enter de thoat" } catch {}
+            exit 1
+        }
+        Write-Host ("  [OK] Da cai dat Python: " + $sysPy) -ForegroundColor Green
+    } else {
+        Write-Host ("  [ 15%] [###-----------------] Tim thay Python: " + $sysPy) -ForegroundColor DarkCyan
+    }
+
+    Write-Host "  [ 20%] [####----------------] Dang tao moi truong ao .venv..." -ForegroundColor Cyan
+    & $sysPy -m venv .venv
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $py)) {
+        Write-Host "  [LOI] Tao moi truong ao .venv that bai!" -ForegroundColor Red
+        try { Read-Host "  Nhan Enter de thoat" } catch {}
+        exit 1
+    }
+
+    Write-Host "  [ 25%] [#####---------------] Dang cai dat thu vien trong requirements.txt (chi 1 lan dau)..." -ForegroundColor Cyan
+    & $py -m pip install --upgrade pip --quiet
+    & $py -m pip install -r requirements.txt
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  [LOI] Cai dat thu vien pip that bai! Kiem tra ket noi mang va thu lai." -ForegroundColor Red
+        try { Read-Host "  Nhan Enter de thoat" } catch {}
+        exit 1
+    }
+    Write-Host "  [OK] Cai dat moi truong hoan tat!" -ForegroundColor Green
 }
 
 Write-Host "  [ 30%] [######--------------] Kiem tra trang thai cong 7860..." -ForegroundColor DarkCyan
