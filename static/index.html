@@ -202,6 +202,16 @@
       background-color: color-mix(in srgb, var(--t-accent) 22%, var(--t-elevated));
       border-color: var(--t-accent);
     }
+    @keyframes gentlePulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.68; }
+    }
+    .animate-spin {
+      animation: spin 2.2s linear infinite !important;
+    }
+    .animate-pulse {
+      animation: gentlePulse 3.8s cubic-bezier(0.4, 0, 0.6, 1) infinite !important;
+    }
     button:active:not(:disabled) {
       transform: scale(0.985);
     }
@@ -2462,7 +2472,7 @@
     </div>
   </div>
 
-<script src="/static/app.js?v=20261118_25"></script>
+<script src="/static/app.js?v=20261118_26"></script>
   <script>
     lucide.createIcons();
   </script>
