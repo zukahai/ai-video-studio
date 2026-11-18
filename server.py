@@ -3519,9 +3519,10 @@ async def rename_workspace(body: WorkspaceRenameModel):
     was_active = (get_active_workspace() == old_slug)
     old_dir.rename(new_dir)
 
-    # Rewrite internal /outputs/<old_slug>/ references inside JSON data files so media URLs remain portable
+    # Rewrite internal /outputs/<old_slug>/ and legacy /outputs/<sub_dir>/ references inside JSON data files
     old_prefix = f"/outputs/{old_slug}/"
     new_prefix = f"/outputs/{new_slug}/"
+    legacy_pat = re.compile(r"/outputs/(movies|videos|images|characters|chat|uploads)/")
     json_targets = list((new_dir / "movies").glob("*.json")) if (new_dir / "movies").exists() else []
     char_json = new_dir / "character_library.json"
     if char_json.exists():
@@ -3529,8 +3530,10 @@ async def rename_workspace(body: WorkspaceRenameModel):
     for jf in json_targets:
         try:
             txt = jf.read_text(encoding="utf-8")
-            if old_prefix in txt:
-                jf.write_text(txt.replace(old_prefix, new_prefix), encoding="utf-8")
+            updated = txt.replace(old_prefix, new_prefix)
+            updated = legacy_pat.sub(rf"/outputs/{new_slug}/\1/", updated)
+            if updated != txt:
+                jf.write_text(updated, encoding="utf-8")
         except Exception as exc:
             logger.warning(f"Failed rewriting URLs in {jf}: {exc}")
 
@@ -4279,12 +4282,18 @@ class WorkspaceStaticFiles(StaticFiles):
         if stat_res is not None:
             return full_path, stat_res
         rel = path.replace("\\", "/").lstrip("/")
+        active_root = get_workspace_root()
         default_root = OUTPUTS_DIR / "default"
-        candidates = [default_root / rel]
+        roots = [active_root]
+        if default_root != active_root and default_root.exists():
+            roots.append(default_root)
+        candidates: list[Path] = []
         fname = Path(rel).name
-        if fname and "/" not in rel:
-            for sub in ("videos", "images", "characters", "chat"):
-                candidates.append(default_root / sub / fname)
+        for r in roots:
+            candidates.append(r / rel)
+            if fname and "/" not in rel:
+                for sub in ("videos", "images", "characters", "chat", "movies", "uploads"):
+                    candidates.append(r / sub / fname)
         for cand in candidates:
             try:
                 if cand.exists() and cand.is_file():
