@@ -186,6 +186,22 @@
     #left-sidebar.sidebar-collapsed #sidebar-quota-details {
       display: none !important;
     }
+    .sidebar-account-card {
+      background-color: color-mix(in srgb, var(--t-card) 68%, var(--t-sidebar));
+      border-color: var(--t-border);
+    }
+    .sidebar-account-card:hover {
+      border-color: color-mix(in srgb, var(--t-accent) 45%, var(--t-border));
+    }
+    .sidebar-account-icon-btn {
+      background-color: color-mix(in srgb, var(--t-elevated) 70%, var(--t-card));
+      border-color: var(--t-border-strong);
+      color: var(--t-accent);
+    }
+    .sidebar-account-icon-btn:hover {
+      background-color: color-mix(in srgb, var(--t-accent) 22%, var(--t-elevated));
+      border-color: var(--t-accent);
+    }
     button:active:not(:disabled) {
       transform: scale(0.985);
     }
@@ -546,12 +562,12 @@
     </div>
 
     <!-- Bottom Account Card (Compact Summary, Click to Expand) -->
-    <div class="sidebar-bottom-wrap p-3 border-t border-white/[0.06] bg-surface-950/40">
-      <div class="rounded-xl bg-[#14171c]/90 border border-white/[0.06] hover:border-cyan-500/30 transition shadow-sm overflow-hidden">
+    <div class="sidebar-bottom-wrap p-3 border-t border-white/[0.06]">
+      <div class="sidebar-account-card rounded-xl border transition shadow-sm overflow-hidden">
         
         <!-- Compact Summary Header (Always visible, Clickable to toggle details) -->
         <div onclick="toggleSidebarQuotaDetails(event)" class="sidebar-account-header p-2.5 cursor-pointer select-none flex items-center gap-2.5 group hover:bg-white/[0.04] transition" title="Bấm để xem chi tiết quota và tài khoản">
-          <button type="button" onclick="event.stopPropagation(); openStudioSettingsModal()" id="btn-studio-settings" class="relative w-9 h-9 rounded-lg bg-[#1b2028] hover:bg-[#0078d4]/25 border border-white/[0.08] hover:border-[#38bdf8]/60 text-[#38bdf8] flex items-center justify-center shrink-0 transition cursor-pointer" title="Cài đặt giao diện & cỡ chữ">
+          <button type="button" onclick="event.stopPropagation(); openStudioSettingsModal()" id="btn-studio-settings" class="sidebar-account-icon-btn relative w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 transition cursor-pointer" title="Cài đặt giao diện & cỡ chữ">
             <i data-lucide="settings" class="w-4 h-4"></i>
             <span id="theme-active-dot" class="hidden"></span>
             <span id="settings-font-badge" class="hidden">16px</span>
@@ -569,7 +585,7 @@
             </div>
           </div>
           
-          <div class="sidebar-hide-collapsed w-6 h-6 rounded-lg bg-[#1b2028] group-hover:bg-cyan-500/20 text-slate-400 group-hover:text-cyan-300 flex items-center justify-center shrink-0 transition">
+          <div class="sidebar-hide-collapsed sidebar-account-icon-btn w-6 h-6 rounded-lg border text-slate-400 group-hover:text-cyan-300 flex items-center justify-center shrink-0 transition">
             <i id="sidebar-quota-chevron" data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform duration-200"></i>
           </div>
         </div>
@@ -2347,7 +2363,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261118_19"></script>
+  <script src="/static/app.js?v=20261118_20"></script>
   <script>
     lucide.createIcons();
   </script>
