@@ -7241,7 +7241,7 @@ function renderAccountPriorities() {
             <i data-lucide="${escapeHtml(feat.icon || 'layers')}" class="w-4 h-4 text-[#38bdf8]"></i>
             <span class="text-xs font-bold text-white">${escapeHtml(feat.label)}</span>
           </div>
-          <span class="text-[10px] text-slate-400">${order.length} nick</span>
+          <span class="text-[10px] text-slate-400">${order.length} tài khoản</span>
         </div>
         <div class="space-y-1.5">
           ${itemsHtml}
