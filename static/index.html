@@ -102,40 +102,78 @@
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
     #left-sidebar {
-      transition: width 0.2s ease;
+      width: 16rem;
+      overflow-x: hidden;
+      transition: width 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: width;
     }
     #left-sidebar.sidebar-collapsed {
       width: 4.5rem !important;
     }
-    #left-sidebar.sidebar-collapsed .sidebar-hide-collapsed {
-      display: none !important;
+    #left-sidebar .sidebar-brand-row {
+      transition: padding 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    #left-sidebar .sidebar-brand-logo {
+      transition: width 0.3s cubic-bezier(0.22, 1, 0.36, 1), height 0.3s cubic-bezier(0.22, 1, 0.36, 1);
     }
     #left-sidebar.sidebar-collapsed .sidebar-brand-row {
-      height: auto;
-      flex-direction: column;
-      gap: 0.45rem;
-      padding: 0.65rem 0.5rem;
-      justify-content: center;
+      padding-left: 0.45rem;
+      padding-right: 0.45rem;
+    }
+    #left-sidebar.sidebar-collapsed .sidebar-brand-logo {
+      width: 2rem;
+      height: 2rem;
+    }
+    #left-sidebar .sidebar-hide-collapsed,
+    #left-sidebar .tab-btn > div > span,
+    #left-sidebar .tab-btn > span {
+      white-space: nowrap;
+      overflow: hidden;
+      max-width: 13rem;
+      opacity: 1;
+      transition: opacity 0.2s ease, max-width 0.3s cubic-bezier(0.22, 1, 0.36, 1), padding 0.25s ease, margin 0.25s ease;
+    }
+    #left-sidebar.sidebar-collapsed .sidebar-hide-collapsed,
+    #left-sidebar.sidebar-collapsed .tab-btn > div > span,
+    #left-sidebar.sidebar-collapsed .tab-btn > span {
+      opacity: 0;
+      max-width: 0;
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+      margin: 0 !important;
+      border-width: 0 !important;
+      pointer-events: none;
+    }
+    #left-sidebar .sidebar-nav-list,
+    #left-sidebar .sidebar-bottom-wrap,
+    #left-sidebar .sidebar-account-header {
+      transition: padding 0.3s cubic-bezier(0.22, 1, 0.36, 1);
     }
     #left-sidebar.sidebar-collapsed .sidebar-nav-list {
       padding: 0.5rem;
     }
+    #left-sidebar .tab-btn {
+      transition: padding 0.3s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.18s ease, color 0.18s ease, transform 0.12s ease !important;
+    }
     #left-sidebar.sidebar-collapsed .tab-btn {
-      justify-content: center !important;
-      padding-left: 0 !important;
+      padding-left: 1.15rem !important;
       padding-right: 0 !important;
+      gap: 0 !important;
     }
     #left-sidebar.sidebar-collapsed .tab-btn > div {
       gap: 0 !important;
     }
-    #left-sidebar.sidebar-collapsed .tab-btn > div > span,
-    #left-sidebar.sidebar-collapsed .tab-btn > span {
-      display: none !important;
+    #left-sidebar .tab-btn > div > span,
+    #left-sidebar .tab-btn > span {
+      margin-left: 0.625rem;
+    }
+    #left-sidebar .tab-btn > div > span:first-of-type {
+      margin-left: 0.625rem;
     }
     #left-sidebar.sidebar-collapsed .tab-btn svg {
-      margin: 0 !important;
       width: 1.15rem;
       height: 1.15rem;
+      transition: width 0.25s ease, height 0.25s ease;
     }
     #left-sidebar.sidebar-collapsed .sidebar-bottom-wrap {
       padding: 0.5rem;
@@ -143,6 +181,7 @@
     #left-sidebar.sidebar-collapsed .sidebar-account-header {
       justify-content: center;
       padding: 0.5rem;
+      gap: 0;
     }
     #left-sidebar.sidebar-collapsed #sidebar-quota-details {
       display: none !important;
@@ -437,7 +476,7 @@
     <div>
       <div class="sidebar-brand-row h-16 px-3.5 flex items-center justify-between border-b border-white/[0.06]">
         <div class="flex items-center space-x-3 min-w-0">
-          <img src="/static/logo.png?v=20261118_1" alt="23zô AI Logo" class="h-10 w-10 object-contain bg-white rounded-xl p-0.5 border border-sky-400/30 shadow-lg shadow-sky-500/20 shrink-0">
+          <img src="/static/logo.png?v=20261118_1" alt="23zô AI Logo" class="sidebar-brand-logo h-10 w-10 object-contain bg-white rounded-xl p-0.5 border border-sky-400/30 shadow-lg shadow-sky-500/20 shrink-0">
           <div class="min-w-0 sidebar-hide-collapsed">
             <div class="flex items-center space-x-1.5">
               <span class="brand-title-gradient font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-sky-100 to-cyan-300 bg-clip-text text-transparent">23zô AI</span>
@@ -2308,7 +2347,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261118_17"></script>
+  <script src="/static/app.js?v=20261118_18"></script>
   <script>
     lucide.createIcons();
   </script>
