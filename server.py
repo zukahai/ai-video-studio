@@ -667,12 +667,14 @@ def extract_last_frame_from_video(video_path: Path) -> Optional[Path]:
         ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
         frame_dir = video_path.parent if OUTPUTS_DIR.resolve() in video_path.resolve().parents else OUTPUTS_DIR
         out_path = frame_dir / f"lastframe_{video_path.stem}_{int(time.time() * 1000)}.jpg"
+        _no_win = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         for seek_offset in ("-0.15", "-0.5"):
             proc = subprocess.run(
                 [ffmpeg_exe, "-sseof", seek_offset, "-i", str(video_path), "-frames:v", "1", "-q:v", "2", "-y", str(out_path)],
                 capture_output=True,
                 text=True,
                 timeout=30,
+                creationflags=_no_win,
             )
             if proc.returncode == 0 and out_path.exists() and out_path.stat().st_size > 0:
                 return out_path
@@ -682,6 +684,7 @@ def extract_last_frame_from_video(video_path: Path) -> Optional[Path]:
             capture_output=True,
             text=True,
             timeout=30,
+            creationflags=_no_win,
         )
         if proc2.returncode == 0 and out_path.exists() and out_path.stat().st_size > 0:
             return out_path
@@ -1911,8 +1914,9 @@ async def get_video_thumbnail(url: str):
                     "-y",
                     str(thumb_path),
                 ]
+                _no_win = getattr(subprocess, "CREATE_NO_WINDOW", 0)
                 proc = await asyncio.to_thread(
-                    subprocess.run, cmd, capture_output=True, timeout=15
+                    subprocess.run, cmd, capture_output=True, timeout=15, creationflags=_no_win
                 )
                 if proc.returncode != 0 or not thumb_path.exists():
                     # Fallback at t=0
@@ -1926,7 +1930,7 @@ async def get_video_thumbnail(url: str):
                         str(thumb_path),
                     ]
                     await asyncio.to_thread(
-                        subprocess.run, cmd_zero, capture_output=True, timeout=15
+                        subprocess.run, cmd_zero, capture_output=True, timeout=15, creationflags=_no_win
                     )
 
     if not thumb_path.exists():
@@ -1994,7 +1998,8 @@ async def merge_videos(data: MergeVideosModel):
             "-c", "copy",
             str(output_path),
         ]
-        proc = subprocess.run(cmd_copy, capture_output=True, text=True)
+        _no_win = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        proc = subprocess.run(cmd_copy, capture_output=True, text=True, creationflags=_no_win)
         if proc.returncode != 0 or not output_path.exists() or output_path.stat().st_size == 0:
             logger.warning(f"FFmpeg copy concat không khả dụng ({proc.stderr[:200] if proc.stderr else 'unknown'}), chuyển sang chế độ re-encode tương thích...")
             # 2. Fallback to re-encode (guaranteed compatibility across different presets)
@@ -2011,7 +2016,7 @@ async def merge_videos(data: MergeVideosModel):
                 "-b:a", "192k",
                 str(output_path),
             ]
-            proc_re = subprocess.run(cmd_reencode, capture_output=True, text=True)
+            proc_re = subprocess.run(cmd_reencode, capture_output=True, text=True, creationflags=_no_win)
             if proc_re.returncode != 0 or not output_path.exists():
                 raise RuntimeError(f"Lỗi ghép video với FFmpeg: {proc_re.stderr[-300:] if proc_re.stderr else 'unknown'}")
 
