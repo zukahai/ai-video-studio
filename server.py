@@ -2669,14 +2669,15 @@ class MovieProjectModel(BaseModel):
 
 
 def _seed_initial_movie_projects():
-    """Auto-discovers prior generated movies from outputs/ and seeds project JSON files."""
+    """Auto-discovers prior generated movies from outputs/ and seeds project JSON files into default/movies/."""
     try:
-        MOVIES_DIR.mkdir(parents=True, exist_ok=True)
+        target_movies_dir = get_workspace_movies_dir("default")
         now_ms = time.time() * 1000
 
         # 1. Co Be Ban Diem
         co_be_files = sorted(OUTPUTS_DIR.glob("*co-be-ban-diem*canh-*.mp4"))
         if co_be_files:
+            target_movies_dir.mkdir(parents=True, exist_ok=True)
             scenes = []
             situations = [
                 "Đêm giao thừa, tuyết rơi dày trên phố cổ châu Âu, cô bé bán diêm chân trần run rẩy ôm giỏ diêm đi giữa dòng người vội vã về nhà đón năm mới.",
@@ -2730,7 +2731,8 @@ def _seed_initial_movie_projects():
                 "createdAt": now_ms - 86400000,
                 "updatedAt": now_ms - 3600000
             }
-            with open(MOVIES_DIR / "mov_co_be_ban_diem.json", "w", encoding="utf-8") as f:
+            target_movies_dir.mkdir(parents=True, exist_ok=True)
+            with open(target_movies_dir / "mov_co_be_ban_diem.json", "w", encoding="utf-8") as f:
                 json.dump(p_cobe, f, ensure_ascii=False, indent=2)
 
         # 2. Co Cong Mai Sat
@@ -2785,7 +2787,8 @@ def _seed_initial_movie_projects():
                 "createdAt": now_ms - 72000000,
                 "updatedAt": now_ms - 1800000
             }
-            with open(MOVIES_DIR / "mov_co_cong_mai_sat.json", "w", encoding="utf-8") as f:
+            target_movies_dir.mkdir(parents=True, exist_ok=True)
+            with open(target_movies_dir / "mov_co_cong_mai_sat.json", "w", encoding="utf-8") as f:
                 json.dump(p_maisat, f, ensure_ascii=False, indent=2)
 
         # 3. Chuyen Nha Thien
@@ -2841,7 +2844,8 @@ def _seed_initial_movie_projects():
                 "createdAt": now_ms - 3600000,
                 "updatedAt": now_ms
             }
-            with open(MOVIES_DIR / "mov_chuyen_nha_thien.json", "w", encoding="utf-8") as f:
+            target_movies_dir.mkdir(parents=True, exist_ok=True)
+            with open(target_movies_dir / "mov_chuyen_nha_thien.json", "w", encoding="utf-8") as f:
                 json.dump(p_thien, f, ensure_ascii=False, indent=2)
 
         # 4. An Khe Tra Vang
@@ -2903,7 +2907,8 @@ def _seed_initial_movie_projects():
                 "createdAt": now_ms - 10000000,
                 "updatedAt": now_ms - 500000
             }
-            with open(MOVIES_DIR / "mov_an_khe_tra_vang.json", "w", encoding="utf-8") as f:
+            target_movies_dir.mkdir(parents=True, exist_ok=True)
+            with open(target_movies_dir / "mov_an_khe_tra_vang.json", "w", encoding="utf-8") as f:
                 json.dump(p_khe, f, ensure_ascii=False, indent=2)
 
     except Exception as e:
@@ -2922,7 +2927,7 @@ async def list_movie_projects():
                 project_files[f.stem] = f
     if active_ws == "default" and not project_files:
         _seed_initial_movie_projects()
-        project_files = {f.stem: f for f in MOVIES_DIR.glob("*.json")}
+        project_files = {f.stem: f for f in ws_movies_dir.glob("*.json")}
 
     projects = []
     for file in sorted(project_files.values(), key=lambda f: f.stat().st_mtime, reverse=True):
