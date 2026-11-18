@@ -6810,6 +6810,15 @@ function renderWorkspaceMenuList() {
   listEl.innerHTML = (_workspaceState.list || []).map(ws => {
     const isActive = ws.id === _workspaceState.active;
     const sizeLabel = formatWorkspaceSize(ws.size_bytes);
+    const bd = ws.breakdown || {};
+    const mv = bd.movies || { count: ws.movie_count || 0, bytes: 0 };
+    const vd = bd.videos || { count: 0, bytes: 0 };
+    const im = bd.images || { count: 0, bytes: 0 };
+    const ch = bd.characters || { count: 0, bytes: 0 };
+    const ct = bd.chat || { count: 0, bytes: 0 };
+    const up = bd.uploads || { count: 0, bytes: 0 };
+    const th = bd._thumbs || { count: 0, bytes: 0 };
+
     const actionsHtml = !ws.is_default
       ? `<span class="flex items-center space-x-1 ml-1" onclick="event.stopPropagation()">
            <button type="button" onclick="openWorkspaceRenameModal('${escapeHtml(ws.id)}', event)" title="Đổi tên không gian" class="p-1 rounded hover:bg-[#37373d] text-slate-400 hover:text-[#38bdf8] cursor-pointer"><i data-lucide="pencil" class="w-3 h-3"></i></button>
@@ -6817,17 +6826,28 @@ function renderWorkspaceMenuList() {
          </span>`
       : '';
     return `
-      <div onclick="switchWorkspace('${escapeHtml(ws.id)}')" class="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left text-xs transition cursor-pointer ${isActive ? 'bg-[#0078d4]/20 border border-[#0078d4]' : 'hover:bg-[#2d2d2d] border border-transparent'}">
-        <span class="flex items-center space-x-2 min-w-0">
-          <i data-lucide="folder" class="w-3.5 h-3.5 ${isActive ? 'text-[#38bdf8]' : 'text-slate-400'} shrink-0"></i>
-          <span class="truncate font-medium ${isActive ? 'font-bold text-white' : 'text-slate-200'}">${escapeHtml(ws.name)}</span>
-          ${ws.is_default ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-[#1e1e1e] text-slate-400 border border-[#3c3c3c]">Mặc định</span>' : ''}
-        </span>
-        <span class="flex items-center space-x-1.5 shrink-0">
-          <span class="text-[10px] text-slate-400 tabular-nums">${ws.movie_count || 0} phim • ${sizeLabel}</span>
-          ${isActive ? '<span class="text-[10px] font-bold text-[#38bdf8]">✓</span>' : ''}
-          ${actionsHtml}
-        </span>
+      <div onclick="switchWorkspace('${escapeHtml(ws.id)}')" class="w-full p-2.5 rounded-lg text-left text-xs transition cursor-pointer space-y-2 ${isActive ? 'bg-[#0078d4]/20 border border-[#0078d4]' : 'hover:bg-[#2d2d2d] border border-[#333333]/70'}">
+        <div class="flex items-center justify-between gap-2">
+          <span class="flex items-center space-x-2 min-w-0">
+            <i data-lucide="folder" class="w-3.5 h-3.5 ${isActive ? 'text-[#38bdf8]' : 'text-slate-400'} shrink-0"></i>
+            <span class="truncate font-medium ${isActive ? 'font-bold text-white' : 'text-slate-200'}">${escapeHtml(ws.name)}</span>
+            ${ws.is_default ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-[#1e1e1e] text-slate-400 border border-[#3c3c3c]">Mặc định</span>' : ''}
+          </span>
+          <span class="flex items-center space-x-1.5 shrink-0">
+            <span class="text-[11px] font-bold text-[#38bdf8] tabular-nums">${sizeLabel}</span>
+            ${isActive ? '<span class="text-[10px] font-bold text-emerald-400">✓</span>' : ''}
+            ${actionsHtml}
+          </span>
+        </div>
+        <div class="grid grid-cols-2 gap-1 text-[10px] text-slate-300 tabular-nums">
+          <div class="flex items-center justify-between px-1.5 py-0.5 rounded bg-[#1e1e1e]/80"><span>Phim (${mv.count})</span><span class="text-slate-400">${formatWorkspaceSize(mv.bytes)}</span></div>
+          <div class="flex items-center justify-between px-1.5 py-0.5 rounded bg-[#1e1e1e]/80"><span>Video (${ws.total_videos ?? vd.count})</span><span class="text-slate-400">${formatWorkspaceSize(vd.bytes)}</span></div>
+          <div class="flex items-center justify-between px-1.5 py-0.5 rounded bg-[#1e1e1e]/80"><span>Ảnh (${ws.total_images ?? im.count})</span><span class="text-slate-400">${formatWorkspaceSize(im.bytes)}</span></div>
+          <div class="flex items-center justify-between px-1.5 py-0.5 rounded bg-[#1e1e1e]/80"><span>Nhân vật (${ch.count})</span><span class="text-slate-400">${formatWorkspaceSize(ch.bytes)}</span></div>
+          <div class="flex items-center justify-between px-1.5 py-0.5 rounded bg-[#1e1e1e]/80"><span>Chat (${ct.count})</span><span class="text-slate-400">${formatWorkspaceSize(ct.bytes)}</span></div>
+          <div class="flex items-center justify-between px-1.5 py-0.5 rounded bg-[#1e1e1e]/80"><span>Upload (${up.count})</span><span class="text-slate-400">${formatWorkspaceSize(up.bytes)}</span></div>
+          <div class="col-span-2 flex items-center justify-between px-1.5 py-0.5 rounded bg-[#1e1e1e]/60"><span>Thumbnail cache (${th.count})</span><span class="text-slate-400">${formatWorkspaceSize(th.bytes)}</span></div>
+        </div>
       </div>
     `;
   }).join('');

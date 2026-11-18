@@ -305,21 +305,46 @@ def list_all_workspaces() -> list[dict]:
             ws_ids = {f.stem for f in ws_movies.glob("*.json")} if ws_movies.exists() else set()
             m_count = len(legacy_ids | ws_ids)
         size_bytes = 0
+        total_videos = 0
+        total_images = 0
+        sub_stats: dict[str, dict[str, int]] = {
+            sub: {"count": 0, "bytes": 0}
+            for sub in ("movies", "videos", "images", "characters", "chat", "uploads", "_thumbs")
+        }
         if ws_dir.exists():
             for f in ws_dir.rglob("*"):
-                if f.is_file():
-                    try:
-                        size_bytes += f.stat().st_size
-                    except Exception:
-                        pass
+                if not f.is_file():
+                    continue
+                try:
+                    fsize = f.stat().st_size
+                except Exception:
+                    fsize = 0
+                size_bytes += fsize
+                ext = f.suffix.lower()
+                if ext in (".mp4", ".webm", ".mov"):
+                    total_videos += 1
+                elif ext in (".png", ".jpg", ".jpeg", ".webp", ".gif"):
+                    total_images += 1
+                try:
+                    top_sub = f.relative_to(ws_dir).parts[0]
+                    if top_sub in sub_stats:
+                        sub_stats[top_sub]["bytes"] += fsize
+                        if top_sub != "movies":
+                            sub_stats[top_sub]["count"] += 1
+                except Exception:
+                    pass
+        sub_stats["movies"]["count"] = m_count
         result.append({
             "id": name,
             "name": name,
             "is_default": name == "default",
             "is_active": name == active,
             "movie_count": m_count,
+            "total_videos": total_videos,
+            "total_images": total_images,
             "size_bytes": size_bytes,
             "size_mb": round(size_bytes / (1024 * 1024), 2),
+            "breakdown": sub_stats,
         })
     return result
 
