@@ -461,9 +461,15 @@
       <div class="rounded-xl bg-surface-800/90 border border-white/[0.06] hover:border-cyan-500/30 transition shadow-sm overflow-hidden">
         
         <!-- Compact Summary Header (Always visible, Clickable to toggle details) -->
-        <div onclick="toggleSidebarQuotaDetails(event)" class="p-3 cursor-pointer select-none flex items-center justify-between group hover:bg-surface-700/50 transition" title="Bấm để xem chi tiết quota và tài khoản">
-          <div class="min-w-0 flex-1 pr-2">
-            <div class="flex items-center space-x-2">
+        <div onclick="toggleSidebarQuotaDetails(event)" class="p-2.5 cursor-pointer select-none flex items-center gap-2.5 group hover:bg-surface-700/50 transition" title="Bấm để xem chi tiết quota và tài khoản">
+          <button type="button" onclick="event.stopPropagation(); openStudioSettingsModal()" id="btn-studio-settings" class="relative w-9 h-9 rounded-lg bg-surface-700/70 hover:bg-[#0078d4]/25 border border-white/[0.08] hover:border-[#38bdf8]/60 text-[#38bdf8] flex items-center justify-center shrink-0 transition cursor-pointer" title="Cài đặt giao diện & cỡ chữ">
+            <i data-lucide="settings" class="w-4 h-4"></i>
+            <span id="theme-active-dot" class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#0078d4] border border-[#1e1e1e]"></span>
+            <span id="settings-font-badge" class="hidden">16px</span>
+          </button>
+
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center space-x-1.5">
               <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
               <div id="status-text" class="text-xs font-bold text-slate-200 truncate group-hover:text-cyan-300 transition">Đang kiểm tra...</div>
             </div>
@@ -519,17 +525,6 @@
         </div>
 
       </div>
-
-      <button type="button" onclick="openStudioSettingsModal()" id="btn-studio-settings" class="w-full mt-2 px-3 py-2 rounded-xl bg-surface-800/90 hover:bg-surface-700/60 border border-white/[0.06] hover:border-[#0078d4] text-xs font-semibold text-slate-200 flex items-center justify-between transition cursor-pointer" title="Cài đặt giao diện & cỡ chữ">
-        <span class="flex items-center space-x-2">
-          <i data-lucide="settings" class="w-4 h-4 text-[#38bdf8]"></i>
-          <span>Cài đặt</span>
-        </span>
-        <span class="flex items-center space-x-1.5 text-[10px] text-slate-400">
-          <span id="settings-font-badge">16px</span>
-          <span id="theme-active-dot" class="w-2.5 h-2.5 rounded-full bg-[#0078d4] border border-white/30"></span>
-        </span>
-      </button>
     </div>
   </aside>
 
@@ -2263,7 +2258,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261118_10"></script>
+  <script src="/static/app.js?v=20261118_11"></script>
   <script>
     lucide.createIcons();
   </script>
