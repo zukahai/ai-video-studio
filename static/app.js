@@ -545,15 +545,33 @@ function applyAuthData(data) {
     const sTokensVipCompact = document.getElementById('sidebar-tokens-vip-compact');
     if (sTokensVipCompact) sTokensVipCompact.innerText = vipTokens;
 
+    const remPct = typeof add.remaining_percent === 'number'
+      ? add.remaining_percent
+      : (add.total_quota_tokens > 0 && typeof add.total_tokens === 'number'
+          ? Math.round((add.total_tokens / add.total_quota_tokens) * 1000) / 10
+          : 100);
+    const clampedRemPct = Math.max(0, Math.min(100, remPct));
+
+    const headerQuotaBadge = document.getElementById('header-quota-badge');
+    const headerQuotaBg = document.getElementById('header-quota-progress-bg');
+    if (headerQuotaBg) {
+      headerQuotaBg.style.width = `${clampedRemPct}%`;
+      if (clampedRemPct < 20) {
+        headerQuotaBg.className = 'absolute inset-y-0 left-0 bg-gradient-to-r from-rose-500/30 to-red-500/25 border-r border-rose-400/40 transition-all duration-500 pointer-events-none';
+      } else if (clampedRemPct < 50) {
+        headerQuotaBg.className = 'absolute inset-y-0 left-0 bg-gradient-to-r from-amber-500/25 to-yellow-500/25 border-r border-amber-400/40 transition-all duration-500 pointer-events-none';
+      } else {
+        headerQuotaBg.className = 'absolute inset-y-0 left-0 bg-gradient-to-r from-sky-500/25 via-cyan-500/20 to-emerald-500/25 border-r border-emerald-400/40 transition-all duration-500 pointer-events-none';
+      }
+    }
+    if (headerQuotaBadge) {
+      headerQuotaBadge.title = `Còn ${clampedRemPct}% token (${vipTokens})`;
+    }
+
     const hourglassBadge = document.getElementById('sidebar-hourglass-badge');
     if (hourglassBadge) {
-      const remPct = typeof add.remaining_percent === 'number'
-        ? add.remaining_percent
-        : (add.total_quota_tokens > 0 && typeof add.total_tokens === 'number'
-            ? Math.round((add.total_tokens / add.total_quota_tokens) * 1000) / 10
-            : 100);
-      hourglassBadge.innerHTML = renderHourglassGaugeHtml(remPct);
-      hourglassBadge.title = `Còn ${remPct}% token (${vipTokens})`;
+      hourglassBadge.innerHTML = renderHourglassGaugeHtml(clampedRemPct);
+      hourglassBadge.title = `Còn ${clampedRemPct}% token (${vipTokens})`;
     }
 
     const sAddSub = document.getElementById('sidebar-add-sub');

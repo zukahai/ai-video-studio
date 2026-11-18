@@ -570,10 +570,11 @@
         </div>
 
         <!-- Live Token Quota Badge -->
-        <div id="header-quota-badge" class="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-md bg-[#252526] border border-[#3c3c3c] text-xs text-[#cccccc]">
-          <i data-lucide="zap" class="w-3.5 h-3.5 text-[#38bdf8]"></i>
-          <span>Token: <b id="header-quota-tokens" class="text-white font-bold">982 triệu</b></span>
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+        <div id="header-quota-badge" class="hidden sm:flex relative overflow-hidden items-center space-x-2 px-3 py-1.5 rounded-md bg-[#252526] border border-[#3c3c3c] text-xs text-[#cccccc]" title="Dung lượng Token còn lại">
+          <div id="header-quota-progress-bg" class="absolute inset-y-0 left-0 bg-gradient-to-r from-sky-500/25 via-cyan-500/20 to-emerald-500/25 border-r border-emerald-400/40 transition-all duration-500 pointer-events-none" style="width: 100%"></div>
+          <i data-lucide="zap" class="w-3.5 h-3.5 text-[#38bdf8] relative z-10"></i>
+          <span class="relative z-10">Token: <b id="header-quota-tokens" class="text-white font-bold">982 triệu</b></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 relative z-10"></span>
         </div>
 
         <button type="button" onclick="checkBrowserVpnUsa(true)" id="header-vpn-btn" class="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-md bg-[#252526] border border-[#3c3c3c] text-xs text-[#cccccc] hover:border-[#0078d4] transition cursor-pointer" title="Bấm để kiểm tra lại VPN trình duyệt">
@@ -2262,7 +2263,7 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261118_7"></script>
+  <script src="/static/app.js?v=20261118_8"></script>
   <script>
     lucide.createIcons();
   </script>
