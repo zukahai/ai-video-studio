@@ -329,10 +329,24 @@ def list_all_workspaces() -> list[dict]:
                     top_sub = f.relative_to(ws_dir).parts[0]
                     if top_sub in sub_stats:
                         sub_stats[top_sub]["bytes"] += fsize
-                        if top_sub != "movies":
+                        if top_sub == "videos":
+                            if ext in (".mp4", ".webm", ".mov"):
+                                sub_stats[top_sub]["count"] += 1
+                        elif top_sub == "images":
+                            if ext in (".png", ".jpg", ".jpeg", ".webp", ".gif"):
+                                sub_stats[top_sub]["count"] += 1
+                        elif top_sub not in ("movies", "characters"):
                             sub_stats[top_sub]["count"] += 1
                 except Exception:
                     pass
+        char_lib_file = ws_dir / "character_library.json"
+        if char_lib_file.exists():
+            try:
+                char_data = json.loads(char_lib_file.read_text(encoding="utf-8"))
+                if isinstance(char_data, list):
+                    sub_stats["characters"]["count"] = len(char_data)
+            except Exception:
+                pass
         sub_stats["movies"]["count"] = m_count
         result.append({
             "id": name,
