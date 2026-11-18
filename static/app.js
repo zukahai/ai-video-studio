@@ -457,7 +457,7 @@ function switchTab(tabId, syncUrl = true) {
     loadCharacterLibrary();
   }
   if (tabId === 'accounts') {
-    loadAccountsManager(false);
+    loadAccountsManager(true);
   }
   if (tabId === 'movie') {
     showMovieHub(false);
@@ -7117,10 +7117,9 @@ const _accountsState = {
 };
 
 async function loadAccountsManager(live = false) {
-  const btn = document.getElementById('btn-refresh-accounts');
-  if (btn && live) {
-    btn.disabled = true;
-    btn.classList.add('opacity-60');
+  const totalBadge = document.getElementById('accounts-total-badge');
+  if (totalBadge && live) {
+    totalBadge.innerText = 'Đang làm mới token...';
   }
   try {
     const res = await fetch(`/api/accounts?live=${live ? 'true' : 'false'}`);
@@ -7133,18 +7132,13 @@ async function loadAccountsManager(live = false) {
 
     const countEl = document.getElementById('sidebar-accounts-count');
     if (countEl) countEl.innerText = _accountsState.accounts.length;
-    const totalBadge = document.getElementById('accounts-total-badge');
     if (totalBadge) totalBadge.innerText = `${_accountsState.accounts.length} tài khoản`;
 
     renderAccountsList();
     renderAccountPriorities();
   } catch (err) {
     console.warn('loadAccountsManager failed:', err);
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.classList.remove('opacity-60');
-    }
+    if (totalBadge) totalBadge.innerText = `${(_accountsState.accounts || []).length} tài khoản`;
   }
 }
 

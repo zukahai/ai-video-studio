@@ -1034,15 +1034,94 @@ _subscription_cache = {
 }
 _subscription_lock = asyncio.Lock()
 
-async def fetch_live_subscription(auth: Optional[MuseAuth] = None) -> Optional[dict]:
+def _extract_quota_summary(live_sub: dict) -> dict[str, Any]:
+    free_usage = live_sub.get("usage") or {}
+    pct = free_usage.get("percentUsed", 0)
+    raw_topup_label = str(live_sub.get("topupRowValueLabel") or "Đã dùng 0% (Còn 1 tỷ token)")
+
+    def _parse_vn_token_count(text: str) -> Optional[int]:
+        norm = text.replace("\xa0", " ").strip()
+        m = re.search(r'còn\s+([\d.,]+)\s*(tỷ|triệu|nghìn|k|m|b)?', norm, re.IGNORECASE)
+        if not m:
+            return None
+        num_raw = m.group(1).replace(" ", "")
+        if "," in num_raw and "." not in num_raw:
+            num_val = float(num_raw.replace(",", "."))
+        elif "." in num_raw and "," in num_raw:
+            num_val = float(num_raw.replace(".", "").replace(",", "."))
+        else:
+            num_val = float(num_raw)
+        unit = (m.group(2) or "").lower()
+        mult = {"tỷ": 1_000_000_000, "b": 1_000_000_000, "triệu": 1_000_000, "m": 1_000_000, "nghìn": 1_000, "k": 1_000}.get(unit, 1)
+        return int(round(num_val * mult))
+
+    def _parse_used_percent(text: str) -> Optional[float]:
+        norm = text.replace("\xa0", " ").strip()
+        m = re.search(r'đã\s*dùng\s*([\d.,]+)\s*%', norm, re.IGNORECASE)
+        if not m:
+            return None
+        try:
+            return float(m.group(1).replace(",", "."))
+        except ValueError:
+            return None
+
+    def _format_vn_tokens(tokens: int, max_decimals: int = 2) -> str:
+        if tokens >= 1_000_000_000:
+            val = f"{tokens / 1_000_000_000:.{max_decimals}f}".rstrip("0").rstrip(".").replace(".", ",")
+            return f"{val} tỷ"
+        if tokens >= 1_000_000:
+            millions = round(tokens / 1_000_000)
+            return f"{millions:,} triệu".replace(",", ".")
+        if tokens >= 1_000:
+            return f"{round(tokens / 1_000):,} nghìn".replace(",", ".")
+        return f"{tokens:,}".replace(",", ".")
+
+    def _format_vn_ratio(rem_tokens: int, tot_tokens: int) -> str:
+        if rem_tokens >= 1_000_000_000 and tot_tokens >= 1_000_000_000:
+            rem_num = f"{rem_tokens / 1_000_000_000:.2f}".rstrip("0").rstrip(".").replace(".", ",")
+            return f"{rem_num}/{_format_vn_tokens(tot_tokens, 2)}"
+        return f"{_format_vn_tokens(rem_tokens, 2)}/{_format_vn_tokens(tot_tokens, 2)}"
+
+    topup_balance = live_sub.get("topupBalance")
+    topup_total = live_sub.get("topupTotal")
+    parsed_topup_tokens = _parse_vn_token_count(raw_topup_label)
+    topup_used_pct = _parse_used_percent(raw_topup_label)
+    if parsed_topup_tokens is None:
+        if topup_balance is not None and topup_total and topup_total > 0:
+            parsed_topup_tokens = int(round((topup_balance / topup_total) * 1_000_000_000))
+        else:
+            parsed_topup_tokens = 982_000_000
+
+    if topup_balance and topup_total and topup_total > topup_balance > 0:
+        topup_quota_total = int(round(parsed_topup_tokens * (topup_total / topup_balance)))
+    elif topup_used_pct is not None and 0.0 <= topup_used_pct < 100.0:
+        topup_quota_total = int(round(parsed_topup_tokens / (1.0 - topup_used_pct / 100.0)))
+    else:
+        topup_quota_total = parsed_topup_tokens
+
+    weekly_quota_total = 100_000_000
+    weekly_remaining_tokens = max(0, int(round(weekly_quota_total * (100 - float(pct or 0)) / 100.0)))
+    combined_tokens = parsed_topup_tokens + weekly_remaining_tokens
+    combined_total_tokens = max(combined_tokens, topup_quota_total + weekly_quota_total)
+    remaining_percent = round((combined_tokens / combined_total_tokens) * 100.0, 1) if combined_total_tokens > 0 else 100.0
+    remaining_percent = max(0.0, min(100.0, remaining_percent))
+    return {
+        "vip_tokens": _format_vn_ratio(combined_tokens, combined_total_tokens),
+        "remaining_percent": remaining_percent,
+        "free_label": live_sub.get("usageRowValueLabel") or f"Đã dùng {pct}%",
+    }
+
+
+async def fetch_live_subscription(auth: Optional[MuseAuth] = None, bypass_cache: bool = False) -> Optional[dict]:
     global _subscription_cache
+    use_shared_cache = (auth is None and not bypass_cache)
     now = time.time()
-    if _subscription_cache["data"] and (now - _subscription_cache["timestamp"] < 20):
+    if use_shared_cache and _subscription_cache["data"] and (now - _subscription_cache["timestamp"] < 20):
         return _subscription_cache["data"]
 
     async with _subscription_lock:
         now = time.time()
-        if _subscription_cache["data"] and (now - _subscription_cache["timestamp"] < 20):
+        if use_shared_cache and _subscription_cache["data"] and (now - _subscription_cache["timestamp"] < 20):
             return _subscription_cache["data"]
 
         should_close = False
@@ -1597,11 +1676,12 @@ async def _inspect_single_account(acc_id: str, active_id: str, live: bool = Fals
             check = await auth.auth_check()
             info["is_alive"] = check.get("ok") is True
             info["viewer_id"] = check.get("viewer_id")
-            sub = await fetch_live_subscription(auth)
+            sub = await fetch_live_subscription(auth, bypass_cache=True)
             if sub:
-                info["vip_tokens"] = sub.get("vip_tokens", "—")
-                info["remaining_percent"] = sub.get("remaining_percent")
-                info["free_label"] = sub.get("free_label", "")
+                summary = _extract_quota_summary(sub)
+                info["vip_tokens"] = summary["vip_tokens"]
+                info["remaining_percent"] = summary["remaining_percent"]
+                info["free_label"] = summary["free_label"]
             _account_quota_cache[acc_id] = dict(info)
         except Exception:
             info["is_alive"] = False
