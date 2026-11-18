@@ -3576,12 +3576,33 @@ async def delete_workspace(ws_id: str):
     }
 
 
+def _classify_workspace_rel_category(rel_parts: tuple[str, ...], is_video: bool) -> str:
+    if rel_parts:
+        top = rel_parts[0].lower()
+        if top == "movies":
+            return "movie"
+        if top == "videos":
+            return "video"
+        if top == "images":
+            return "image"
+        if top == "characters":
+            return "character"
+        if top == "chat":
+            return "chat"
+        if top == "uploads":
+            return "upload"
+    return "video" if is_video else "image"
+
+
 @app.get("/api/gallery")
 async def get_gallery():
+    active_ws = get_active_workspace()
+    ws_root = get_workspace_root(active_ws)
     items = []
     video_count = 0
     image_count = 0
     total_bytes = 0
+    cat_counts = {"movie": 0, "video": 0, "image": 0, "character": 0, "chat": 0, "upload": 0}
 
     all_files = [
         f for f in _get_workspace_output_files()
@@ -3598,24 +3619,232 @@ async def get_gallery():
                 video_count += 1
             else:
                 image_count += 1
+            try:
+                ws_rel_parts = file.relative_to(ws_root).parts
+            except Exception:
+                ws_rel_parts = ()
+            category = _classify_workspace_rel_category(ws_rel_parts, is_video)
+            if category != "movie" and category in cat_counts:
+                cat_counts[category] += 1
             rel_folder = file.parent.relative_to(OUTPUTS_DIR).as_posix()
             items.append({
                 "name": file.name,
                 "folder": "" if rel_folder == "." else rel_folder,
                 "url": _to_outputs_url(file),
                 "type": "video" if is_video else "image",
+                "category": category,
                 "size_mb": round(fsize / (1024 * 1024), 2),
                 "created_at": file.stat().st_mtime,
             })
 
+    # Also include Movie projects for the active workspace
+    movies = []
+    ws_movies_dir = get_workspace_movies_dir(active_ws)
+    movie_files: dict[str, Path] = {f.stem: f for f in ws_movies_dir.glob("*.json")} if ws_movies_dir.exists() else {}
+    if active_ws == "default" and MOVIES_DIR.exists():
+        for mf in MOVIES_DIR.glob("*.json"):
+            if mf.stem not in movie_files:
+                movie_files[mf.stem] = mf
+    for mf in sorted(movie_files.values(), key=lambda p: p.stat().st_mtime, reverse=True):
+        try:
+            mdata = json.loads(mf.read_text(encoding="utf-8"))
+            scenes = mdata.get("scenes") or []
+            rendered = sum(1 for s in scenes if s.get("video_url") or s.get("status") == "done")
+            title = mdata.get("title") or mf.stem
+            slug = _safe_folder_name(title, fallback=_safe_folder_name(mdata.get("id") or mf.stem))
+            m_folder = ws_movies_dir / slug
+            m_bytes = mf.stat().st_size
+            if m_folder.exists() and m_folder.is_dir():
+                m_bytes += sum(f.stat().st_size for f in m_folder.rglob("*") if f.is_file())
+            movies.append({
+                "id": mdata.get("id") or mf.stem,
+                "title": title,
+                "cover_image_url": mdata.get("cover_image_url") or "",
+                "merged_video_url": mdata.get("merged_video_url") or "",
+                "scene_count": len(scenes),
+                "rendered_count": rendered,
+                "size_mb": round(m_bytes / (1024 * 1024), 2),
+                "updated_at": mf.stat().st_mtime,
+                "type": "movie",
+                "category": "movie",
+            })
+        except Exception:
+            pass
+    cat_counts["movie"] = len(movies)
+    cat_counts["all"] = len(movies) + sum(1 for it in items if it.get("category") != "movie")
+
     return {
         "items": items,
+        "movies": movies,
+        "counts": cat_counts,
         "stats": {
             "videos": video_count,
             "images": image_count,
             "total": video_count + image_count,
             "storage_mb": round(total_bytes / (1024 * 1024), 2),
         },
+    }
+
+
+class GallerySyncModel(BaseModel):
+    item_type: str = "media"  # "movie" | "media"
+    target_workspace: str
+    project_id: Optional[str] = None
+    url: Optional[str] = None
+
+
+def _collect_media_urls_from_obj(obj: Any, out: set[str]) -> None:
+    if isinstance(obj, str):
+        s = obj.strip()
+        if s.startswith("/outputs/") or s.startswith("/uploads/"):
+            out.add(s.split("?")[0])
+    elif isinstance(obj, list):
+        for item in obj:
+            _collect_media_urls_from_obj(item, out)
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            _collect_media_urls_from_obj(v, out)
+
+
+def _rewrite_workspace_urls_in_obj(obj: Any, target_ws: str, known_rel_map: dict[str, str]) -> Any:
+    if isinstance(obj, str):
+        clean = obj.split("?")[0].strip()
+        if clean in known_rel_map:
+            return f"/outputs/{target_ws}/{known_rel_map[clean]}"
+        return obj
+    if isinstance(obj, list):
+        return [_rewrite_workspace_urls_in_obj(x, target_ws, known_rel_map) for x in obj]
+    if isinstance(obj, dict):
+        return {k: _rewrite_workspace_urls_in_obj(v, target_ws, known_rel_map) for k, v in obj.items()}
+    return obj
+
+
+def _copy_file_to_target_workspace(src_file: Path, src_ws_root: Path, target_ws_root: Path, fallback_sub: str = "images") -> str:
+    try:
+        rel = src_file.relative_to(src_ws_root).as_posix()
+    except Exception:
+        try:
+            rel = src_file.relative_to(OUTPUTS_DIR).as_posix()
+            parts = rel.split("/", 1)
+            if parts[0] not in LEGACY_OUTPUT_SUBDIRS and len(parts) > 1:
+                rel = parts[1]
+        except Exception:
+            rel = f"{fallback_sub}/{src_file.name}"
+    dest = target_ws_root / rel
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if src_file.resolve() != dest.resolve():
+        shutil.copy2(src_file, dest)
+    return rel
+
+
+@app.post("/api/gallery/sync")
+async def sync_gallery_item_to_workspace(body: GallerySyncModel):
+    src_ws = get_active_workspace()
+    target_ws = _safe_folder_name(body.target_workspace, fallback="")
+    if not target_ws:
+        raise HTTPException(status_code=400, detail="Tên không gian đích không hợp lệ.")
+    if target_ws == src_ws:
+        raise HTTPException(status_code=400, detail="Không gian đích phải khác không gian hiện tại.")
+
+    src_root = get_workspace_root(src_ws)
+    target_root = ensure_workspace_dirs(target_ws)
+    copied_count = 0
+
+    if body.item_type == "movie":
+        pid = _safe_folder_name(body.project_id, fallback="")
+        if not pid:
+            raise HTTPException(status_code=400, detail="Thiếu mã dự án phim.")
+        src_json = get_workspace_movies_dir(src_ws) / f"{pid}.json"
+        if not src_json.exists() and src_ws == "default":
+            legacy_json = MOVIES_DIR / f"{pid}.json"
+            if legacy_json.exists():
+                src_json = legacy_json
+        if not src_json.exists():
+            raise HTTPException(status_code=404, detail=f"Không tìm thấy dự án phim '{pid}'.")
+
+        mdata = json.loads(src_json.read_text(encoding="utf-8"))
+        urls: set[str] = set()
+        _collect_media_urls_from_obj(mdata, urls)
+        url_to_rel: dict[str, str] = {}
+
+        # Copy all files inside the movie's dedicated subfolder if present
+        title_slug = _safe_folder_name(mdata.get("title"), fallback=_safe_folder_name(pid))
+        src_movie_folder = get_workspace_movies_dir(src_ws) / title_slug
+        if src_movie_folder.exists() and src_movie_folder.is_dir():
+            for mf in src_movie_folder.rglob("*"):
+                if mf.is_file():
+                    rel = _copy_file_to_target_workspace(mf, src_root, target_root, fallback_sub=f"movies/{title_slug}")
+                    url_to_rel[_to_outputs_url(mf)] = rel
+                    copied_count += 1
+
+        # Copy every referenced image/video/character file
+        for u in urls:
+            src_f = resolve_media_path(u)
+            if src_f and src_f.exists() and src_f.is_file():
+                fb = "uploads" if u.startswith("/uploads/") else ("videos" if src_f.suffix.lower() in (".mp4", ".webm", ".mov") else "images")
+                rel = _copy_file_to_target_workspace(src_f, src_root, target_root, fallback_sub=fb)
+                url_to_rel[u] = rel
+                copied_count += 1
+
+        rewritten = _rewrite_workspace_urls_in_obj(mdata, target_ws, url_to_rel)
+        target_json = get_workspace_movies_dir(target_ws) / f"{pid}.json"
+        target_json.parent.mkdir(parents=True, exist_ok=True)
+        target_json.write_text(json.dumps(rewritten, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        # Also sync matching characters into target workspace's character_library.json
+        src_chars = _load_character_library()
+        movie_char_names = {str(c.get("name") or "").strip().lower() for c in (mdata.get("characters") or []) if isinstance(c, dict)}
+        if src_chars and movie_char_names:
+            target_lib_file = target_root / "character_library.json"
+            try:
+                target_chars = json.loads(target_lib_file.read_text(encoding="utf-8")) if target_lib_file.exists() else []
+                if not isinstance(target_chars, list):
+                    target_chars = []
+            except Exception:
+                target_chars = []
+            existing_ids = {c.get("id") for c in target_chars if isinstance(c, dict)}
+            added_chars = False
+            for ch in src_chars:
+                cname = str(ch.get("name") or "").strip().lower()
+                if any(mc and (mc in cname or cname in mc) for mc in movie_char_names):
+                    ch_urls: set[str] = set()
+                    _collect_media_urls_from_obj(ch, ch_urls)
+                    for cu in ch_urls:
+                        cf = resolve_media_path(cu)
+                        if cf and cf.exists() and cf.is_file():
+                            rel = _copy_file_to_target_workspace(cf, src_root, target_root, fallback_sub="characters")
+                            url_to_rel[cu] = rel
+                            copied_count += 1
+                    if ch.get("id") not in existing_ids:
+                        target_chars.append(_rewrite_workspace_urls_in_obj(ch, target_ws, url_to_rel))
+                        existing_ids.add(ch.get("id"))
+                        added_chars = True
+            if added_chars:
+                target_lib_file.write_text(json.dumps(target_chars, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        return {
+            "status": "success",
+            "target_workspace": target_ws,
+            "copied_files": copied_count,
+            "message": f"Đã đồng bộ phim '{mdata.get('title') or pid}' và {copied_count} tệp liên quan sang không gian '{target_ws}'.",
+        }
+
+    # Media item (video / image / character / chat / upload)
+    if not body.url:
+        raise HTTPException(status_code=400, detail="Thiếu đường dẫn tệp cần đồng bộ.")
+    src_file = resolve_media_path(body.url)
+    if not src_file or not src_file.exists() or not src_file.is_file():
+        raise HTTPException(status_code=404, detail="Không tìm thấy tệp nguồn để đồng bộ.")
+
+    fb = "uploads" if body.url.startswith("/uploads/") else ("videos" if src_file.suffix.lower() in (".mp4", ".webm", ".mov") else "images")
+    rel = _copy_file_to_target_workspace(src_file, src_root, target_root, fallback_sub=fb)
+    copied_count = 1
+    return {
+        "status": "success",
+        "target_workspace": target_ws,
+        "copied_files": copied_count,
+        "new_url": f"/outputs/{target_ws}/{rel}",
+        "message": f"Đã sao chép '{src_file.name}' sang không gian '{target_ws}'.",
     }
 
 

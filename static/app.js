@@ -2002,6 +2002,8 @@ async function loadDashboardAndGallery() {
     const res = await fetch('/api/gallery');
     const data = await res.json();
     state.galleryItems = data.items || [];
+    state.galleryMovies = data.movies || [];
+    state.galleryCounts = data.counts || {};
 
     // Update Stats
     if (data.stats) {
@@ -2011,6 +2013,7 @@ async function loadDashboardAndGallery() {
       document.getElementById('sidebar-gallery-count').innerText = data.stats.total;
     }
 
+    updateGalleryFilterBadges();
     renderDashboardRecent();
     renderDashboardVideos();
     if (state.currentTab === 'gallery') {
@@ -2021,19 +2024,38 @@ async function loadDashboardAndGallery() {
   }
 }
 
+function updateGalleryFilterBadges() {
+  const counts = state.galleryCounts || {};
+  const labels = {
+    all: 'Tất cả',
+    movie: 'Phim',
+    video: 'Video',
+    image: 'Ảnh',
+    character: 'Nhân vật',
+    chat: 'Chat',
+    upload: 'Upload',
+  };
+  Object.entries(labels).forEach(([key, label]) => {
+    const btn = document.getElementById(`gfilter-${key}`);
+    if (!btn) return;
+    const n = counts[key];
+    btn.innerText = typeof n === 'number' ? `${label} (${n})` : label;
+  });
+}
+
 function loadGallery() {
   loadDashboardAndGallery();
 }
 
 function filterGallery(filterType) {
   state.galleryFilter = filterType;
-  ['all', 'video', 'image'].forEach(f => {
+  ['all', 'movie', 'video', 'image', 'character', 'chat', 'upload'].forEach(f => {
     const btn = document.getElementById(`gfilter-${f}`);
     if (!btn) return;
     if (f === filterType) {
-      btn.className = 'gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 text-white shadow-sm shadow-sky-600/30';
+      btn.className = 'gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 text-white shadow-sm shadow-sky-600/30 cursor-pointer';
     } else {
-      btn.className = 'gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-800 text-slate-300 hover:text-white';
+      btn.className = 'gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-800 text-slate-300 hover:text-white cursor-pointer';
     }
   });
   renderGalleryGrid();
@@ -2440,9 +2462,17 @@ function renderGalleryGrid(reset = true) {
   const grid = document.getElementById('gallery-grid');
   if (!grid) return;
 
-  const items = state.galleryItems.filter(it =>
-    state.galleryFilter === 'all' ? true : it.type === state.galleryFilter
-  );
+  const f = state.galleryFilter || 'all';
+  let items = [];
+  if (f === 'movie') {
+    items = (state.galleryMovies || []).slice();
+  } else if (f === 'all') {
+    const movies = state.galleryMovies || [];
+    const media = (state.galleryItems || []).filter(it => it.category !== 'movie');
+    items = [...movies, ...media];
+  } else {
+    items = (state.galleryItems || []).filter(it => it.category === f);
+  }
 
   if (items.length === 0) {
     grid.innerHTML = `
@@ -2466,7 +2496,7 @@ function renderGalleryGrid(reset = true) {
   const nextCount = Math.min(items.length, _galleryRenderedCount + GALLERY_PAGE_SIZE);
   const chunk = items.slice(_galleryRenderedCount, nextCount);
   chunk.forEach(item => {
-    grid.appendChild(createMediaCard(item));
+    grid.appendChild(item.type === 'movie' ? createMovieGalleryCard(item) : createMediaCard(item));
   });
   _galleryRenderedCount = nextCount;
 
@@ -2507,31 +2537,78 @@ function createMediaCard(item) {
          <img src="${item.url}" loading="lazy" decoding="async" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
        </div>`;
 
+  const catLabels = {
+    movie: 'Phim',
+    video: 'Video',
+    image: 'Ảnh',
+    character: 'Nhân vật',
+    chat: 'Chat',
+    upload: 'Upload',
+  };
+  const catText = catLabels[item.category] || (item.type === 'video' ? 'Video' : 'Ảnh');
+
   card.innerHTML = `
     ${mediaHtml}
     <div class="p-3.5 space-y-2">
-      <div class="flex items-center justify-between text-xs">
-        <span class="font-semibold text-slate-200 truncate max-w-[150px]">${item.name}</span>
-        <span class="text-slate-400 text-[10px]">${item.size_mb} MB</span>
+      <div class="flex items-center justify-between text-xs gap-2">
+        <span class="font-semibold text-slate-200 truncate" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+        <span class="text-slate-400 text-[10px] shrink-0">${item.size_mb} MB</span>
       </div>
-      <div class="flex items-center justify-between pt-1">
+      <div class="flex items-center justify-between pt-1 gap-1.5 flex-wrap">
         <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md ${
           item.type === 'video' ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30' : 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
         }">
-          ${item.type === 'video' ? '23zô AI Video' : '23zô AI Image'}
+          ${catText}
         </span>
         <div class="flex items-center space-x-1.5">
+          <button onclick="openGallerySyncModal({ item_type: 'media', url: '${escapeHtml(item.url)}', title: '${escapeHtml(item.name)}' })" type="button" title="Đồng bộ sang không gian khác" class="px-2 py-1 rounded-lg bg-[#0078d4]/20 hover:bg-[#0078d4] text-[#38bdf8] hover:text-white border border-[#0078d4]/40 text-xs font-semibold flex items-center space-x-1 transition cursor-pointer">
+            <i data-lucide="folder-sync" class="w-3 h-3"></i>
+            <span>Đồng bộ</span>
+          </button>
           ${item.type === 'video' ? `
-            <button onclick="continueFromVideoUrl('${item.url}')" type="button" title="Tạo cảnh nối tiếp từ video này" class="px-2 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-semibold flex items-center space-x-1 transition">
+            <button onclick="continueFromVideoUrl('${escapeHtml(item.url)}')" type="button" title="Tạo cảnh nối tiếp từ video này" class="px-2 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-semibold flex items-center space-x-1 transition cursor-pointer">
               <i data-lucide="link-2" class="w-3 h-3"></i>
               <span>Nối tiếp</span>
             </button>
           ` : ''}
-          <a href="${item.url}" download class="px-2.5 py-1 rounded-lg bg-surface-700 hover:bg-surface-600 text-slate-200 text-xs font-medium flex items-center space-x-1 transition">
+          <a href="${escapeHtml(item.url)}" download class="px-2 py-1 rounded-lg bg-surface-700 hover:bg-surface-600 text-slate-200 text-xs font-medium flex items-center space-x-1 transition" title="Tải về">
             <i data-lucide="download" class="w-3 h-3"></i>
-            <span>Tải về</span>
           </a>
         </div>
+      </div>
+    </div>
+  `;
+  return card;
+}
+
+function createMovieGalleryCard(mov) {
+  const card = document.createElement('div');
+  card.className = 'glass-card rounded-2xl overflow-hidden shadow-lg group hover:border-amber-400/40 transition flex flex-col justify-between';
+  const thumbHtml = mov.cover_image_url
+    ? `<img src="${escapeHtml(mov.cover_image_url)}" loading="lazy" decoding="async" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">`
+    : mov.merged_video_url
+      ? `<img src="/api/video/thumbnail?url=${encodeURIComponent(mov.merged_video_url)}" loading="lazy" decoding="async" class="w-full h-full object-cover">`
+      : `<div class="w-full h-full flex items-center justify-center bg-[#181b20] text-amber-400/60"><i data-lucide="film" class="w-10 h-10"></i></div>`;
+
+  card.innerHTML = `
+    <div class="aspect-video bg-black/50 relative overflow-hidden">
+      ${thumbHtml}
+      <span class="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/90 text-slate-950 shadow">PHIM (${mov.rendered_count}/${mov.scene_count} cảnh)</span>
+    </div>
+    <div class="p-3.5 space-y-2">
+      <div class="flex items-center justify-between text-xs gap-2">
+        <span class="font-bold text-white truncate" title="${escapeHtml(mov.title)}">${escapeHtml(mov.title)}</span>
+        <span class="text-slate-400 text-[10px] shrink-0">${mov.size_mb} MB</span>
+      </div>
+      <div class="flex items-center justify-between pt-1 gap-1.5">
+        <button type="button" onclick="switchTab('movie'); setTimeout(() => openMovieProjectById && openMovieProjectById('${escapeHtml(mov.id)}'), 100)" class="px-2.5 py-1 rounded-lg bg-surface-700 hover:bg-surface-600 text-slate-200 text-xs font-semibold flex items-center space-x-1 transition cursor-pointer">
+          <i data-lucide="external-link" class="w-3 h-3"></i>
+          <span>Mở phim</span>
+        </button>
+        <button type="button" onclick="openGallerySyncModal({ item_type: 'movie', project_id: '${escapeHtml(mov.id)}', title: '${escapeHtml(mov.title)}' })" class="px-2.5 py-1 rounded-lg bg-[#0078d4]/20 hover:bg-[#0078d4] text-[#38bdf8] hover:text-white border border-[#0078d4]/40 text-xs font-semibold flex items-center space-x-1 transition cursor-pointer" title="Đồng bộ phim cùng toàn bộ ảnh & video liên quan sang không gian khác">
+          <i data-lucide="folder-sync" class="w-3 h-3"></i>
+          <span>Đồng bộ</span>
+        </button>
       </div>
     </div>
   `;
@@ -7355,3 +7432,97 @@ async function deleteMuseAccount(accId, email) {
 document.addEventListener('DOMContentLoaded', () => {
   loadAccountsManager(false);
 });
+
+
+// ==================== GALLERY SYNC TO WORKSPACE ====================
+let _gallerySyncPayload = null;
+
+async function openGallerySyncModal(payload) {
+  _gallerySyncPayload = payload;
+  const modal = document.getElementById('gallery-sync-modal');
+  const titleEl = document.getElementById('gsync-item-title');
+  const hintEl = document.getElementById('gsync-item-hint');
+  const listEl = document.getElementById('gsync-workspace-list');
+  const newInp = document.getElementById('gsync-new-workspace');
+  if (titleEl) titleEl.innerText = payload.title || payload.project_id || payload.url || 'Sản phẩm';
+  if (hintEl) {
+    if (payload.item_type === 'movie') {
+      hintEl.innerText = 'Lưu ý: Đồng bộ Phim sẽ tự động sao chép cả JSON dự án, ảnh bìa, các video phân cảnh, video ghép và ảnh nhân vật liên quan.';
+      hintEl.classList.remove('hidden');
+    } else {
+      hintEl.classList.add('hidden');
+    }
+  }
+  if (newInp) newInp.value = '';
+
+  await loadWorkspacesList();
+  const others = (_workspaceState.list || []).filter(w => w.id !== _workspaceState.active);
+  if (listEl) {
+    if (!others.length) {
+      listEl.innerHTML = `<div class="text-xs text-slate-400 py-2">Chưa có không gian khác. Bạn có thể nhập tên không gian mới ở ô bên dưới để tạo và đồng bộ ngay.</div>`;
+    } else {
+      listEl.innerHTML = others.map((w, idx) => `
+        <label class="flex items-center justify-between p-2.5 rounded-lg bg-[#1e1e1e] border border-[#333333] hover:border-[#0078d4] cursor-pointer">
+          <span class="flex items-center space-x-2 text-xs text-white font-semibold">
+            <input type="radio" name="gsync-target-ws" value="${escapeHtml(w.id)}" ${idx === 0 ? 'checked' : ''} class="accent-[#0078d4]">
+            <span>${escapeHtml(w.name)}</span>
+          </span>
+          <span class="text-[11px] text-slate-400">${formatWorkspaceSize(w.size_bytes)}</span>
+        </label>
+      `).join('');
+    }
+  }
+
+  if (modal) {
+    modal.classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+function closeGallerySyncModal() {
+  document.getElementById('gallery-sync-modal')?.classList.add('hidden');
+  _gallerySyncPayload = null;
+}
+
+async function submitGallerySync(e) {
+  if (e) e.preventDefault();
+  if (!_gallerySyncPayload) return;
+  const newName = (document.getElementById('gsync-new-workspace')?.value || '').trim();
+  const checked = document.querySelector('input[name="gsync-target-ws"]:checked')?.value || '';
+  const targetWs = newName || checked;
+  if (!targetWs) {
+    showToast('Vui lòng chọn hoặc nhập tên không gian đích!', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btn-submit-gsync');
+  const orig = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span>Đang đồng bộ...</span>`;
+  }
+  try {
+    const res = await fetch('/api/gallery/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        item_type: _gallerySyncPayload.item_type || 'media',
+        target_workspace: targetWs,
+        project_id: _gallerySyncPayload.project_id || null,
+        url: _gallerySyncPayload.url || null,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Đồng bộ thất bại.');
+    closeGallerySyncModal();
+    await loadWorkspacesList();
+    showToast(data.message || `Đã đồng bộ sang '${targetWs}'!`, 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = orig;
+    }
+  }
+}

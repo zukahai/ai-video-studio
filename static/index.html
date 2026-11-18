@@ -1763,13 +1763,17 @@
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 class="font-bold text-lg text-white">Thư viện Tác phẩm 23zô AI</h2>
-            <p class="text-xs text-slate-400">Quản lý toàn bộ video và hình ảnh đã xuất bản</p>
+            <p class="text-xs text-slate-400">Phân loại theo Phim, Video, Ảnh, Nhân vật, Chat, Upload và hỗ trợ đồng bộ sang không gian lưu trữ khác</p>
           </div>
-          <div class="flex items-center space-x-2">
-            <button onclick="filterGallery('all')" id="gfilter-all" class="gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 text-white shadow-sm shadow-sky-600/30">Tất cả</button>
-            <button onclick="filterGallery('video')" id="gfilter-video" class="gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-800 text-slate-300 hover:text-white">Video</button>
-            <button onclick="filterGallery('image')" id="gfilter-image" class="gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-800 text-slate-300 hover:text-white">Hình ảnh</button>
-            <button onclick="loadGallery()" class="p-1.5 bg-surface-800 hover:bg-surface-700 text-slate-200 rounded-lg border border-white/10 transition" title="Làm mới">
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button onclick="filterGallery('all')" id="gfilter-all" class="gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 text-white shadow-sm shadow-sky-600/30 cursor-pointer">Tất cả</button>
+            <button onclick="filterGallery('movie')" id="gfilter-movie" class="gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-800 text-slate-300 hover:text-white cursor-pointer">Phim</button>
+            <button onclick="filterGallery('video')" id="gfilter-video" class="gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-800 text-slate-300 hover:text-white cursor-pointer">Video</button>
+            <button onclick="filterGallery('image')" id="gfilter-image" class="gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-800 text-slate-300 hover:text-white cursor-pointer">Ảnh</button>
+            <button onclick="filterGallery('character')" id="gfilter-character" class="gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-800 text-slate-300 hover:text-white cursor-pointer">Nhân vật</button>
+            <button onclick="filterGallery('chat')" id="gfilter-chat" class="gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-800 text-slate-300 hover:text-white cursor-pointer">Chat</button>
+            <button onclick="filterGallery('upload')" id="gfilter-upload" class="gfilter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-800 text-slate-300 hover:text-white cursor-pointer">Upload</button>
+            <button onclick="loadGallery()" class="p-1.5 bg-surface-800 hover:bg-surface-700 text-slate-200 rounded-lg border border-white/10 transition cursor-pointer" title="Làm mới">
               <i data-lucide="refresh-cw" class="w-4 h-4"></i>
             </button>
           </div>
@@ -2418,7 +2422,47 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <script src="/static/app.js?v=20261118_24"></script>
+    <!-- GALLERY SYNC TO WORKSPACE MODAL -->
+  <div id="gallery-sync-modal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-md rounded-2xl bg-[#252526] border border-[#3c3c3c] shadow-2xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-[#333333] flex items-center justify-between">
+        <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+          <i data-lucide="folder-sync" class="w-4 h-4 text-[#38bdf8]"></i>
+          <span>Đồng bộ sang không gian khác</span>
+        </h3>
+        <button type="button" onclick="closeGallerySyncModal()" class="text-slate-400 hover:text-white cursor-pointer">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <form onsubmit="submitGallerySync(event)" class="p-5 space-y-4">
+        <div class="p-3 rounded-xl bg-[#1e1e1e] border border-[#333333] space-y-1">
+          <div class="text-[11px] text-slate-400">Sản phẩm đang chọn:</div>
+          <div id="gsync-item-title" class="text-xs font-bold text-white truncate">...</div>
+          <div id="gsync-item-hint" class="text-[11px] text-sky-300/90 hidden"></div>
+        </div>
+
+        <div class="space-y-2">
+          <label class="text-xs font-semibold text-slate-300 block">Chọn không gian lưu trữ đích (sẽ tạo bản sao tại đó):</label>
+          <div id="gsync-workspace-list" class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+            <!-- Populated by JS -->
+          </div>
+          <div class="pt-1">
+            <input id="gsync-new-workspace" type="text" placeholder="Hoặc nhập tên không gian mới để tạo & đồng bộ..." class="w-full bg-[#141414] border border-[#3c3c3c] focus:border-[#0078d4] rounded-lg px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end space-x-2 pt-2 border-t border-[#333333]">
+          <button type="button" onclick="closeGallerySyncModal()" class="px-4 py-2 rounded-lg bg-[#2d2d2d] hover:bg-[#37373d] text-xs font-semibold text-slate-300 cursor-pointer">Hủy</button>
+          <button type="submit" id="btn-submit-gsync" class="px-4 py-2 rounded-lg bg-[#0078d4] hover:bg-[#1f8ad2] text-xs font-semibold text-white flex items-center space-x-1.5 cursor-pointer">
+            <i data-lucide="copy-check" class="w-3.5 h-3.5"></i>
+            <span>Đồng bộ ngay</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+<script src="/static/app.js?v=20261118_25"></script>
   <script>
     lucide.createIcons();
   </script>
