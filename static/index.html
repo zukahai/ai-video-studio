@@ -192,12 +192,19 @@
     #left-sidebar.sidebar-collapsed #sidebar-quota-details {
       display: none !important;
     }
-    .sidebar-account-card {
-      background-color: color-mix(in srgb, var(--t-card) 68%, var(--t-sidebar));
-      border-color: var(--t-border);
+    .tab-btn.sidebar-footer-tab {
+      border-radius: 0 !important;
+      transform: none !important;
+      background-color: color-mix(in srgb, var(--t-card) 58%, var(--t-sidebar));
     }
-    .sidebar-account-card:hover {
-      border-color: color-mix(in srgb, var(--t-accent) 45%, var(--t-border));
+    .tab-btn.sidebar-footer-tab:hover {
+      transform: none !important;
+      background-color: color-mix(in srgb, var(--t-accent) 10%, var(--t-card)) !important;
+    }
+    .tab-btn.sidebar-footer-tab.bg-\[\#37373d\] {
+      border-radius: 0 !important;
+      background: color-mix(in srgb, var(--t-accent) 16%, var(--t-card)) !important;
+      box-shadow: inset 0 2px 0 color-mix(in srgb, var(--t-accent) 65%, transparent) !important;
     }
     .sidebar-account-icon-btn {
       background-color: color-mix(in srgb, var(--t-elevated) 70%, var(--t-card));
@@ -583,29 +590,29 @@
       </div>
     </div>
 
-    <!-- Bottom Unified Account Card (Click to open Accounts Manager) -->
-    <div class="sidebar-bottom-wrap p-3 border-t border-white/[0.06]">
-      <div onclick="switchTab('accounts')" id="tab-btn-accounts" class="tab-btn sidebar-account-card rounded-2xl border transition shadow-sm overflow-hidden cursor-pointer select-none hover:bg-white/[0.04]" title="Bấm để mở Quản lý Tài khoản MuseAI">
-        <div class="sidebar-account-header p-2.5 flex items-center gap-2.5 group">
+    <!-- Bottom Unified Account Tab (Full-bleed navbar footer tab) -->
+    <div class="sidebar-bottom-wrap border-t border-white/[0.08]">
+      <div onclick="switchTab('accounts')" id="tab-btn-accounts" class="tab-btn sidebar-footer-tab w-full cursor-pointer select-none transition" title="Bấm để mở Quản lý Tài khoản MuseAI">
+        <div class="sidebar-account-header px-3.5 py-3.5 flex items-center gap-2.5 group">
           <div class="min-w-0 flex-1 sidebar-hide-collapsed">
-            <div class="flex items-center justify-between gap-1">
+            <div class="flex items-center justify-between gap-1.5">
               <div class="flex items-center space-x-1.5 min-w-0">
                 <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
                 <div id="status-text" class="text-xs font-bold text-slate-200 truncate group-hover:text-cyan-300 transition">Đang kiểm tra...</div>
               </div>
-              <span id="sidebar-accounts-count" class="text-[10px] px-1.5 py-0.5 rounded-full bg-[#2d2d2d] text-emerald-300 border border-emerald-500/30 font-bold shrink-0">1 TK</span>
+              <span id="sidebar-accounts-count" class="text-[10px] px-2 py-0.5 rounded-full bg-[#2d2d2d] text-emerald-300 border border-emerald-500/30 font-bold shrink-0">1 TK</span>
             </div>
-            <div class="flex items-center space-x-1.5 mt-0.5 text-[11px] text-slate-400 whitespace-nowrap">
+            <div class="flex items-center space-x-1.5 mt-1 text-[11px] text-slate-400 whitespace-nowrap">
               <span id="sidebar-tokens-vip-compact" class="font-extrabold text-red-400 whitespace-nowrap">—</span>
               <span id="sidebar-hourglass-badge" class="inline-flex items-center space-x-1 shrink-0" title="Đồng hồ cát % token còn lại"></span>
             </div>
-            <div class="flex items-center justify-between mt-0.5 text-[10px] text-slate-400">
+            <div class="flex items-center justify-between mt-1 text-[10px] text-slate-400">
               <span>Tổng các TK: <b id="sidebar-all-accounts-tokens" class="text-amber-300 font-bold">—</b></span>
-              <span class="text-[#38bdf8] opacity-80 group-hover:opacity-100">Quản lý →</span>
+              <span class="text-[#38bdf8] opacity-85 group-hover:opacity-100 font-semibold">Quản lý →</span>
             </div>
           </div>
 
-          <button type="button" onclick="event.stopPropagation(); openStudioSettingsModal()" id="btn-studio-settings" class="sidebar-hide-collapsed sidebar-account-icon-btn relative w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 transition cursor-pointer" title="Cài đặt giao diện & cỡ chữ">
+          <button type="button" onclick="event.stopPropagation(); openStudioSettingsModal()" id="btn-studio-settings" class="sidebar-hide-collapsed sidebar-account-icon-btn relative w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 transition cursor-pointer" title="Cài đặt giao diện & cỡ chữ">
             <i data-lucide="settings" class="w-4 h-4"></i>
             <span id="theme-active-dot" class="hidden"></span>
             <span id="settings-font-badge" class="hidden">16px</span>
@@ -2438,7 +2445,7 @@
     </div>
   </div>
 
-<script src="/static/app.js?v=20261119_7"></script>
+<script src="/static/app.js?v=20261120_1"></script>
   <script>
     lucide.createIcons();
   </script>
