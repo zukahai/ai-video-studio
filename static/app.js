@@ -607,7 +607,7 @@ function applyAuthData(data) {
 
   if (dot && text) {
     if (state.authenticated) {
-      dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400 shrink-0';
+      dot.className = 'absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 ring-2 ring-[#181818] shadow-sm shadow-emerald-400';
       const rawEmail = data.email || 'Đã kết nối 23zô AI Cloud';
       const shortName = rawEmail.includes('@') ? rawEmail.split('@')[0] : rawEmail;
       text.innerText = shortName;
@@ -615,7 +615,7 @@ function applyAuthData(data) {
       text.className = 'text-xs font-bold text-emerald-300 truncate';
       if (btnText) btnText.innerText = 'Đổi tài khoản';
     } else {
-      dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0';
+      dot.className = 'absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-amber-400 animate-pulse ring-2 ring-[#181818]';
       text.innerText = 'Chưa kết nối tài khoản';
       text.className = 'text-xs font-semibold text-amber-300 truncate';
       if (btnText) btnText.innerText = 'Đăng nhập OTP';
@@ -7592,3 +7592,113 @@ async function submitGallerySync(e) {
     }
   }
 }
+
+
+// ==================== ANIMATED MUSE MASCOT CONTROLLER ====================
+const MUSE_MASCOT_VIDEOS = {
+  idle: '/static/mascot/hatch.mp4',
+  working: '/static/mascot/hatch_working.mp4',
+  making: '/static/mascot/hatch_making_something.mp4',
+  celebrate: '/static/mascot/hatch_milestone_achievement.mp4',
+  levelup: '/static/mascot/hatch_milestone_level_up.mp4',
+};
+
+const MUSE_MASCOT_TITLES = {
+  idle: '23zô AI Mascot — Đang sẵn sàng',
+  working: '23zô AI Mascot — Đang xử lý kịch bản / trò chuyện...',
+  making: '23zô AI Mascot — Đang sáng tạo ảnh / video...',
+  celebrate: '23zô AI Mascot — Hoàn thành!',
+  levelup: '23zô AI Mascot — Tuyệt vời!',
+};
+
+let _mascotCurrentState = 'idle';
+let _mascotActiveJobs = 0;
+let _mascotCelebrateTimer = null;
+
+function setMuseMascotState(mode) {
+  const nextMode = MUSE_MASCOT_VIDEOS[mode] ? mode : 'idle';
+  const wrap = document.getElementById('sidebar-mascot-wrap');
+  const vid = document.getElementById('sidebar-mascot-video');
+  if (wrap) {
+    wrap.title = MUSE_MASCOT_TITLES[nextMode] || '23zô AI Mascot';
+  }
+  if (!vid) return;
+  if (_mascotCurrentState !== nextMode || !vid.getAttribute('src')) {
+    _mascotCurrentState = nextMode;
+    vid.setAttribute('src', MUSE_MASCOT_VIDEOS[nextMode]);
+    try {
+      vid.load();
+      const p = vid.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch (_) {}
+  }
+}
+
+(function initMuseMascotActivityTracker() {
+  if (typeof window === 'undefined' || typeof window.fetch !== 'function') return;
+  const origFetch = window.fetch.bind(window);
+  window.fetch = async function (input, init) {
+    const urlStr = typeof input === 'string' ? input : (input && input.url) || '';
+    let jobMode = null;
+    if (urlStr.includes('/api/chat') && !urlStr.includes('/api/chat/history')) {
+      jobMode = 'working';
+    } else if (urlStr.includes('/api/movie/breakdown')) {
+      jobMode = 'working';
+    } else if (
+      urlStr.includes('/api/video/generate') ||
+      urlStr.includes('/api/image/generate') ||
+      urlStr.includes('/api/movie/generate_character_portrait') ||
+      urlStr.includes('/api/video/merge')
+    ) {
+      jobMode = 'making';
+    }
+
+    if (!jobMode) {
+      return origFetch(input, init);
+    }
+
+    _mascotActiveJobs += 1;
+    if (_mascotCelebrateTimer) {
+      clearTimeout(_mascotCelebrateTimer);
+      _mascotCelebrateTimer = null;
+    }
+    setMuseMascotState(jobMode);
+
+    let ok = false;
+    try {
+      const resp = await origFetch(input, init);
+      ok = resp && resp.ok;
+      return resp;
+    } finally {
+      _mascotActiveJobs = Math.max(0, _mascotActiveJobs - 1);
+      if (_mascotActiveJobs === 0) {
+        if (ok) {
+          setMuseMascotState('celebrate');
+          _mascotCelebrateTimer = setTimeout(() => {
+            _mascotCelebrateTimer = null;
+            if (_mascotActiveJobs === 0) {
+              setMuseMascotState('idle');
+            }
+          }, 4500);
+        } else {
+          setMuseMascotState('idle');
+        }
+      }
+    }
+  };
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const wrap = document.getElementById('sidebar-mascot-wrap');
+    if (wrap) {
+      wrap.addEventListener('dblclick', (ev) => {
+        ev.stopPropagation();
+        if (_mascotCelebrateTimer) clearTimeout(_mascotCelebrateTimer);
+        setMuseMascotState('levelup');
+        _mascotCelebrateTimer = setTimeout(() => {
+          _mascotCelebrateTimer = null;
+          if (_mascotActiveJobs === 0) setMuseMascotState('idle');
+        }, 4000);
+      });
+    }
+  });
+})();

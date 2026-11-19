@@ -23,6 +23,7 @@ build/
 outputs/
 uploads/
 *.mp4
+!static/mascot/*.mp4
 *.webm
 *.mov
 
