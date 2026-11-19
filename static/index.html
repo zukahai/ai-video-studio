@@ -525,7 +525,10 @@
     <div>
       <div class="sidebar-brand-row h-16 px-3.5 flex items-center justify-between border-b border-white/[0.06]">
         <div class="flex items-center space-x-3 min-w-0">
-          <img src="/static/logo.png?v=20261118_1" alt="23zô AI Logo" class="sidebar-brand-logo h-10 w-10 object-contain bg-white rounded-xl p-0.5 border border-sky-400/30 shadow-lg shadow-sky-500/20 shrink-0">
+          <img id="sidebar-brand-logo-img" src="/static/logo.png?v=20261118_1" alt="23zô AI Logo" class="sidebar-brand-logo h-10 w-10 object-contain bg-white rounded-xl p-0.5 border border-sky-400/30 shadow-lg shadow-sky-500/20 shrink-0">
+          <div id="sidebar-mascot-wrap" class="hidden relative shrink-0 cursor-pointer" title="23zô AI Mascot">
+            <video id="sidebar-mascot-video" poster="/static/mascot/hatch.jpg" autoplay loop muted playsinline class="sidebar-brand-logo h-10 w-10 rounded-xl object-cover bg-white border border-sky-400/30 shadow-lg shadow-sky-500/20"></video>
+          </div>
           <div class="min-w-0 sidebar-hide-collapsed">
             <div class="flex items-center space-x-1.5">
               <span class="brand-title-gradient font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-sky-100 to-cyan-300 bg-clip-text text-transparent">23zô AI</span>
@@ -598,14 +601,10 @@
     <div class="sidebar-bottom-wrap border-t border-white/[0.08]">
       <div onclick="switchTab('accounts')" id="tab-btn-accounts" class="tab-btn sidebar-footer-tab w-full cursor-pointer select-none transition" title="Bấm để mở Quản lý Tài khoản MuseAI">
         <div class="sidebar-account-header px-3.5 py-3.5 flex items-center gap-2.5 group">
-          <div class="relative shrink-0 w-11 h-11 rounded-full overflow-visible" id="sidebar-mascot-wrap" title="23zô AI Mascot">
-            <video id="sidebar-mascot-video" src="/static/mascot/hatch.mp4" poster="/static/mascot/hatch.jpg" autoplay loop muted playsinline class="w-11 h-11 rounded-full object-cover bg-white ring-2 ring-white/20 shadow-md"></video>
-            <span id="status-dot" class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-amber-400 animate-pulse ring-2 ring-[#181818]"></span>
-          </div>
-
           <div class="min-w-0 flex-1 sidebar-hide-collapsed">
             <div class="flex items-center justify-between gap-1.5">
               <div class="flex items-center space-x-1.5 min-w-0">
+                <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
                 <div id="status-text" class="text-xs font-bold text-slate-200 truncate group-hover:text-cyan-300 transition">Đang kiểm tra...</div>
               </div>
               <span id="sidebar-accounts-count" class="text-[10px] px-2 py-0.5 rounded-full bg-[#2d2d2d] text-emerald-300 border border-emerald-500/30 font-bold shrink-0">1 TK</span>
@@ -620,7 +619,7 @@
             </div>
           </div>
 
-          <button type="button" onclick="event.stopPropagation(); openStudioSettingsModal()" id="btn-studio-settings" class="sidebar-hide-collapsed sidebar-account-icon-btn relative w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 transition cursor-pointer" title="Cài đặt giao diện & cỡ chữ">
+          <button type="button" onclick="event.stopPropagation(); openStudioSettingsModal()" id="btn-studio-settings" class="sidebar-account-icon-btn relative w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 transition cursor-pointer" title="Cài đặt giao diện & cỡ chữ">
             <i data-lucide="settings" class="w-4 h-4"></i>
             <span id="theme-active-dot" class="hidden"></span>
             <span id="settings-font-badge" class="hidden">16px</span>
@@ -1995,6 +1994,24 @@
             <!-- Populated by JS -->
           </div>
         </div>
+
+        <!-- Hidden Secret Settings (Unlocked by typing 'haizuka' on Accounts tab) -->
+        <div id="accounts-secret-settings" class="hidden bg-[#252526] border border-pink-500/40 rounded-xl p-5 space-y-3 shadow-lg shadow-pink-500/10">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-pink-300 flex items-center space-x-2">
+              <i data-lucide="sparkles" class="w-4 h-4 text-pink-400"></i>
+              <span>Cài đặt ẩn (HaiZuka Mode)</span>
+            </h3>
+            <button type="button" onclick="hideSecretAccountsSettings()" class="text-[11px] px-2.5 py-1 rounded-lg bg-[#1e1e1e] hover:bg-[#2d2d2d] text-slate-400 hover:text-white border border-[#3c3c3c] cursor-pointer">Ẩn lại</button>
+          </div>
+          <label class="flex items-center justify-between gap-4 p-3 rounded-xl bg-[#1e1e1e] border border-[#333333] hover:border-pink-400/40 cursor-pointer select-none">
+            <div>
+              <div class="text-xs font-bold text-white">Cho phép hiện Avatar Muse (thay thế logo góc trên &amp; thẻ tài khoản)</div>
+              <div class="text-[11px] text-slate-400 mt-0.5">Mặc định tắt. Khi bật sẽ tự động đồng bộ avatar động theo tài khoản Muse đang sử dụng.</div>
+            </div>
+            <input type="checkbox" id="toggle-secret-avatar-enabled" onchange="setSecretAvatarEnabled(this.checked)" class="w-4 h-4 accent-pink-500 cursor-pointer shrink-0">
+          </label>
+        </div>
       </div>
 
       <!-- TAB: QUẢN LÝ NHÂN VẬT -->
@@ -2453,7 +2470,7 @@
     </div>
   </div>
 
-<script src="/static/app.js?v=20261120_3"></script>
+<script src="/static/app.js?v=20261120_4"></script>
   <script>
     lucide.createIcons();
   </script>

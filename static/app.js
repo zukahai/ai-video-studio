@@ -458,6 +458,8 @@ function switchTab(tabId, syncUrl = true) {
   }
   if (tabId === 'accounts') {
     loadAccountsManager(true);
+  } else {
+    document.getElementById('accounts-secret-settings')?.classList.add('hidden');
   }
   if (tabId === 'movie') {
     showMovieHub(false);
@@ -607,7 +609,7 @@ function applyAuthData(data) {
 
   if (dot && text) {
     if (state.authenticated) {
-      dot.className = 'absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 ring-2 ring-[#181818] shadow-sm shadow-emerald-400';
+      dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400 shrink-0';
       const rawEmail = data.email || 'Đã kết nối 23zô AI Cloud';
       const shortName = rawEmail.includes('@') ? rawEmail.split('@')[0] : rawEmail;
       text.innerText = shortName;
@@ -615,7 +617,7 @@ function applyAuthData(data) {
       text.className = 'text-xs font-bold text-emerald-300 truncate';
       if (btnText) btnText.innerText = 'Đổi tài khoản';
     } else {
-      dot.className = 'absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-amber-400 animate-pulse ring-2 ring-[#181818]';
+      dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0';
       text.innerText = 'Chưa kết nối tài khoản';
       text.className = 'text-xs font-semibold text-amber-300 truncate';
       if (btnText) btnText.innerText = 'Đăng nhập OTP';
@@ -7288,8 +7290,9 @@ function renderAccountsList() {
     const weeklyRem = weeklyUsed !== null ? Math.round((100 - weeklyUsed) * 10) / 10 : null;
     const initial = (acc.email || 'A').trim().charAt(0).toUpperCase();
     const grad = avatarGradients[idx % avatarGradients.length];
+    const showSecretAvatar = isSecretAvatarEnabled();
     const avatarUrl = acc.avatar_url || '/static/mascot/hatch.jpg';
-    const avatarNameHtml = acc.avatar_name
+    const avatarNameHtml = (showSecretAvatar && acc.avatar_name)
       ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-[#2d2d2d] text-slate-300 border border-[#3c3c3c] shrink-0">${escapeHtml(acc.avatar_name)}</span>`
       : '';
     const statusBadge = acc.is_alive === false
@@ -7302,7 +7305,7 @@ function renderAccountsList() {
       <div class="p-3.5 rounded-xl bg-[#1e1e1e] border ${isActive ? 'border-emerald-500/60 shadow-sm shadow-emerald-500/10' : 'border-[#333333]'} space-y-2.5">
         <div class="flex items-start justify-between gap-2">
           <div class="flex items-center space-x-2.5 min-w-0">
-            <img src="${escapeHtml(avatarUrl)}" onerror="this.onerror=null;this.src='/static/mascot/hatch.jpg'" alt="${escapeHtml(acc.avatar_name || acc.email)}" class="w-10 h-10 rounded-full object-cover bg-white ring-2 ring-white/15 shrink-0">
+            ${showSecretAvatar ? `<img src="${escapeHtml(avatarUrl)}" onerror="this.onerror=null;this.src='/static/mascot/hatch.jpg'" alt="${escapeHtml(acc.avatar_name || acc.email)}" class="w-10 h-10 rounded-full object-cover bg-white ring-2 ring-white/15 shrink-0">` : ''}
             <div class="min-w-0">
               <div class="flex items-center space-x-1.5 min-w-0">
                 <div class="text-xs font-bold text-white truncate" title="${escapeHtml(acc.email)}">${escapeHtml(acc.email)}</div>
@@ -7607,7 +7610,56 @@ async function submitGallerySync(e) {
 }
 
 
-// ==================== ANIMATED MUSE MASCOT CONTROLLER ====================
+// ==================== ANIMATED MUSE MASCOT CONTROLLER & SECRET SETTING ====================
+const SECRET_AVATAR_STORAGE_KEY = 'studio_secret_avatar_enabled';
+
+function isSecretAvatarEnabled() {
+  try {
+    return localStorage.getItem(SECRET_AVATAR_STORAGE_KEY) === '1';
+  } catch (_) {
+    return false;
+  }
+}
+
+function applySecretAvatarVisibility() {
+  const enabled = isSecretAvatarEnabled();
+  const logoImg = document.getElementById('sidebar-brand-logo-img');
+  const mascotWrap = document.getElementById('sidebar-mascot-wrap');
+  const vid = document.getElementById('sidebar-mascot-video');
+  const toggleEl = document.getElementById('toggle-secret-avatar-enabled');
+
+  if (toggleEl) toggleEl.checked = enabled;
+  if (logoImg) logoImg.classList.toggle('hidden', enabled);
+  if (mascotWrap) mascotWrap.classList.toggle('hidden', !enabled);
+
+  if (!enabled) {
+    if (vid) {
+      try { vid.pause(); } catch (_) {}
+    }
+    return;
+  }
+  setMuseMascotState(_mascotCurrentState, true);
+  refreshActiveAccountMascot(true);
+}
+
+function setSecretAvatarEnabled(enabled) {
+  try {
+    localStorage.setItem(SECRET_AVATAR_STORAGE_KEY, enabled ? '1' : '0');
+  } catch (_) {}
+  applySecretAvatarVisibility();
+  renderAccountsList();
+  showToast(
+    enabled
+      ? 'Đã bật hiển thị Avatar Muse!'
+      : 'Đã tắt hiển thị Avatar Muse (khôi phục logo 23zô AI).',
+    'success'
+  );
+}
+
+function hideSecretAccountsSettings() {
+  document.getElementById('accounts-secret-settings')?.classList.add('hidden');
+}
+
 let MUSE_MASCOT_VIDEOS = {
   idle: '/static/mascot/hatch.mp4',
   working: '/static/mascot/hatch_working.mp4',
@@ -7635,6 +7687,8 @@ let _mascotCelebrateTimer = null;
 
 function setMuseMascotState(mode, forceReload = false) {
   const nextMode = MUSE_MASCOT_VIDEOS[mode] ? mode : 'idle';
+  _mascotCurrentState = nextMode;
+  if (!isSecretAvatarEnabled()) return;
   const nextSrc = MUSE_MASCOT_VIDEOS[nextMode] || '/static/mascot/hatch.mp4';
   const wrap = document.getElementById('sidebar-mascot-wrap');
   const vid = document.getElementById('sidebar-mascot-video');
@@ -7644,8 +7698,7 @@ function setMuseMascotState(mode, forceReload = false) {
   }
   if (!vid) return;
   const curAttr = vid.getAttribute('src') || '';
-  if (_mascotCurrentState !== nextMode || _mascotCurrentSrc !== nextSrc || (forceReload && curAttr !== nextSrc) || !curAttr) {
-    _mascotCurrentState = nextMode;
+  if (_mascotCurrentSrc !== nextSrc || (forceReload && curAttr !== nextSrc) || !curAttr) {
     _mascotCurrentSrc = nextSrc;
     vid.setAttribute('src', nextSrc);
     try {
@@ -7657,6 +7710,7 @@ function setMuseMascotState(mode, forceReload = false) {
 }
 
 async function refreshActiveAccountMascot(force = false) {
+  if (!isSecretAvatarEnabled()) return;
   try {
     const res = await fetch(`/api/avatar/current?force=${force ? 'true' : 'false'}`);
     if (!res.ok) return;
@@ -7732,9 +7786,44 @@ async function refreshActiveAccountMascot(force = false) {
     }
   };
 
+  let _secretKeyBuf = '';
+  let _secretKeyTs = 0;
+  document.addEventListener('keydown', (ev) => {
+    if (state.currentTab !== 'accounts') {
+      _secretKeyBuf = '';
+      return;
+    }
+    if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    const activeEl = document.activeElement;
+    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT' || activeEl.isContentEditable)) {
+      return;
+    }
+    if (!ev.key || ev.key.length !== 1) return;
+    const now = Date.now();
+    if (now - _secretKeyTs > 2500) {
+      _secretKeyBuf = '';
+    }
+    _secretKeyTs = now;
+    _secretKeyBuf = (_secretKeyBuf + ev.key.toLowerCase()).slice(-7);
+    if (_secretKeyBuf === 'haizuka') {
+      _secretKeyBuf = '';
+      const panel = document.getElementById('accounts-secret-settings');
+      const toggleEl = document.getElementById('toggle-secret-avatar-enabled');
+      if (toggleEl) toggleEl.checked = isSecretAvatarEnabled();
+      if (panel) {
+        panel.classList.remove('hidden');
+        if (window.lucide) lucide.createIcons();
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      showToast('Đã mở cài đặt ẩn!', 'success');
+    }
+  });
+
   document.addEventListener('DOMContentLoaded', () => {
-    refreshActiveAccountMascot(true);
-    setInterval(() => { refreshActiveAccountMascot(true); }, 60000);
+    applySecretAvatarVisibility();
+    setInterval(() => {
+      if (isSecretAvatarEnabled()) refreshActiveAccountMascot(true);
+    }, 60000);
     const wrap = document.getElementById('sidebar-mascot-wrap');
     if (wrap) {
       wrap.addEventListener('dblclick', (ev) => {
