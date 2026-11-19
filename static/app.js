@@ -608,7 +608,10 @@ function applyAuthData(data) {
   if (dot && text) {
     if (state.authenticated) {
       dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400 shrink-0';
-      text.innerText = data.email || 'Đã kết nối 23zô AI Cloud';
+      const rawEmail = data.email || 'Đã kết nối 23zô AI Cloud';
+      const shortName = rawEmail.includes('@') ? rawEmail.split('@')[0] : rawEmail;
+      text.innerText = shortName;
+      text.title = rawEmail;
       text.className = 'text-xs font-bold text-emerald-300 truncate';
       if (btnText) btnText.innerText = 'Đổi tài khoản';
     } else {
