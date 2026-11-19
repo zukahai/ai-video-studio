@@ -1125,6 +1125,7 @@ def _extract_quota_summary(live_sub: dict) -> dict[str, Any]:
         "remaining_percent": remaining_percent,
         "remaining_tokens": combined_tokens,
         "total_quota_tokens": combined_total_tokens,
+        "weekly_used_percent": max(0.0, min(100.0, float(pct or 0))),
         "free_label": live_sub.get("usageRowValueLabel") or f"Đã dùng {pct}%",
     }
 
@@ -1685,6 +1686,7 @@ async def _inspect_single_account(acc_id: str, active_id: str, live: bool = Fals
         "vip_tokens": cached.get("vip_tokens", "—"),
         "remaining_percent": cached.get("remaining_percent"),
         "remaining_tokens": cached.get("remaining_tokens", 0),
+        "weekly_used_percent": cached.get("weekly_used_percent"),
         "free_label": cached.get("free_label", ""),
     }
     if live and info["authenticated"]:
@@ -1700,6 +1702,7 @@ async def _inspect_single_account(acc_id: str, active_id: str, live: bool = Fals
                 info["vip_tokens"] = summary["vip_tokens"]
                 info["remaining_percent"] = summary["remaining_percent"]
                 info["remaining_tokens"] = summary.get("remaining_tokens", 0)
+                info["weekly_used_percent"] = summary.get("weekly_used_percent", 0)
                 info["free_label"] = summary["free_label"]
             _account_quota_cache[acc_id] = dict(info)
         except Exception:

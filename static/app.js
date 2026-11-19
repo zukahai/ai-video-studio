@@ -7286,6 +7286,7 @@ function renderAccountsList() {
   grid.innerHTML = list.map((acc, idx) => {
     const isActive = acc.id === _accountsState.active || acc.is_active;
     const pct = typeof acc.remaining_percent === 'number' ? Math.max(0, Math.min(100, acc.remaining_percent)) : null;
+    const weeklyUsed = typeof acc.weekly_used_percent === 'number' ? Math.max(0, Math.min(100, acc.weekly_used_percent)) : null;
     const initial = (acc.email || 'A').trim().charAt(0).toUpperCase();
     const grad = avatarGradients[idx % avatarGradients.length];
     const statusBadge = acc.is_alive === false
@@ -7307,8 +7308,21 @@ function renderAccountsList() {
           ${statusBadge}
         </div>
         ${pct !== null ? `
-          <div class="w-full h-1.5 rounded-full bg-[#141414] overflow-hidden border border-white/[0.05]">
-            <div class="h-full rounded-full ${pct < 20 ? 'bg-rose-500' : pct < 50 ? 'bg-amber-400' : 'bg-emerald-400'}" style="width: ${pct}%"></div>
+          <div class="space-y-1">
+            <div class="w-full h-1.5 rounded-full bg-[#141414] overflow-hidden border border-white/[0.05]">
+              <div class="h-full rounded-full ${pct < 20 ? 'bg-rose-500' : pct < 50 ? 'bg-amber-400' : 'bg-emerald-400'}" style="width: ${pct}%"></div>
+            </div>
+          </div>
+        ` : ''}
+        ${weeklyUsed !== null ? `
+          <div class="space-y-1">
+            <div class="flex items-center justify-between text-[10px] text-slate-400">
+              <span>Token theo tuần</span>
+              <span class="font-semibold ${weeklyUsed >= 100 ? 'text-amber-300' : 'text-sky-300'}">${escapeHtml(acc.free_label || `Đã dùng ${weeklyUsed}%`)}</span>
+            </div>
+            <div class="w-full h-1.5 rounded-full bg-[#141414] overflow-hidden border border-white/[0.05]">
+              <div class="h-full rounded-full ${weeklyUsed >= 100 ? 'bg-blue-600' : 'bg-sky-400'}" style="width: ${weeklyUsed}%"></div>
+            </div>
           </div>
         ` : ''}
         <div class="flex items-center justify-between pt-1 gap-2">
