@@ -1671,11 +1671,206 @@ class AccountPriorityModel(BaseModel):
     order: list[str]
 
 
+_avatar_sync_locks: dict[str, asyncio.Lock] = {}
+_AVATAR_VARIANTS = ("image", "idle", "working", "making", "celebrate", "levelup")
+_DEFAULT_AVATAR_FILES = {
+    "image": "hatch.jpg",
+    "idle": "hatch.mp4",
+    "working": "hatch_working.mp4",
+    "making": "hatch_making_something.mp4",
+    "celebrate": "hatch_milestone_achievement.mp4",
+    "levelup": "hatch_milestone_level_up.mp4",
+}
+
+
+def _get_account_avatar_dir(acc_id: str) -> Path:
+    d = get_account_state_dir(acc_id) / "avatar_cache"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _default_avatar_payload(acc_id: str = "") -> dict[str, Any]:
+    return {
+        "status": "success",
+        "account_id": acc_id,
+        "name": "",
+        "revision": "default",
+        "poster": "/static/mascot/hatch.jpg",
+        "videos": {
+            "idle": "/static/mascot/hatch.mp4",
+            "working": "/static/mascot/hatch_working.mp4",
+            "making": "/static/mascot/hatch_making_something.mp4",
+            "celebrate": "/static/mascot/hatch_milestone_achievement.mp4",
+            "levelup": "/static/mascot/hatch_milestone_level_up.mp4",
+        },
+    }
+
+
+def _build_avatar_payload_from_meta(acc_id: str, meta: dict[str, Any]) -> dict[str, Any]:
+    av_dir = _get_account_avatar_dir(acc_id)
+    rev = str(meta.get("revision") or "1")
+    files = meta.get("files") or {}
+
+    img_name = files.get("image")
+    poster = (
+        f"/api/accounts/{acc_id}/avatar/image?v={rev}"
+        if img_name and (av_dir / img_name).exists()
+        else "/static/mascot/hatch.jpg"
+    )
+
+    idle_name = files.get("idle")
+    idle_url = (
+        f"/api/accounts/{acc_id}/avatar/idle?v={rev}"
+        if idle_name and (av_dir / idle_name).exists()
+        else "/static/mascot/hatch.mp4"
+    )
+
+    videos: dict[str, str] = {}
+    for k in ("idle", "working", "making", "celebrate", "levelup"):
+        fname = files.get(k)
+        if fname and (av_dir / fname).exists():
+            videos[k] = f"/api/accounts/{acc_id}/avatar/{k}?v={rev}"
+        elif idle_name and (av_dir / idle_name).exists():
+            videos[k] = idle_url
+        else:
+            videos[k] = f"/static/mascot/{_DEFAULT_AVATAR_FILES[k]}"
+
+    return {
+        "status": "success",
+        "account_id": acc_id,
+        "name": str(meta.get("name") or ""),
+        "revision": rev,
+        "poster": poster,
+        "videos": videos,
+    }
+
+
+async def sync_account_avatar(acc_id: str, force: bool = False) -> dict[str, Any]:
+    aid = _safe_account_id(acc_id)
+    acc_dir = get_account_state_dir(aid)
+    if not _is_account_dir_authenticated(acc_dir):
+        return _default_avatar_payload(aid)
+
+    av_dir = _get_account_avatar_dir(aid)
+    meta_file = av_dir / "meta.json"
+    lock = _avatar_sync_locks.setdefault(aid, asyncio.Lock())
+
+    async with lock:
+        meta: dict[str, Any] = {}
+        if meta_file.exists():
+            try:
+                loaded = json.loads(meta_file.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    meta = loaded
+            except Exception:
+                meta = {}
+
+        cached_files = meta.get("files") or {}
+        has_cached_primary = bool(
+            (cached_files.get("image") and (av_dir / cached_files["image"]).exists())
+            or (cached_files.get("idle") and (av_dir / cached_files["idle"]).exists())
+        )
+        if meta and not force and (time.time() - float(meta.get("checked_at") or 0)) < 30.0 and has_cached_primary:
+            return _build_avatar_payload_from_meta(aid, meta)
+
+        try:
+            client = await get_client_for_account(aid)
+            resp = await client._conn().request("GET", "/api/identity")
+            body_json = json.loads(resp.body) if getattr(resp, "body", None) else {}
+            if not body_json.get("ok"):
+                raise RuntimeError(f"/api/identity failed: {body_json}")
+
+            result = body_json.get("result") or {}
+            name = str(result.get("name") or "")
+            av = result.get("avatar") or {}
+            rev = str(av.get("assets_revision") or result.get("updated_ms") or av.get("canonical_path") or "")
+
+            if rev and rev == str(meta.get("revision") or "") and has_cached_primary:
+                meta["checked_at"] = time.time()
+                meta["name"] = name
+                meta_file.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+                return _build_avatar_payload_from_meta(aid, meta)
+
+            vv = av.get("video_variants") or {}
+            dvv = av.get("darkmode_video_variants") or {}
+            desired: dict[str, Optional[str]] = {
+                "image": av.get("image_path") or av.get("darkmode_image_path"),
+                "idle": vv.get("idle") or vv.get("connecting") or dvv.get("idle"),
+                "working": vv.get("working") or vv.get("waiting_for_subagents") or dvv.get("working") or vv.get("idle"),
+                "making": vv.get("making_something") or vv.get("working") or dvv.get("making_something") or vv.get("idle"),
+                "levelup": vv.get("milestone_level_up") or dvv.get("milestone_level_up") or vv.get("working") or vv.get("idle"),
+                "celebrate": vv.get("milestone_achievement") or vv.get("milestone_level_up") or dvv.get("milestone_achievement") or dvv.get("milestone_level_up") or vv.get("idle"),
+            }
+
+            unique_remotes = list(dict.fromkeys(p for p in desired.values() if isinstance(p, str) and p.strip()))
+            downloaded_bytes: dict[str, bytes] = {}
+
+            async def _fetch_remote(remote_path: str) -> tuple[str, Optional[bytes]]:
+                try:
+                    raw = await client.fs.raw(remote_path)
+                    if isinstance(raw, (bytes, bytearray)) and len(raw) > 512:
+                        return remote_path, bytes(raw)
+                except Exception as exc:
+                    logger.debug(f"[AvatarSync] fs.raw failed for {aid}:{remote_path}: {exc}")
+                return remote_path, None
+
+            fetched_pairs = await asyncio.gather(*[_fetch_remote(rp) for rp in unique_remotes])
+            for rp, raw_data in fetched_pairs:
+                if raw_data is not None:
+                    downloaded_bytes[rp] = raw_data
+
+            new_files: dict[str, str] = {}
+            for key, remote_path in desired.items():
+                if not remote_path or remote_path not in downloaded_bytes:
+                    continue
+                ext = Path(remote_path).suffix.lower()
+                if key == "image":
+                    ext = ext if ext in (".webp", ".png", ".jpg", ".jpeg") else ".webp"
+                else:
+                    ext = ext if ext in (".mp4", ".webm") else ".mp4"
+                fname = f"{key}{ext}"
+                (av_dir / fname).write_bytes(downloaded_bytes[remote_path])
+                new_files[key] = fname
+
+            if not new_files and has_cached_primary:
+                meta["checked_at"] = time.time()
+                meta_file.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+                return _build_avatar_payload_from_meta(aid, meta)
+
+            new_meta = {
+                "revision": rev or str(int(time.time())),
+                "name": name,
+                "checked_at": time.time(),
+                "files": new_files,
+            }
+            meta_file.write_text(json.dumps(new_meta, ensure_ascii=False, indent=2), encoding="utf-8")
+            return _build_avatar_payload_from_meta(aid, new_meta)
+        except Exception as exc:
+            logger.warning(f"[AvatarSync] Failed syncing avatar for {aid}: {exc}")
+            if has_cached_primary:
+                return _build_avatar_payload_from_meta(aid, meta)
+            return _default_avatar_payload(aid)
+
+
 async def _inspect_single_account(acc_id: str, active_id: str, live: bool = False) -> dict[str, Any]:
     acc_dir = get_account_state_dir(acc_id)
     email_file = acc_dir / "email.txt"
     email = email_file.read_text(encoding="utf-8").strip() if email_file.exists() else acc_id
     cached = _account_quota_cache.get(acc_id, {})
+
+    avatar_name = cached.get("avatar_name", "")
+    avatar_url = cached.get("avatar_url", "/static/mascot/hatch.jpg")
+    av_meta_file = _get_account_avatar_dir(acc_id) / "meta.json"
+    if av_meta_file.exists():
+        try:
+            av_meta = json.loads(av_meta_file.read_text(encoding="utf-8"))
+            if isinstance(av_meta, dict):
+                built = _build_avatar_payload_from_meta(acc_id, av_meta)
+                avatar_name = built.get("name") or avatar_name
+                avatar_url = built.get("poster") or avatar_url
+        except Exception:
+            pass
+
     info: dict[str, Any] = {
         "id": acc_id,
         "email": email,
@@ -1688,6 +1883,8 @@ async def _inspect_single_account(acc_id: str, active_id: str, live: bool = Fals
         "remaining_tokens": cached.get("remaining_tokens", 0),
         "weekly_used_percent": cached.get("weekly_used_percent"),
         "free_label": cached.get("free_label", ""),
+        "avatar_name": avatar_name,
+        "avatar_url": avatar_url,
     }
     if live and info["authenticated"]:
         auth = MuseAuth(state_dir=acc_dir)
@@ -1704,6 +1901,12 @@ async def _inspect_single_account(acc_id: str, active_id: str, live: bool = Fals
                 info["remaining_tokens"] = summary.get("remaining_tokens", 0)
                 info["weekly_used_percent"] = summary.get("weekly_used_percent", 0)
                 info["free_label"] = summary["free_label"]
+            try:
+                av_data = await sync_account_avatar(acc_id, force=True)
+                info["avatar_name"] = av_data.get("name") or ""
+                info["avatar_url"] = av_data.get("poster") or "/static/mascot/hatch.jpg"
+            except Exception as av_exc:
+                logger.debug(f"[AvatarSync] live inspect skipped for {acc_id}: {av_exc}")
             _account_quota_cache[acc_id] = dict(info)
         except Exception:
             info["is_alive"] = False
@@ -1779,6 +1982,56 @@ async def update_account_priorities(body: AccountPriorityModel):
     cfg["priorities"][fid] = new_order
     save_accounts_config(cfg)
     return {"status": "success", "feature": fid, "order": new_order, "priorities": cfg["priorities"]}
+
+
+@app.get("/api/avatar/current")
+async def get_current_account_avatar(force: bool = False):
+    aid = get_active_account_id()
+    if not aid:
+        return _default_avatar_payload()
+    return await sync_account_avatar(aid, force=force)
+
+
+@app.get("/api/accounts/{acc_id}/avatar/{variant}")
+async def serve_account_avatar_media(acc_id: str, variant: str):
+    v = (variant or "").strip().lower()
+    if v not in _AVATAR_VARIANTS:
+        raise HTTPException(status_code=404, detail="Variant avatar không hợp lệ.")
+    aid = _safe_account_id(acc_id)
+    av_dir = _get_account_avatar_dir(aid)
+    meta_file = av_dir / "meta.json"
+    target_path: Optional[Path] = None
+    if meta_file.exists():
+        try:
+            meta = json.loads(meta_file.read_text(encoding="utf-8"))
+            files = meta.get("files") or {}
+            fname = files.get(v) or (files.get("idle") if v != "image" else None)
+            if fname:
+                cand = av_dir / fname
+                if cand.exists() and cand.is_file():
+                    target_path = cand
+        except Exception:
+            pass
+    if target_path is None:
+        fallback_name = _DEFAULT_AVATAR_FILES[v]
+        target_path = STATIC_DIR / "mascot" / fallback_name
+        if not target_path.exists():
+            raise HTTPException(status_code=404, detail="Không tìm thấy tệp avatar.")
+
+    ext = target_path.suffix.lower()
+    media_type = {
+        ".webp": "image/webp",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".mp4": "video/mp4",
+        ".webm": "video/webm",
+    }.get(ext, "application/octet-stream")
+    return FileResponse(
+        str(target_path),
+        media_type=media_type,
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
 
 
 @app.post("/api/auth/setup-threads")

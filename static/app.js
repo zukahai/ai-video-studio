@@ -799,6 +799,7 @@ async function verifyOtp() {
   initChatInputEnhancements();
   checkBrowserVpnUsa(false);
   checkAuthStatus(true);
+  refreshActiveAccountMascot(true);
   loadAccountsManager(true);
     }, 1000);
   } catch (err) {
@@ -7287,6 +7288,10 @@ function renderAccountsList() {
     const weeklyRem = weeklyUsed !== null ? Math.round((100 - weeklyUsed) * 10) / 10 : null;
     const initial = (acc.email || 'A').trim().charAt(0).toUpperCase();
     const grad = avatarGradients[idx % avatarGradients.length];
+    const avatarUrl = acc.avatar_url || '/static/mascot/hatch.jpg';
+    const avatarNameHtml = acc.avatar_name
+      ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-[#2d2d2d] text-slate-300 border border-[#3c3c3c] shrink-0">${escapeHtml(acc.avatar_name)}</span>`
+      : '';
     const statusBadge = acc.is_alive === false
       ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30">Hết hạn / Lỗi</span>'
       : isActive
@@ -7296,9 +7301,15 @@ function renderAccountsList() {
     return `
       <div class="p-3.5 rounded-xl bg-[#1e1e1e] border ${isActive ? 'border-emerald-500/60 shadow-sm shadow-emerald-500/10' : 'border-[#333333]'} space-y-2.5">
         <div class="flex items-start justify-between gap-2">
-          <div class="min-w-0">
-            <div class="text-xs font-bold text-white truncate" title="${escapeHtml(acc.email)}">${escapeHtml(acc.email)}</div>
-            <div class="text-[10px] text-slate-400 mt-0.5">Token VIP: <b class="text-[#38bdf8]">${escapeHtml(acc.vip_tokens || '—')}</b>${pct !== null ? ` (${pct}%)` : ''}</div>
+          <div class="flex items-center space-x-2.5 min-w-0">
+            <img src="${escapeHtml(avatarUrl)}" onerror="this.onerror=null;this.src='/static/mascot/hatch.jpg'" alt="${escapeHtml(acc.avatar_name || acc.email)}" class="w-10 h-10 rounded-full object-cover bg-white ring-2 ring-white/15 shrink-0">
+            <div class="min-w-0">
+              <div class="flex items-center space-x-1.5 min-w-0">
+                <div class="text-xs font-bold text-white truncate" title="${escapeHtml(acc.email)}">${escapeHtml(acc.email)}</div>
+                ${avatarNameHtml}
+              </div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Token VIP: <b class="text-[#38bdf8]">${escapeHtml(acc.vip_tokens || '—')}</b>${pct !== null ? ` (${pct}%)` : ''}</div>
+            </div>
           </div>
           ${statusBadge}
         </div>
@@ -7475,6 +7486,7 @@ async function switchMuseAccount(accId) {
     if (!res.ok) throw new Error(data.detail || 'Không đổi được tài khoản.');
     showToast('Đã chuyển tài khoản chính!', 'success');
     await checkAuthStatus(true);
+    await refreshActiveAccountMascot(true);
     await loadAccountsManager(true);
   } catch (err) {
     showToast(err.message, 'error');
@@ -7489,6 +7501,7 @@ async function deleteMuseAccount(accId, email) {
     if (!res.ok) throw new Error(data.detail || 'Không xóa được tài khoản.');
     showToast(`Đã xóa tài khoản ${email}.`, 'success');
     await checkAuthStatus(true);
+    await refreshActiveAccountMascot(true);
     await loadAccountsManager(false);
   } catch (err) {
     showToast(err.message, 'error');
@@ -7595,7 +7608,7 @@ async function submitGallerySync(e) {
 
 
 // ==================== ANIMATED MUSE MASCOT CONTROLLER ====================
-const MUSE_MASCOT_VIDEOS = {
+let MUSE_MASCOT_VIDEOS = {
   idle: '/static/mascot/hatch.mp4',
   working: '/static/mascot/hatch_working.mp4',
   making: '/static/mascot/hatch_making_something.mp4',
@@ -7603,34 +7616,66 @@ const MUSE_MASCOT_VIDEOS = {
   levelup: '/static/mascot/hatch_milestone_level_up.mp4',
 };
 
+let MUSE_MASCOT_NAMES = {
+  display: '23zô AI Mascot',
+};
+
 const MUSE_MASCOT_TITLES = {
-  idle: '23zô AI Mascot — Đang sẵn sàng',
-  working: '23zô AI Mascot — Đang xử lý kịch bản / trò chuyện...',
-  making: '23zô AI Mascot — Đang sáng tạo ảnh / video...',
-  celebrate: '23zô AI Mascot — Hoàn thành!',
-  levelup: '23zô AI Mascot — Tuyệt vời!',
+  idle: 'Đang sẵn sàng',
+  working: 'Đang xử lý kịch bản / trò chuyện...',
+  making: 'Đang sáng tạo ảnh / video...',
+  celebrate: 'Hoàn thành!',
+  levelup: 'Tuyệt vời!',
 };
 
 let _mascotCurrentState = 'idle';
+let _mascotCurrentSrc = '';
 let _mascotActiveJobs = 0;
 let _mascotCelebrateTimer = null;
 
-function setMuseMascotState(mode) {
+function setMuseMascotState(mode, forceReload = false) {
   const nextMode = MUSE_MASCOT_VIDEOS[mode] ? mode : 'idle';
+  const nextSrc = MUSE_MASCOT_VIDEOS[nextMode] || '/static/mascot/hatch.mp4';
   const wrap = document.getElementById('sidebar-mascot-wrap');
   const vid = document.getElementById('sidebar-mascot-video');
   if (wrap) {
-    wrap.title = MUSE_MASCOT_TITLES[nextMode] || '23zô AI Mascot';
+    const label = MUSE_MASCOT_NAMES.display || '23zô AI Mascot';
+    wrap.title = `${label} — ${MUSE_MASCOT_TITLES[nextMode] || 'Sẵn sàng'}`;
   }
   if (!vid) return;
-  if (_mascotCurrentState !== nextMode || !vid.getAttribute('src')) {
+  const curAttr = vid.getAttribute('src') || '';
+  if (_mascotCurrentState !== nextMode || _mascotCurrentSrc !== nextSrc || (forceReload && curAttr !== nextSrc) || !curAttr) {
     _mascotCurrentState = nextMode;
-    vid.setAttribute('src', MUSE_MASCOT_VIDEOS[nextMode]);
+    _mascotCurrentSrc = nextSrc;
+    vid.setAttribute('src', nextSrc);
     try {
       vid.load();
       const p = vid.play();
       if (p && typeof p.catch === 'function') p.catch(() => {});
     } catch (_) {}
+  }
+}
+
+async function refreshActiveAccountMascot(force = false) {
+  try {
+    const res = await fetch(`/api/avatar/current?force=${force ? 'true' : 'false'}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.videos) {
+      MUSE_MASCOT_VIDEOS = { ...MUSE_MASCOT_VIDEOS, ...data.videos };
+    }
+    if (data && data.name) {
+      MUSE_MASCOT_NAMES.display = data.name;
+    } else {
+      MUSE_MASCOT_NAMES.display = '23zô AI Mascot';
+    }
+    const vid = document.getElementById('sidebar-mascot-video');
+    if (vid && data && data.poster) {
+      vid.setAttribute('poster', data.poster);
+    }
+    setMuseMascotState(_mascotCurrentState, true);
+  } catch (err) {
+    console.warn('refreshActiveAccountMascot failed:', err);
   }
 }
 
@@ -7688,6 +7733,8 @@ function setMuseMascotState(mode) {
   };
 
   document.addEventListener('DOMContentLoaded', () => {
+    refreshActiveAccountMascot(true);
+    setInterval(() => { refreshActiveAccountMascot(true); }, 60000);
     const wrap = document.getElementById('sidebar-mascot-wrap');
     if (wrap) {
       wrap.addEventListener('dblclick', (ev) => {
