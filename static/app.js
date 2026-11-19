@@ -605,17 +605,23 @@ function applyAuthData(data) {
     if (sAddSub) sAddSub.innerText = add.subtitle || 'Không bao giờ hết hạn';
   }
 
-  if (dot && text && btnText) {
+  const avatarEl = document.getElementById('sidebar-account-avatar');
+  if (dot && text) {
     if (state.authenticated) {
-      dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400';
+      dot.className = 'absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 ring-2 ring-[#181818] shadow-sm shadow-emerald-400';
       text.innerText = data.email || 'Đã kết nối 23zô AI Cloud';
       text.className = 'text-xs font-bold text-emerald-300 truncate';
-      btnText.innerText = 'Đổi tài khoản';
+      if (btnText) btnText.innerText = 'Đổi tài khoản';
+      if (avatarEl) {
+        const ch = (data.email || 'A').trim().charAt(0).toUpperCase();
+        avatarEl.innerText = ch || 'A';
+      }
     } else {
-      dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse';
+      dot.className = 'absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-amber-400 animate-pulse ring-2 ring-[#181818]';
       text.innerText = 'Chưa kết nối tài khoản';
       text.className = 'text-xs font-semibold text-amber-300 truncate';
-      btnText.innerText = 'Đăng nhập OTP';
+      if (btnText) btnText.innerText = 'Đăng nhập OTP';
+      if (avatarEl) avatarEl.innerText = '?';
     }
   }
 }
@@ -7242,8 +7248,14 @@ async function loadAccountsManager(live = false) {
     _accountsState.features = data.features || [];
 
     const countEl = document.getElementById('sidebar-accounts-count');
-    if (countEl) countEl.innerText = _accountsState.accounts.length;
-    if (totalBadge) totalBadge.innerText = `${_accountsState.accounts.length} tài khoản`;
+    if (countEl) countEl.innerText = `${_accountsState.accounts.length} TK`;
+    const allTokensEl = document.getElementById('sidebar-all-accounts-tokens');
+    if (allTokensEl && data.total_tokens_label) {
+      allTokensEl.innerText = data.total_tokens_label;
+    }
+    if (totalBadge) {
+      totalBadge.innerText = `${_accountsState.accounts.length} tài khoản • Tổng: ${data.total_tokens_label || '—'}`;
+    }
 
     renderAccountsList();
     renderAccountPriorities();
@@ -7265,9 +7277,17 @@ function renderAccountsList() {
     return;
   }
 
-  grid.innerHTML = list.map(acc => {
+  const avatarGradients = [
+    'from-pink-500 to-purple-500',
+    'from-sky-500 to-indigo-500',
+    'from-emerald-500 to-teal-500',
+    'from-amber-500 to-rose-500',
+  ];
+  grid.innerHTML = list.map((acc, idx) => {
     const isActive = acc.id === _accountsState.active || acc.is_active;
     const pct = typeof acc.remaining_percent === 'number' ? Math.max(0, Math.min(100, acc.remaining_percent)) : null;
+    const initial = (acc.email || 'A').trim().charAt(0).toUpperCase();
+    const grad = avatarGradients[idx % avatarGradients.length];
     const statusBadge = acc.is_alive === false
       ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30">Hết hạn / Lỗi</span>'
       : isActive
@@ -7277,9 +7297,12 @@ function renderAccountsList() {
     return `
       <div class="p-3.5 rounded-xl bg-[#1e1e1e] border ${isActive ? 'border-emerald-500/60 shadow-sm shadow-emerald-500/10' : 'border-[#333333]'} space-y-2.5">
         <div class="flex items-start justify-between gap-2">
-          <div class="min-w-0">
-            <div class="text-xs font-bold text-white truncate" title="${escapeHtml(acc.email)}">${escapeHtml(acc.email)}</div>
-            <div class="text-[10px] text-slate-400 mt-0.5">Token VIP: <b class="text-[#38bdf8]">${escapeHtml(acc.vip_tokens || '—')}</b>${pct !== null ? ` (${pct}%)` : ''}</div>
+          <div class="flex items-center space-x-2.5 min-w-0">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br ${grad} text-white font-extrabold text-sm flex items-center justify-center shrink-0 shadow ring-2 ring-white/10">${escapeHtml(initial)}</div>
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-white truncate" title="${escapeHtml(acc.email)}">${escapeHtml(acc.email)}</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Token VIP: <b class="text-[#38bdf8]">${escapeHtml(acc.vip_tokens || '—')}</b>${pct !== null ? ` (${pct}%)` : ''}</div>
+            </div>
           </div>
           ${statusBadge}
         </div>
@@ -7464,7 +7487,7 @@ async function deleteMuseAccount(accId, email) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  loadAccountsManager(false);
+  loadAccountsManager(true);
 });
 
 

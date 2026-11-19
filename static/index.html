@@ -583,82 +583,40 @@
       </div>
     </div>
 
-    <!-- Bottom Account Card (Compact Summary, Click to Expand) -->
-    <div class="sidebar-bottom-wrap p-3 border-t border-white/[0.06] space-y-2">
-      <button onclick="switchTab('accounts')" id="tab-btn-accounts" title="Quản lý Tài khoản MuseAI" class="tab-btn w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition text-[#cccccc] hover:text-white hover:bg-[#2a2d2e]">
-        <div class="flex items-center space-x-2.5">
-          <i data-lucide="user-cog" class="w-4 h-4 text-emerald-400 shrink-0"></i>
-          <span>Quản lý Tài khoản</span>
-        </div>
-        <span id="sidebar-accounts-count" class="text-[10px] px-2 py-0.5 rounded-full bg-[#2d2d2d] text-[#cccccc] border border-[#3c3c3c]">1</span>
-      </button>
+    <!-- Bottom Unified Account Card (Click to open Accounts Manager) -->
+    <div class="sidebar-bottom-wrap p-3 border-t border-white/[0.06]">
+      <div onclick="switchTab('accounts')" id="tab-btn-accounts" class="tab-btn sidebar-account-card rounded-2xl border transition shadow-sm overflow-hidden cursor-pointer select-none hover:bg-white/[0.04]" title="Bấm để mở Quản lý Tài khoản MuseAI">
+        <div class="sidebar-account-header p-2.5 flex items-center gap-2.5 group">
+          <div class="relative shrink-0">
+            <div id="sidebar-account-avatar" class="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 via-purple-500 to-sky-500 text-white font-extrabold text-sm flex items-center justify-center shadow-md ring-2 ring-white/15">
+              23
+            </div>
+            <span id="status-dot" class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-amber-400 animate-pulse ring-2 ring-[#181818]"></span>
+          </div>
 
-      <div class="sidebar-account-card rounded-xl border transition shadow-sm overflow-hidden">
-        
-        <!-- Compact Summary Header (Always visible, Clickable to toggle details) -->
-        <div onclick="toggleSidebarQuotaDetails(event)" class="sidebar-account-header p-2.5 cursor-pointer select-none flex items-center gap-2.5 group hover:bg-white/[0.04] transition" title="Bấm để xem chi tiết quota và tài khoản">
-          <button type="button" onclick="event.stopPropagation(); openStudioSettingsModal()" id="btn-studio-settings" class="sidebar-account-icon-btn relative w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 transition cursor-pointer" title="Cài đặt giao diện & cỡ chữ">
+          <div class="min-w-0 flex-1 sidebar-hide-collapsed">
+            <div class="flex items-center justify-between gap-1">
+              <div id="status-text" class="text-xs font-bold text-slate-200 truncate group-hover:text-cyan-300 transition">Đang kiểm tra...</div>
+              <span id="sidebar-accounts-count" class="text-[10px] px-1.5 py-0.5 rounded-full bg-[#2d2d2d] text-emerald-300 border border-emerald-500/30 font-bold shrink-0">1 TK</span>
+            </div>
+            <div class="flex items-center space-x-1.5 mt-0.5 text-[11px] text-slate-400 whitespace-nowrap">
+              <span id="sidebar-tokens-vip-compact" class="font-extrabold text-red-400 whitespace-nowrap">—</span>
+              <span id="sidebar-hourglass-badge" class="inline-flex items-center space-x-1 shrink-0" title="Đồng hồ cát % token còn lại"></span>
+            </div>
+            <div class="flex items-center justify-between mt-0.5 text-[10px] text-slate-400">
+              <span>Tổng các TK: <b id="sidebar-all-accounts-tokens" class="text-amber-300 font-bold">—</b></span>
+              <span class="text-[#38bdf8] opacity-80 group-hover:opacity-100">Quản lý →</span>
+            </div>
+          </div>
+
+          <button type="button" onclick="event.stopPropagation(); openStudioSettingsModal()" id="btn-studio-settings" class="sidebar-hide-collapsed sidebar-account-icon-btn relative w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 transition cursor-pointer" title="Cài đặt giao diện & cỡ chữ">
             <i data-lucide="settings" class="w-4 h-4"></i>
             <span id="theme-active-dot" class="hidden"></span>
             <span id="settings-font-badge" class="hidden">16px</span>
           </button>
-
-          <div class="min-w-0 flex-1 sidebar-hide-collapsed">
-            <div class="flex items-center space-x-1.5">
-              <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
-              <div id="status-text" class="text-xs font-bold text-slate-200 truncate group-hover:text-cyan-300 transition">Đang kiểm tra...</div>
-            </div>
-            <div class="flex items-center space-x-1.5 mt-1 text-[11px] text-slate-400 whitespace-nowrap">
-              <span>Token VIP:</span>
-              <span id="sidebar-tokens-vip-compact" class="font-extrabold text-red-500 whitespace-nowrap">982 triệu</span>
-              <span id="sidebar-hourglass-badge" class="inline-flex items-center space-x-1 shrink-0 ml-1" title="Đồng hồ cát % token còn lại"></span>
-            </div>
-          </div>
-          
-          <div class="sidebar-hide-collapsed sidebar-account-icon-btn w-6 h-6 rounded-lg border text-slate-400 group-hover:text-cyan-300 flex items-center justify-center shrink-0 transition">
-            <i id="sidebar-quota-chevron" data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform duration-200"></i>
-          </div>
         </div>
 
-        <!-- Collapsible Details Container (Hidden by default, shown when clicked) -->
-        <div id="sidebar-quota-details" class="hidden px-3 pb-3 pt-1 border-t border-white/[0.06] space-y-2.5 text-[11px] bg-surface-900/60" onclick="event.stopPropagation()">
-          <!-- Part 1: Gói miễn phí -->
-          <div class="space-y-1 pt-1.5">
-            <div class="flex items-center justify-between">
-              <span id="sidebar-free-name" class="font-bold text-white">Gói miễn phí</span>
-              <span id="sidebar-free-percent" class="font-semibold text-blue-400">Đã dùng 100%</span>
-            </div>
-            <div class="w-full bg-surface-950 rounded-full h-1.5 overflow-hidden border border-white/10">
-              <div id="sidebar-free-bar" class="bg-blue-600 h-full rounded-full transition-all duration-500" style="width: 100%;"></div>
-            </div>
-            <div id="sidebar-free-reset" class="text-[10px] text-slate-400">Giới hạn hàng tuần sẽ đặt lại vào 19 tháng 11</div>
-          </div>
-
-          <!-- Part 2: Token VIP chi tiết -->
-          <div class="space-y-0.5 pt-1.5 border-t border-white/[0.05]">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center space-x-1.5">
-                <span class="font-bold text-white text-xs">Token VIP:</span>
-                <span id="sidebar-tokens-vip" class="font-extrabold text-red-500 text-xs">982 triệu</span>
-              </div>
-              <span class="text-[10px] text-emerald-400/90 font-medium">Vĩnh viễn</span>
-            </div>
-            <div class="text-[10px] text-slate-400">
-              <span id="sidebar-add-sub">Không bao giờ hết hạn</span>
-            </div>
-          </div>
-
-          <div class="pt-1 flex items-center justify-between text-[10px] text-slate-500 border-t border-white/[0.04]">
-            <span>Viewer ID:</span>
-            <span id="sidebar-viewer-id" class="font-mono text-slate-400 truncate max-w-[100px]">...</span>
-          </div>
-
-          <button onclick="openAuthModal(event)" id="auth-btn" class="w-full mt-1 py-2 px-3 rounded-lg text-xs font-semibold bg-surface-700 hover:bg-surface-600 text-white border border-white/10 transition flex items-center justify-center space-x-1.5 cursor-pointer">
-            <i data-lucide="key-round" class="w-3.5 h-3.5 text-indigo-400"></i>
-            <span id="auth-btn-text">Kết nối tài khoản</span>
-          </button>
-        </div>
-
+        <div id="sidebar-quota-details" class="hidden"></div>
       </div>
     </div>
   </aside>
@@ -2484,7 +2442,7 @@
     </div>
   </div>
 
-<script src="/static/app.js?v=20261119_2"></script>
+<script src="/static/app.js?v=20261119_3"></script>
   <script>
     lucide.createIcons();
   </script>

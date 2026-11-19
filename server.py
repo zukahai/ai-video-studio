@@ -1037,6 +1037,18 @@ _subscription_cache = {
 }
 _subscription_lock = asyncio.Lock()
 
+def _format_vn_tokens_label(tokens: int, max_decimals: int = 2) -> str:
+    if tokens >= 1_000_000_000:
+        val = f"{tokens / 1_000_000_000:.{max_decimals}f}".rstrip("0").rstrip(".").replace(".", ",")
+        return f"{val} tỷ"
+    if tokens >= 1_000_000:
+        millions = round(tokens / 1_000_000)
+        return f"{millions:,} triệu".replace(",", ".")
+    if tokens >= 1_000:
+        return f"{round(tokens / 1_000):,} nghìn".replace(",", ".")
+    return f"{tokens:,}".replace(",", ".")
+
+
 def _extract_quota_summary(live_sub: dict) -> dict[str, Any]:
     free_usage = live_sub.get("usage") or {}
     pct = free_usage.get("percentUsed", 0)
@@ -1111,6 +1123,8 @@ def _extract_quota_summary(live_sub: dict) -> dict[str, Any]:
     return {
         "vip_tokens": _format_vn_ratio(combined_tokens, combined_total_tokens),
         "remaining_percent": remaining_percent,
+        "remaining_tokens": combined_tokens,
+        "total_quota_tokens": combined_total_tokens,
         "free_label": live_sub.get("usageRowValueLabel") or f"Đã dùng {pct}%",
     }
 
@@ -1670,6 +1684,7 @@ async def _inspect_single_account(acc_id: str, active_id: str, live: bool = Fals
         "viewer_id": cached.get("viewer_id"),
         "vip_tokens": cached.get("vip_tokens", "—"),
         "remaining_percent": cached.get("remaining_percent"),
+        "remaining_tokens": cached.get("remaining_tokens", 0),
         "free_label": cached.get("free_label", ""),
     }
     if live and info["authenticated"]:
@@ -1684,6 +1699,7 @@ async def _inspect_single_account(acc_id: str, active_id: str, live: bool = Fals
                 summary = _extract_quota_summary(sub)
                 info["vip_tokens"] = summary["vip_tokens"]
                 info["remaining_percent"] = summary["remaining_percent"]
+                info["remaining_tokens"] = summary.get("remaining_tokens", 0)
                 info["free_label"] = summary["free_label"]
             _account_quota_cache[acc_id] = dict(info)
         except Exception:
@@ -1702,10 +1718,13 @@ async def list_accounts(live: bool = False):
     saved_ids = list_saved_account_ids()
     active_id = cfg.get("active_account", "")
     items = await asyncio.gather(*[_inspect_single_account(aid, active_id, live=live) for aid in saved_ids])
+    total_tokens_count = sum(int(a.get("remaining_tokens") or 0) for a in items)
     return {
         "status": "success",
         "active_account": active_id,
         "accounts": list(items),
+        "total_tokens_count": total_tokens_count,
+        "total_tokens_label": _format_vn_tokens_label(total_tokens_count) if total_tokens_count > 0 else "—",
         "priorities": cfg.get("priorities", {}),
         "features": ACCOUNT_FEATURES,
     }
