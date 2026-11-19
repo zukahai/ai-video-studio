@@ -7287,6 +7287,7 @@ function renderAccountsList() {
     const isActive = acc.id === _accountsState.active || acc.is_active;
     const pct = typeof acc.remaining_percent === 'number' ? Math.max(0, Math.min(100, acc.remaining_percent)) : null;
     const weeklyUsed = typeof acc.weekly_used_percent === 'number' ? Math.max(0, Math.min(100, acc.weekly_used_percent)) : null;
+    const weeklyRem = weeklyUsed !== null ? Math.round((100 - weeklyUsed) * 10) / 10 : null;
     const initial = (acc.email || 'A').trim().charAt(0).toUpperCase();
     const grad = avatarGradients[idx % avatarGradients.length];
     const statusBadge = acc.is_alive === false
@@ -7314,14 +7315,14 @@ function renderAccountsList() {
             </div>
           </div>
         ` : ''}
-        ${weeklyUsed !== null ? `
+        ${weeklyRem !== null ? `
           <div class="space-y-1">
             <div class="flex items-center justify-between text-[10px] text-slate-400">
               <span>Token theo tuần</span>
-              <span class="font-semibold ${weeklyUsed >= 100 ? 'text-amber-300' : 'text-sky-300'}">${escapeHtml(acc.free_label || `Đã dùng ${weeklyUsed}%`)}</span>
+              <span class="font-semibold ${weeklyRem <= 15 ? 'text-rose-400' : weeklyRem < 50 ? 'text-amber-300' : 'text-sky-300'}">Còn ${weeklyRem}%</span>
             </div>
             <div class="w-full h-1.5 rounded-full bg-[#141414] overflow-hidden border border-white/[0.05]">
-              <div class="h-full rounded-full ${weeklyUsed >= 100 ? 'bg-blue-600' : 'bg-sky-400'}" style="width: ${weeklyUsed}%"></div>
+              <div class="h-full rounded-full ${weeklyRem <= 15 ? 'bg-rose-500' : weeklyRem < 50 ? 'bg-amber-400' : 'bg-sky-400'}" style="width: ${weeklyRem}%"></div>
             </div>
           </div>
         ` : ''}
