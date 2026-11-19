@@ -587,16 +587,12 @@
     <div class="sidebar-bottom-wrap p-3 border-t border-white/[0.06]">
       <div onclick="switchTab('accounts')" id="tab-btn-accounts" class="tab-btn sidebar-account-card rounded-2xl border transition shadow-sm overflow-hidden cursor-pointer select-none hover:bg-white/[0.04]" title="Bấm để mở Quản lý Tài khoản MuseAI">
         <div class="sidebar-account-header p-2.5 flex items-center gap-2.5 group">
-          <div class="relative shrink-0">
-            <div id="sidebar-account-avatar" class="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 via-purple-500 to-sky-500 text-white font-extrabold text-sm flex items-center justify-center shadow-md ring-2 ring-white/15">
-              23
-            </div>
-            <span id="status-dot" class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-amber-400 animate-pulse ring-2 ring-[#181818]"></span>
-          </div>
-
           <div class="min-w-0 flex-1 sidebar-hide-collapsed">
             <div class="flex items-center justify-between gap-1">
-              <div id="status-text" class="text-xs font-bold text-slate-200 truncate group-hover:text-cyan-300 transition">Đang kiểm tra...</div>
+              <div class="flex items-center space-x-1.5 min-w-0">
+                <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
+                <div id="status-text" class="text-xs font-bold text-slate-200 truncate group-hover:text-cyan-300 transition">Đang kiểm tra...</div>
+              </div>
               <span id="sidebar-accounts-count" class="text-[10px] px-1.5 py-0.5 rounded-full bg-[#2d2d2d] text-emerald-300 border border-emerald-500/30 font-bold shrink-0">1 TK</span>
             </div>
             <div class="flex items-center space-x-1.5 mt-0.5 text-[11px] text-slate-400 whitespace-nowrap">
@@ -2442,7 +2438,7 @@
     </div>
   </div>
 
-<script src="/static/app.js?v=20261119_5"></script>
+<script src="/static/app.js?v=20261119_6"></script>
   <script>
     lucide.createIcons();
   </script>

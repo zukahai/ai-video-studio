@@ -605,23 +605,17 @@ function applyAuthData(data) {
     if (sAddSub) sAddSub.innerText = add.subtitle || 'Không bao giờ hết hạn';
   }
 
-  const avatarEl = document.getElementById('sidebar-account-avatar');
   if (dot && text) {
     if (state.authenticated) {
-      dot.className = 'absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 ring-2 ring-[#181818] shadow-sm shadow-emerald-400';
+      dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400 shrink-0';
       text.innerText = data.email || 'Đã kết nối 23zô AI Cloud';
       text.className = 'text-xs font-bold text-emerald-300 truncate';
       if (btnText) btnText.innerText = 'Đổi tài khoản';
-      if (avatarEl) {
-        const ch = (data.email || 'A').trim().charAt(0).toUpperCase();
-        avatarEl.innerText = ch || 'A';
-      }
     } else {
-      dot.className = 'absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-amber-400 animate-pulse ring-2 ring-[#181818]';
+      dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0';
       text.innerText = 'Chưa kết nối tài khoản';
       text.className = 'text-xs font-semibold text-amber-300 truncate';
       if (btnText) btnText.innerText = 'Đăng nhập OTP';
-      if (avatarEl) avatarEl.innerText = '?';
     }
   }
 }
@@ -7299,12 +7293,9 @@ function renderAccountsList() {
     return `
       <div class="p-3.5 rounded-xl bg-[#1e1e1e] border ${isActive ? 'border-emerald-500/60 shadow-sm shadow-emerald-500/10' : 'border-[#333333]'} space-y-2.5">
         <div class="flex items-start justify-between gap-2">
-          <div class="flex items-center space-x-2.5 min-w-0">
-            <div class="w-9 h-9 rounded-full bg-gradient-to-br ${grad} text-white font-extrabold text-sm flex items-center justify-center shrink-0 shadow ring-2 ring-white/10">${escapeHtml(initial)}</div>
-            <div class="min-w-0">
-              <div class="text-xs font-bold text-white truncate" title="${escapeHtml(acc.email)}">${escapeHtml(acc.email)}</div>
-              <div class="text-[10px] text-slate-400 mt-0.5">Token VIP: <b class="text-[#38bdf8]">${escapeHtml(acc.vip_tokens || '—')}</b>${pct !== null ? ` (${pct}%)` : ''}</div>
-            </div>
+          <div class="min-w-0">
+            <div class="text-xs font-bold text-white truncate" title="${escapeHtml(acc.email)}">${escapeHtml(acc.email)}</div>
+            <div class="text-[10px] text-slate-400 mt-0.5">Token VIP: <b class="text-[#38bdf8]">${escapeHtml(acc.vip_tokens || '—')}</b>${pct !== null ? ` (${pct}%)` : ''}</div>
           </div>
           ${statusBadge}
         </div>
