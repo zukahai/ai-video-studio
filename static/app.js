@@ -6619,6 +6619,30 @@ async function applySelectedLibraryCharacterImages() {
 // ==================== 10 STUDIO THEMES + BROWSER USA VPN CHECK ====================
 const STUDIO_THEMES = [
   {
+    id: 'sakura-pastel',
+    name: 'Hồng Phấn Sakura (Cute)',
+    mode: 'light',
+    bg: '#fff1f7', sidebar: '#ffe4ef', header: '#fff8fb', card: '#ffffff',
+    elevated: '#ffd6e7', input: '#ffffff', border: '#fbcfe8', borderStrong: '#f472b6',
+    accent: '#ec4899', accentHover: '#db2777', text: '#500724', muted: '#9d174d',
+  },
+  {
+    id: 'lavender-dream',
+    name: 'Tím Mộng Mơ (Pastel)',
+    mode: 'dark',
+    bg: '#1c1629', sidebar: '#151021', header: '#1c1629', card: '#261e38',
+    elevated: '#312747', input: '#120d1c', border: '#3f325c', borderStrong: '#5b4885',
+    accent: '#c084fc', accentHover: '#d8b4fe', text: '#faf5ff', muted: '#d8b4fe',
+  },
+  {
+    id: 'mint-macaron',
+    name: 'Bạc Hà Macaron (Cute)',
+    mode: 'light',
+    bg: '#ecfdf5', sidebar: '#d1fae5', header: '#f0fdf9', card: '#ffffff',
+    elevated: '#ccfbf1', input: '#ffffff', border: '#a7f3d0', borderStrong: '#34d399',
+    accent: '#10b981', accentHover: '#059669', text: '#064e3b', muted: '#047857',
+  },
+  {
     id: 'vscode-dark',
     name: 'VS Code Dark (Mặc định)',
     mode: 'dark',

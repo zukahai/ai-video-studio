@@ -52,7 +52,7 @@
     }
   </script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
     :root {
       --t-bg: #1e1e1e;
       --t-sidebar: #181818;
@@ -75,10 +75,13 @@
       animation: viewEnter 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Plus Jakarta Sans', Roboto, sans-serif;
+      font-family: 'Nunito', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background-color: var(--t-bg) !important;
+      background-image:
+        radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--t-accent) 8%, transparent), transparent 38%),
+        radial-gradient(circle at 88% 82%, color-mix(in srgb, var(--t-accent) 7%, transparent), transparent 40%) !important;
       color: var(--t-text) !important;
-      transition: background-color 0.22s ease, color 0.22s ease;
+      transition: background-color 0.25s ease, color 0.25s ease;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
     }
@@ -94,12 +97,15 @@
       box-shadow: 0 4px 20px -12px rgba(0, 0, 0, 0.3);
     }
     .tab-btn {
-      border-radius: 0.6rem !important;
-      transition: background-color 0.16s ease, color 0.16s ease, transform 0.12s ease, border-color 0.16s ease !important;
+      border-radius: 0.9rem !important;
+      transition: background-color 0.18s ease, color 0.18s ease, transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease !important;
+    }
+    .tab-btn:hover {
+      transform: translateX(2px);
     }
     .tab-btn.bg-\[\#37373d\] {
-      background: color-mix(in srgb, var(--t-accent) 10%, rgba(255, 255, 255, 0.04)) !important;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      background: color-mix(in srgb, var(--t-accent) 14%, rgba(255, 255, 255, 0.05)) !important;
+      box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--t-accent) 32%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.08);
     }
     #left-sidebar {
       width: 16rem;
@@ -213,27 +219,33 @@
       animation: gentlePulse 3.8s cubic-bezier(0.4, 0, 0.6, 1) infinite !important;
     }
     button:active:not(:disabled) {
-      transform: scale(0.985);
+      transform: scale(0.96);
+    }
+    .glass-card {
+      border-radius: 1.15rem !important;
+      box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
     input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):focus,
     textarea:focus,
     select:focus {
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--t-accent) 22%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--t-accent) 24%, transparent);
     }
     #dashboard-movies-grid > div,
     #movie-hub-grid > div,
     #dashboard-videos-grid > div,
     #dashboard-images-grid > div,
     #gallery-grid > div {
-      transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
+      border-radius: 1.15rem !important;
+      transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.18s ease, box-shadow 0.22s ease !important;
     }
     #dashboard-movies-grid > div:hover,
     #movie-hub-grid > div:hover,
     #dashboard-videos-grid > div:hover,
     #dashboard-images-grid > div:hover,
     #gallery-grid > div:hover {
-      border-color: color-mix(in srgb, var(--t-accent) 50%, var(--t-border)) !important;
-      box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.45);
+      transform: translateY(-2px);
+      border-color: color-mix(in srgb, var(--t-accent) 55%, var(--t-border)) !important;
+      box-shadow: 0 12px 28px -10px color-mix(in srgb, var(--t-accent) 28%, rgba(0, 0, 0, 0.45));
     }
     #header-quota-tokens,
     #sidebar-tokens-vip-compact,
@@ -506,7 +518,7 @@
           <div class="min-w-0 sidebar-hide-collapsed">
             <div class="flex items-center space-x-1.5">
               <span class="brand-title-gradient font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-sky-100 to-cyan-300 bg-clip-text text-transparent">23zô AI</span>
-              <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-sky-500/15 text-sky-300 font-bold border border-sky-500/30">PRO</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-pink-500/15 text-pink-300 font-bold border border-pink-400/30">PRO ✨</span>
             </div>
             <p class="text-[11px] text-slate-400 truncate">Creative AI Studio</p>
           </div>
@@ -2472,7 +2484,7 @@
     </div>
   </div>
 
-<script src="/static/app.js?v=20261119_1"></script>
+<script src="/static/app.js?v=20261119_2"></script>
   <script>
     lucide.createIcons();
   </script>
