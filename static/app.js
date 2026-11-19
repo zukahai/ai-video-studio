@@ -1903,6 +1903,28 @@ function renderChatUserBubble(container, text, images = []) {
   container.appendChild(userBubble);
 }
 
+function formatChatMarkdown(rawText) {
+  let html = escapeHtml(String(rawText || ''));
+  // Fenced code blocks
+  html = html.replace(/```(?:\w+)?\n?([\s\S]*?)```/g, (_, code) =>
+    `<pre class="my-2 p-3 rounded-xl bg-[#141414] border border-white/10 text-xs font-mono text-slate-200 overflow-x-auto whitespace-pre">${code.trim()}</pre>`
+  );
+  // Inline code
+  html = html.replace(/`([^`\n]+)`/g, '<code class="px-1.5 py-0.5 rounded bg-[#141414] text-sky-300 font-mono text-xs border border-white/10">$1</code>');
+  // Headings
+  html = html.replace(/^### (.+)$/gm, '<div class="font-bold text-sm text-white mt-2 mb-1">$1</div>');
+  html = html.replace(/^## (.+)$/gm, '<div class="font-bold text-base text-white mt-2 mb-1">$1</div>');
+  html = html.replace(/^# (.+)$/gm, '<div class="font-extrabold text-base text-white mt-2 mb-1">$1</div>');
+  // Bold & italic
+  html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong class="font-bold text-white">$1</strong>');
+  html = html.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em class="italic text-slate-300">$2</em>');
+  // Bullet points
+  html = html.replace(/^- (.+)$/gm, '<div class="flex items-start space-x-2 pl-1"><span class="text-sky-400 mt-0.5">•</span><span class="flex-1">$1</span></div>');
+  // Line breaks
+  html = html.replace(/\n/g, '<br>');
+  return html;
+}
+
 function renderChatAssistantBubble(container, replyText, images = [], videos = []) {
   const imgsHtml = images.length > 0
     ? `<div class="flex flex-wrap gap-2 pt-1">${images.map(u => `
@@ -1923,21 +1945,9 @@ function renderChatAssistantBubble(container, replyText, images = [], videos = [
       <i data-lucide="sparkles" class="w-4 h-4"></i>
     </div>
     <div class="bg-surface-800 border border-white/[0.06] rounded-2xl rounded-tl-none p-4 max-w-2xl text-sm text-slate-200 space-y-3">
-      ${replyText ? `<p class="whitespace-pre-wrap leading-relaxed">${escapeHtml(replyText)}</p>` : ''}
+      ${replyText ? `<div class="leading-relaxed space-y-1">${formatChatMarkdown(replyText)}</div>` : ''}
       ${imgsHtml}
       ${vidsHtml}
-      ${replyText ? `
-        <div class="flex flex-wrap gap-2 pt-1">
-          <button onclick="useAsVideoPrompt(${JSON.stringify(replyText)})" class="text-[11px] text-indigo-300 hover:text-white font-semibold flex items-center space-x-1 border border-indigo-500/30 bg-indigo-500/15 px-2.5 py-1 rounded-lg transition cursor-pointer">
-            <i data-lucide="clapperboard" class="w-3 h-3"></i>
-            <span>Đưa sang Tạo Video</span>
-          </button>
-          <button onclick="useAsImagePrompt(${JSON.stringify(replyText)})" class="text-[11px] text-purple-300 hover:text-white font-semibold flex items-center space-x-1 border border-purple-500/30 bg-purple-500/15 px-2.5 py-1 rounded-lg transition cursor-pointer">
-            <i data-lucide="palette" class="w-3 h-3"></i>
-            <span>Đưa sang Tạo Ảnh</span>
-          </button>
-        </div>
-      ` : ''}
     </div>
   `;
   container.appendChild(botBubble);
