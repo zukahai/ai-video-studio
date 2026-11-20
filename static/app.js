@@ -7531,7 +7531,7 @@ function renderAccountsList() {
     const avatarUrl = acc.avatar_url || '/static/mascot/hatch.jpg';
     const avatarVideoUrl = acc.avatar_video_url || '/static/mascot/hatch.mp4';
     const avatarNameBelowHtml = (showSecretAvatar && acc.avatar_name)
-      ? `<span class="text-[10px] font-semibold text-slate-300 leading-tight text-center max-w-[56px] truncate" title="${escapeHtml(acc.avatar_name)}">${escapeHtml(acc.avatar_name)}</span>`
+      ? `<span class="text-[10px] font-semibold text-slate-300 leading-tight text-center max-w-[84px] break-words" title="${escapeHtml(acc.avatar_name)}">${escapeHtml(acc.avatar_name)}</span>`
       : '';
     const statusBadge = acc.is_alive === false
       ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30 whitespace-nowrap shrink-0">Hết hạn / Lỗi</span>'
