@@ -7318,8 +7318,8 @@ function renderAccountsList() {
     const grad = avatarGradients[idx % avatarGradients.length];
     const showSecretAvatar = isSecretAvatarEnabled();
     const avatarUrl = acc.avatar_url || '/static/mascot/hatch.jpg';
-    const avatarNameHtml = (showSecretAvatar && acc.avatar_name)
-      ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-[#2d2d2d] text-slate-300 border border-[#3c3c3c] shrink-0">${escapeHtml(acc.avatar_name)}</span>`
+    const avatarNameBelowHtml = (showSecretAvatar && acc.avatar_name)
+      ? `<span class="text-[10px] font-semibold text-slate-300 leading-tight text-center max-w-[56px] truncate" title="${escapeHtml(acc.avatar_name)}">${escapeHtml(acc.avatar_name)}</span>`
       : '';
     const statusBadge = acc.is_alive === false
       ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30 whitespace-nowrap shrink-0">Hết hạn / Lỗi</span>'
@@ -7329,12 +7329,14 @@ function renderAccountsList() {
       <div class="p-3.5 rounded-xl bg-[#1e1e1e] border ${isActive ? 'border-emerald-500/60 shadow-sm shadow-emerald-500/10' : 'border-[#333333]'} space-y-2.5">
         <div class="flex items-start justify-between gap-2">
           <div class="flex items-center space-x-2.5 min-w-0">
-            ${showSecretAvatar ? `<img src="${escapeHtml(avatarUrl)}" onerror="this.onerror=null;this.src='/static/mascot/hatch.jpg'" alt="${escapeHtml(acc.avatar_name || acc.email)}" class="w-10 h-10 rounded-full object-cover bg-white ring-2 ring-white/15 shrink-0">` : ''}
-            <div class="min-w-0">
-              <div class="flex items-center space-x-1.5 min-w-0">
-                <div class="text-xs font-bold text-white truncate" title="${escapeHtml(acc.email)}">${escapeHtml(acc.email)}</div>
-                ${avatarNameHtml}
+            ${showSecretAvatar ? `
+              <div class="flex flex-col items-center space-y-1 shrink-0">
+                <img src="${escapeHtml(avatarUrl)}" onerror="this.onerror=null;this.src='/static/mascot/hatch.jpg'" alt="${escapeHtml(acc.avatar_name || acc.email)}" class="w-10 h-10 rounded-full object-cover bg-white ring-2 ring-white/15">
+                ${avatarNameBelowHtml}
               </div>
+            ` : ''}
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-white truncate" title="${escapeHtml(acc.email)}">${escapeHtml(acc.email)}</div>
               <div class="text-[10px] text-slate-400 mt-0.5">Token VIP: <b class="text-[#38bdf8]">${escapeHtml(acc.vip_tokens || '—')}</b>${pct !== null ? ` (${pct}%)` : ''}</div>
             </div>
           </div>
