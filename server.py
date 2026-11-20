@@ -332,7 +332,11 @@ def append_activity_log(
     duration_ms: int = 0,
 ) -> None:
     try:
-        email = get_account_email_fast(account_id) if account_id else ""
+        email = ""
+        if account_id:
+            email_file = ACCOUNTS_DIR / _safe_account_id(account_id) / "email.txt"
+            if email_file.exists():
+                email = email_file.read_text(encoding="utf-8", errors="ignore").strip()
         entry = {
             "id": uuid.uuid4().hex[:12],
             "ts": round(time.time(), 3),
