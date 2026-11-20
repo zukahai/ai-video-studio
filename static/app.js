@@ -7322,10 +7322,8 @@ function renderAccountsList() {
       ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-[#2d2d2d] text-slate-300 border border-[#3c3c3c] shrink-0">${escapeHtml(acc.avatar_name)}</span>`
       : '';
     const statusBadge = acc.is_alive === false
-      ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30">Hết hạn / Lỗi</span>'
-      : isActive
-        ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">Đang dùng chính</span>'
-        : '<span class="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30">Sẵn sàng</span>';
+      ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30 whitespace-nowrap shrink-0">Hết hạn / Lỗi</span>'
+      : '<span class="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 whitespace-nowrap shrink-0">Sẵn sàng</span>';
 
     return `
       <div class="p-3.5 rounded-xl bg-[#1e1e1e] border ${isActive ? 'border-emerald-500/60 shadow-sm shadow-emerald-500/10' : 'border-[#333333]'} space-y-2.5">
