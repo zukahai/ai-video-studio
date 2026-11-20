@@ -7344,6 +7344,10 @@ function renderAccountsList() {
         </div>
         ${pct !== null ? `
           <div class="space-y-1">
+            <div class="flex items-center justify-between text-[10px] text-slate-400">
+              <span>Token VIP</span>
+              <span class="font-semibold ${pct < 20 ? 'text-rose-400' : pct < 50 ? 'text-amber-300' : 'text-emerald-400'}">Còn ${pct}%</span>
+            </div>
             <div class="w-full h-1.5 rounded-full bg-[#141414] overflow-hidden border border-white/[0.05]">
               <div class="h-full rounded-full ${pct < 20 ? 'bg-rose-500' : pct < 50 ? 'bg-amber-400' : 'bg-emerald-400'}" style="width: ${pct}%"></div>
             </div>
