@@ -239,7 +239,12 @@ def get_priority_accounts_for_feature(feature: str) -> list[str]:
     cfg = load_accounts_config()
     saved = list_saved_account_ids()
     fid = feature if feature in ACCOUNT_FEATURE_IDS else "chat"
-    ordered = [x for x in cfg["priorities"].get(fid, []) if x in saved]
+    explicit = [x for x in cfg["priorities"].get(fid, []) if x in saved]
+    if explicit:
+        ordered = explicit
+    else:
+        active = cfg.get("active_account") or ""
+        ordered = [active] if active in saved else []
     for aid in saved:
         if aid not in ordered:
             ordered.append(aid)
@@ -308,6 +313,7 @@ async def run_with_account_failover(feature: str, fn):
             detail="Chưa đăng nhập tài khoản 23zô AI nào. Vui lòng thêm tài khoản trong mục Quản lý Tài khoản.",
         )
 
+    initial_active = load_accounts_config().get("active_account") or ""
     last_exc: Optional[Exception] = None
     for idx, acc_id in enumerate(candidates):
         try:
@@ -335,6 +341,14 @@ async def run_with_account_failover(feature: str, fn):
             logger.warning(f"[Failover] Account '{acc_id}' failed for '{feature}' (attempt {idx + 1}/{len(candidates)}): {exc}")
             await _evict_client(acc_id)
             continue
+
+    if initial_active:
+        cfg = load_accounts_config()
+        if cfg.get("active_account") != initial_active and initial_active in list_saved_account_ids():
+            cfg["active_account"] = initial_active
+            save_accounts_config(cfg)
+            invalidate_subscription_cache()
+            _auth_status_cache["data"] = None
 
     if isinstance(last_exc, HTTPException):
         raise last_exc
@@ -2154,6 +2168,10 @@ async def generate_video(data: VideoGenerateModel):
                     p.rename(new_path)
                     p = new_path
             downloaded_urls.append(_to_outputs_url(p))
+
+        if not downloaded_urls:
+            err_msg = "; ".join(result.download_errors) if result.download_errors else "Không tải được video nào từ tài khoản hiện tại."
+            raise RuntimeError(f"Tài khoản '{_acc_id}' không tạo/tải được video: {err_msg}")
 
         # Invalidate subscription cache to immediately fetch latest live quota
         invalidate_subscription_cache()

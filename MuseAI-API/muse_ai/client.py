@@ -200,6 +200,12 @@ class MuseClient:
             "xin lỗi",
             "bị chặn",
             "dừng ở",
+            "hết token",
+            "hết hạn mức",
+            "giới hạn",
+            "hết lượt",
+            "quá tải",
+            "nâng cấp",
             "internal error",
             "failed",
             "error",
@@ -209,6 +215,11 @@ class MuseClient:
             "sorry",
             "blocked",
             "policy",
+            "quota",
+            "limit",
+            "upgrade",
+            "rate limit",
+            "try again",
         )
 
         while time.monotonic() < deadline:
