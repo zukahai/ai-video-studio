@@ -1384,16 +1384,19 @@ def _extract_quota_summary(live_sub: dict) -> dict[str, Any]:
 
 async def fetch_live_subscription(auth: Optional[MuseAuth] = None, bypass_cache: bool = False) -> Optional[dict]:
     global _subscription_cache
+    active_id = get_active_account_id()
     use_shared_cache = (auth is None and not bypass_cache)
     now = time.time()
-    if use_shared_cache and _subscription_cache["data"] and (now - _subscription_cache["timestamp"] < 20):
+    if (
+        use_shared_cache
+        and _subscription_cache["data"]
+        and _subscription_cache.get("account_id") == active_id
+        and (now - _subscription_cache["timestamp"] < 20)
+    ):
         return _subscription_cache["data"]
 
-    async with _subscription_lock:
-        now = time.time()
-        if use_shared_cache and _subscription_cache["data"] and (now - _subscription_cache["timestamp"] < 20):
-            return _subscription_cache["data"]
-
+    async def _do_fetch() -> Optional[dict]:
+        nonlocal auth
         should_close = False
         if auth is None:
             auth = MuseAuth(state_dir=get_active_account_dir())
@@ -1401,7 +1404,6 @@ async def fetch_live_subscription(auth: Optional[MuseAuth] = None, bypass_cache:
             should_close = True
 
         try:
-            # Server action for fetchSubscriptionAction
             action_id = "40e0249eeae158685b6a8d0c3b203f53dd4f2c7d63"
             headers = {
                 "Next-Action": action_id,
@@ -1426,7 +1428,10 @@ async def fetch_live_subscription(auth: Optional[MuseAuth] = None, bypass_cache:
                             data = json.loads(line[2:])
                             if data.get("success") and "subscription" in data:
                                 sub = data["subscription"]
+                                if not should_close:
+                                    return sub
                                 _subscription_cache["data"] = sub
+                                _subscription_cache["account_id"] = active_id
                                 _subscription_cache["timestamp"] = time.time()
                                 return sub
                         except Exception:
@@ -1437,7 +1442,10 @@ async def fetch_live_subscription(auth: Optional[MuseAuth] = None, bypass_cache:
                             data = json.loads(match.group(0))
                             if "subscription" in data:
                                 sub = data["subscription"]
+                                if not should_close:
+                                    return sub
                                 _subscription_cache["data"] = sub
+                                _subscription_cache["account_id"] = active_id
                                 _subscription_cache["timestamp"] = time.time()
                                 return sub
                         except Exception:
@@ -1448,7 +1456,25 @@ async def fetch_live_subscription(auth: Optional[MuseAuth] = None, bypass_cache:
             if should_close:
                 await auth.close()
 
-        return _subscription_cache["data"]
+        if not should_close:
+            return None
+        if _subscription_cache.get("account_id") == active_id:
+            return _subscription_cache["data"]
+        return None
+
+    if auth is not None:
+        return await _do_fetch()
+
+    async with _subscription_lock:
+        now = time.time()
+        if (
+            use_shared_cache
+            and _subscription_cache["data"]
+            and _subscription_cache.get("account_id") == active_id
+            and (now - _subscription_cache["timestamp"] < 20)
+        ):
+            return _subscription_cache["data"]
+        return await _do_fetch()
 
 
 _auth_status_cache = {
@@ -1474,7 +1500,12 @@ def invalidate_subscription_cache():
 @app.get("/api/auth/status")
 async def auth_status(force: bool = False):
     global _auth_status_cache
-    if not force and _auth_status_cache["data"] is not None:
+    active_id = get_active_account_id()
+    if (
+        not force
+        and _auth_status_cache["data"] is not None
+        and _auth_status_cache.get("account_id") == active_id
+    ):
         if (time.time() - _auth_status_cache["timestamp"]) < 60.0:
             return _auth_status_cache["data"]
 
@@ -1691,6 +1722,7 @@ async def auth_status(force: bool = False):
         "usage": usage_data,
     }
     _auth_status_cache["data"] = res_dict
+    _auth_status_cache["account_id"] = active_id
     _auth_status_cache["timestamp"] = time.time()
     return res_dict
 
