@@ -207,12 +207,18 @@ def _migrate_legacy_account_if_needed() -> None:
 def load_accounts_config() -> dict[str, Any]:
     _migrate_legacy_account_if_needed()
     saved_ids = list_saved_account_ids()
-    cfg: dict[str, Any] = {"active_account": "", "priorities": {fid: [] for fid in ACCOUNT_FEATURE_IDS}}
+    cfg: dict[str, Any] = {
+        "active_account": "",
+        "priorities": {fid: [] for fid in ACCOUNT_FEATURE_IDS},
+        "prefer_weekly_tokens": True,
+    }
     if ACCOUNTS_CONFIG_FILE.exists():
         try:
             loaded = json.loads(ACCOUNTS_CONFIG_FILE.read_text(encoding="utf-8"))
             if isinstance(loaded, dict):
                 cfg["active_account"] = str(loaded.get("active_account") or "")
+                if isinstance(loaded.get("prefer_weekly_tokens"), bool):
+                    cfg["prefer_weekly_tokens"] = loaded["prefer_weekly_tokens"]
                 raw_prio = loaded.get("priorities") or {}
                 if isinstance(raw_prio, dict):
                     for fid in ACCOUNT_FEATURE_IDS:
@@ -262,7 +268,36 @@ def get_priority_accounts_for_feature(feature: str) -> list[str]:
     for aid in saved:
         if aid not in ordered:
             ordered.append(aid)
+
+    if cfg.get("prefer_weekly_tokens", True):
+        has_weekly: list[str] = []
+        no_weekly: list[str] = []
+        for aid in ordered:
+            q_info = _account_quota_cache.get(aid) or {}
+            w_used = q_info.get("weekly_used_percent")
+            if isinstance(w_used, (int, float)) and w_used < 100:
+                has_weekly.append(aid)
+            else:
+                no_weekly.append(aid)
+        if has_weekly:
+            return has_weekly + no_weekly
     return ordered
+
+
+async def _ensure_weekly_quota_cache_for_accounts(account_ids: list[str]) -> None:
+    now = time.time()
+    stale_ids = [
+        aid for aid in account_ids
+        if aid not in _account_quota_cache
+        or (now - float(_account_quota_cache[aid].get("_cached_at", 0.0))) > 120.0
+    ]
+    if not stale_ids:
+        return
+    active_id = get_active_account_id()
+    await asyncio.gather(
+        *[_inspect_single_account(aid, active_id, live=True) for aid in stale_ids],
+        return_exceptions=True,
+    )
 
 
 def is_authenticated() -> bool:
@@ -493,6 +528,12 @@ async def clear_activity_logs():
 
 
 async def run_with_account_failover(feature: str, fn, log_context: Optional[dict[str, Any]] = None):
+    cfg_now = load_accounts_config()
+    if cfg_now.get("prefer_weekly_tokens", True):
+        try:
+            await _ensure_weekly_quota_cache_for_accounts(list_saved_account_ids())
+        except Exception:
+            pass
     candidates = get_priority_accounts_for_feature(feature)
     if not candidates:
         raise HTTPException(
@@ -2293,6 +2334,7 @@ async def _inspect_single_account(acc_id: str, active_id: str, live: bool = Fals
                 info["avatar_video_url"] = (av_data.get("videos") or {}).get("idle") or "/static/mascot/hatch.mp4"
             except Exception as av_exc:
                 logger.debug(f"[AvatarSync] live inspect skipped for {acc_id}: {av_exc}")
+            info["_cached_at"] = time.time()
             _account_quota_cache[acc_id] = dict(info)
         except Exception:
             info["is_alive"] = False
@@ -2318,8 +2360,21 @@ async def list_accounts(live: bool = False):
         "total_tokens_count": total_tokens_count,
         "total_tokens_label": _format_vn_tokens_label(total_tokens_count) if total_tokens_count > 0 else "—",
         "priorities": cfg.get("priorities", {}),
+        "prefer_weekly_tokens": bool(cfg.get("prefer_weekly_tokens", True)),
         "features": ACCOUNT_FEATURES,
     }
+
+
+class AccountSettingsModel(BaseModel):
+    prefer_weekly_tokens: bool = True
+
+
+@app.post("/api/accounts/settings")
+async def update_account_settings(body: AccountSettingsModel):
+    cfg = load_accounts_config()
+    cfg["prefer_weekly_tokens"] = bool(body.prefer_weekly_tokens)
+    save_accounts_config(cfg)
+    return {"status": "success", "prefer_weekly_tokens": cfg["prefer_weekly_tokens"]}
 
 
 @app.post("/api/accounts/switch")

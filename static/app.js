@@ -7448,6 +7448,10 @@ async function loadAccountsManager(live = false) {
     _accountsState.accounts = data.accounts || [];
     _accountsState.priorities = data.priorities || {};
     _accountsState.features = data.features || [];
+    const preferWeeklyToggle = document.getElementById('toggle-prefer-weekly-tokens');
+    if (preferWeeklyToggle) {
+      preferWeeklyToggle.checked = data.prefer_weekly_tokens !== false;
+    }
 
     const countEl = document.getElementById('sidebar-accounts-count');
     if (countEl) countEl.innerText = `${_accountsState.accounts.length} TK`;
@@ -7464,6 +7468,28 @@ async function loadAccountsManager(live = false) {
   } catch (err) {
     console.warn('loadAccountsManager failed:', err);
     if (totalBadge) totalBadge.innerText = `${(_accountsState.accounts || []).length} tài khoản`;
+  }
+}
+
+async function togglePreferWeeklyTokens(enabled) {
+  try {
+    const res = await fetch('/api/accounts/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prefer_weekly_tokens: Boolean(enabled) }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Không lưu được cài đặt.');
+    if (typeof showToast === 'function') {
+      showToast(
+        enabled
+          ? 'Đã bật: Ưu tiên các tài khoản còn token tuần trước.'
+          : 'Đã tắt: Luôn dùng đúng thứ tự ưu tiên #1 → #2 → #3.',
+        'success'
+      );
+    }
+  } catch (err) {
+    if (typeof showToast === 'function') showToast(err.message || 'Lỗi lưu cài đặt', 'error');
   }
 }
 
