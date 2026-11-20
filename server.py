@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import uuid
 import unicodedata
@@ -305,7 +306,176 @@ async def _evict_client(acc_id: str) -> None:
                 pass
 
 
-async def run_with_account_failover(feature: str, fn):
+ACTIVITY_LOG_FILE = STATE_DIR / "activity_logs.jsonl"
+_activity_log_lock = threading.Lock()
+_DEFAULT_ACTION_LABELS = {
+    "video": "Tạo Video",
+    "movie": "Tạo Phim",
+    "image": "Tạo Ảnh",
+    "chat": "Chat AI",
+    "script": "Phân tách Kịch bản",
+    "character": "Tạo Nhân vật",
+}
+
+
+def append_activity_log(
+    *,
+    account_id: str,
+    action_type: str,
+    action_label: str,
+    status: str,
+    summary: str = "",
+    project_name: str = "",
+    output_urls: Optional[list[str]] = None,
+    failover_used: bool = False,
+    error: str = "",
+    duration_ms: int = 0,
+) -> None:
+    try:
+        email = get_account_email_fast(account_id) if account_id else ""
+        entry = {
+            "id": uuid.uuid4().hex[:12],
+            "ts": round(time.time(), 3),
+            "created_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "account_id": account_id or "",
+            "account_email": email or account_id or "—",
+            "action_type": action_type or "other",
+            "action_label": action_label or _DEFAULT_ACTION_LABELS.get(action_type, action_type),
+            "status": status,
+            "summary": (summary or "").strip()[:200],
+            "project_name": (project_name or "").strip()[:100],
+            "output_urls": [u for u in (output_urls or []) if isinstance(u, str)][:4],
+            "failover_used": bool(failover_used),
+            "error": (error or "").strip()[:320],
+            "duration_ms": max(0, int(duration_ms)),
+        }
+        line = json.dumps(entry, ensure_ascii=False)
+        with _activity_log_lock:
+            ACTIVITY_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with ACTIVITY_LOG_FILE.open("a", encoding="utf-8") as fh:
+                fh.write(line + "\n")
+    except Exception as exc:
+        logger.debug(f"[ActivityLog] Could not append log entry: {exc}")
+
+
+def read_activity_logs(
+    *,
+    offset: int = 0,
+    limit: int = 25,
+    account_id: str = "",
+    action_type: str = "",
+    status: str = "",
+    q: str = "",
+) -> dict[str, Any]:
+    with _activity_log_lock:
+        if not ACTIVITY_LOG_FILE.exists():
+            raw_lines: list[str] = []
+        else:
+            raw_lines = ACTIVITY_LOG_FILE.read_text(encoding="utf-8", errors="ignore").splitlines()
+
+    all_items: list[dict[str, Any]] = []
+    accounts_map: dict[str, str] = {}
+    total_all = 0
+    success_count = 0
+    failed_count = 0
+
+    for raw in reversed(raw_lines):
+        raw = raw.strip()
+        if not raw:
+            continue
+        try:
+            item = json.loads(raw)
+        except Exception:
+            continue
+        if not isinstance(item, dict):
+            continue
+        total_all += 1
+        st = item.get("status")
+        if st == "success":
+            success_count += 1
+        elif st == "failed":
+            failed_count += 1
+        aid = item.get("account_id") or ""
+        aemail = item.get("account_email") or aid
+        if aid and aid not in accounts_map:
+            accounts_map[aid] = aemail
+        all_items.append(item)
+
+    q_low = (q or "").strip().lower()
+    acc_filter = (account_id or "").strip()
+    type_filter = (action_type or "").strip()
+    status_filter = (status or "").strip()
+
+    filtered: list[dict[str, Any]] = []
+    for item in all_items:
+        if acc_filter and item.get("account_id") != acc_filter and item.get("account_email") != acc_filter:
+            continue
+        if type_filter and item.get("action_type") != type_filter:
+            continue
+        if status_filter and item.get("status") != status_filter:
+            continue
+        if q_low:
+            hay = " ".join([
+                str(item.get("summary") or ""),
+                str(item.get("account_email") or ""),
+                str(item.get("account_id") or ""),
+                str(item.get("action_label") or ""),
+                str(item.get("project_name") or ""),
+                str(item.get("error") or ""),
+            ]).lower()
+            if q_low not in hay:
+                continue
+        filtered.append(item)
+
+    safe_offset = max(0, int(offset))
+    safe_limit = max(1, min(100, int(limit)))
+    page = filtered[safe_offset:safe_offset + safe_limit]
+    total_filtered = len(filtered)
+    accounts_list = [{"id": k, "email": v} for k, v in accounts_map.items()]
+    return {
+        "status": "success",
+        "items": page,
+        "total": total_filtered,
+        "offset": safe_offset,
+        "limit": safe_limit,
+        "has_more": (safe_offset + len(page)) < total_filtered,
+        "accounts": accounts_list,
+        "stats": {
+            "total": total_all,
+            "success": success_count,
+            "failed": failed_count,
+        },
+    }
+
+
+@app.get("/api/logs")
+async def get_activity_logs(
+    offset: int = 0,
+    limit: int = 25,
+    account_id: str = "",
+    action_type: str = "",
+    status: str = "",
+    q: str = "",
+):
+    return read_activity_logs(
+        offset=offset,
+        limit=limit,
+        account_id=account_id,
+        action_type=action_type,
+        status=status,
+        q=q,
+    )
+
+
+@app.delete("/api/logs")
+async def clear_activity_logs():
+    with _activity_log_lock:
+        if ACTIVITY_LOG_FILE.exists():
+            ACTIVITY_LOG_FILE.unlink()
+    return {"status": "success"}
+
+
+async def run_with_account_failover(feature: str, fn, log_context: Optional[dict[str, Any]] = None):
     candidates = get_priority_accounts_for_feature(feature)
     if not candidates:
         raise HTTPException(
@@ -313,9 +483,16 @@ async def run_with_account_failover(feature: str, fn):
             detail="Chưa đăng nhập tài khoản 23zô AI nào. Vui lòng thêm tài khoản trong mục Quản lý Tài khoản.",
         )
 
+    ctx = log_context or {}
+    act_type = ctx.get("action_type") or feature
+    act_label = ctx.get("action_label") or _DEFAULT_ACTION_LABELS.get(act_type, act_type)
+    summary = ctx.get("summary") or ""
+    project_name = ctx.get("project_name") or ""
+
     initial_active = load_accounts_config().get("active_account") or ""
     last_exc: Optional[Exception] = None
     for idx, acc_id in enumerate(candidates):
+        attempt_started = time.monotonic()
         try:
             client = await get_client_for_account(aid := acc_id)
             cfg = load_accounts_config()
@@ -327,6 +504,26 @@ async def run_with_account_failover(feature: str, fn):
                 _auth_status_cache["data"] = None
                 switched_active = True
             result = await fn(client, aid)
+            elapsed_ms = int((time.monotonic() - attempt_started) * 1000)
+            out_urls: list[str] = []
+            if isinstance(result, dict):
+                if isinstance(result.get("videos"), list):
+                    out_urls.extend(result["videos"])
+                if isinstance(result.get("images"), list):
+                    out_urls.extend(result["images"])
+                if isinstance(result.get("image"), dict) and result["image"].get("url"):
+                    out_urls.append(result["image"]["url"])
+            append_activity_log(
+                account_id=aid,
+                action_type=act_type,
+                action_label=act_label,
+                status="success",
+                summary=summary,
+                project_name=project_name,
+                output_urls=out_urls,
+                failover_used=(idx > 0),
+                duration_ms=elapsed_ms,
+            )
             if idx > 0:
                 logger.info(f"[Failover] Feature '{feature}' succeeded with fallback account '{aid}' (attempt #{idx + 1}).")
             if isinstance(result, dict):
@@ -338,6 +535,18 @@ async def run_with_account_failover(feature: str, fn):
             return result
         except Exception as exc:
             last_exc = exc
+            elapsed_ms = int((time.monotonic() - attempt_started) * 1000)
+            append_activity_log(
+                account_id=acc_id,
+                action_type=act_type,
+                action_label=act_label,
+                status="failed",
+                summary=summary,
+                project_name=project_name,
+                failover_used=(idx > 0),
+                error=str(exc),
+                duration_ms=elapsed_ms,
+            )
             logger.warning(f"[Failover] Account '{acc_id}' failed for '{feature}' (attempt {idx + 1}/{len(candidates)}): {exc}")
             await _evict_client(acc_id)
             continue
@@ -2187,7 +2396,18 @@ async def generate_video(data: VideoGenerateModel):
             "errors": result.download_errors,
         }
 
-    return await run_with_account_failover("video", _run_attempt)
+    is_movie_log = (data.output_category == "movies" or bool(data.project_name) or bool(data.project_id))
+    log_ctx = {
+        "action_type": "movie" if is_movie_log else "video",
+        "action_label": (
+            f"Tạo Phim (Cảnh #{data.scene_index})"
+            if is_movie_log and data.scene_index
+            else ("Tạo Phim" if is_movie_log else "Tạo Video")
+        ),
+        "summary": data.prompt.strip()[:180],
+        "project_name": data.project_name or "",
+    }
+    return await run_with_account_failover("video", _run_attempt, log_context=log_ctx)
 
 
 _thumb_semaphore = asyncio.Semaphore(4)
@@ -2403,7 +2623,16 @@ async def generate_image(data: ImageGenerateModel):
             "events_count": len(events),
         }
 
-    return await run_with_account_failover("image", _run_attempt)
+    return await run_with_account_failover(
+        "image",
+        _run_attempt,
+        log_context={
+            "action_type": "image",
+            "action_label": "Tạo Ảnh",
+            "summary": data.prompt.strip()[:180],
+            "project_name": data.project_name or "",
+        },
+    )
 
 
 @app.post("/api/chat")
@@ -2531,7 +2760,15 @@ async def chat_interaction(data: ChatModel):
             "events": len(events),
         }
 
-    return await run_with_account_failover("chat", _run_attempt)
+    return await run_with_account_failover(
+        "chat",
+        _run_attempt,
+        log_context={
+            "action_type": "chat",
+            "action_label": "Chat AI",
+            "summary": data.prompt.strip()[:180],
+        },
+    )
 
 
 @app.get("/api/chat/history")
@@ -3221,7 +3458,15 @@ YÊU CẦU ĐẶC BIỆT:
             detail="MuseAI chưa trả về kịch bản JSON hoàn chỉnh trong thời gian chờ (150s). Vui lòng kiểm tra trạng thái MuseAI và bấm Phân Tích Kịch Bản lại."
         )
 
-    return await run_with_account_failover("script", _run_attempt)
+    return await run_with_account_failover(
+        "script",
+        _run_attempt,
+        log_context={
+            "action_type": "script",
+            "action_label": "Phân tách Kịch bản",
+            "summary": script[:180],
+        },
+    )
 
 
 @app.post("/api/movie/generate_character_portrait")
@@ -3288,7 +3533,15 @@ async def generate_character_portrait_endpoint(data: CharacterPortraitRequest):
             }
         }
 
-    return await run_with_account_failover("image", _run_attempt)
+    return await run_with_account_failover(
+        "image",
+        _run_attempt,
+        log_context={
+            "action_type": "character",
+            "action_label": f"Tạo Nhân vật ({data.character_name.strip()})",
+            "summary": (data.character_description or "").strip()[:180],
+        },
+    )
 
 
 def _get_workspace_output_files() -> list[Path]:

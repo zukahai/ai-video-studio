@@ -42,6 +42,7 @@ const TAB_TITLES = {
   chat: 'Trợ lý Đạo diễn & Biên kịch 23zô AI',
   gallery: 'Thư viện Tác phẩm 23zô AI',
   telegram: 'Thông báo Telegram Bot',
+  log: 'Nhật ký Hoạt động (Log)',
   characters: 'Kho & Quản lý Nhân vật',
   accounts: 'Quản lý Tài khoản MuseAI & Thứ tự Ưu tiên',
 };
@@ -452,6 +453,9 @@ function switchTab(tabId, syncUrl = true) {
   }
   if (tabId === 'telegram') {
     loadTelegramSettings();
+  }
+  if (tabId === 'log') {
+    loadActivityLogs(true);
   }
   if (tabId === 'characters') {
     loadCharacterLibrary();
@@ -7885,3 +7889,248 @@ async function refreshActiveAccountMascot(force = false) {
     }
   });
 })();
+
+// ==================== ACTIVITY LOG TAB (LAZY SCROLL + FILTERS) ====================
+const _logState = {
+  items: [],
+  offset: 0,
+  limit: 25,
+  total: 0,
+  hasMore: false,
+  loading: false,
+  observer: null,
+  searchTimer: null,
+};
+
+function _formatLogTimestamp(ts, isoStr) {
+  try {
+    const dt = typeof ts === 'number' && ts > 0 ? new Date(ts * 1000) : new Date(isoStr);
+    if (!isNaN(dt.getTime())) {
+      return dt.toLocaleString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+    }
+  } catch (_) {}
+  return isoStr || '—';
+}
+
+function _formatLogDuration(ms) {
+  const n = Number(ms) || 0;
+  if (n <= 0) return '';
+  if (n < 1000) return `${n}ms`;
+  return `${(n / 1000).toFixed(1)}s`;
+}
+
+function initLogLazyScroll() {
+  const container = document.getElementById('log-list-scroll');
+  const sentinel = document.getElementById('log-scroll-sentinel');
+  if (!container || !sentinel || _logState.observer) return;
+
+  if ('IntersectionObserver' in window) {
+    _logState.observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && _logState.hasMore && !_logState.loading) {
+            loadActivityLogs(false);
+          }
+        }
+      },
+      { root: container, rootMargin: '120px', threshold: 0.05 }
+    );
+    _logState.observer.observe(sentinel);
+  }
+
+  container.addEventListener('scroll', () => {
+    if (!_logState.hasMore || _logState.loading) return;
+    if (container.scrollTop + container.clientHeight >= container.scrollHeight - 100) {
+      loadActivityLogs(false);
+    }
+  });
+}
+
+function onLogFilterChange() {
+  loadActivityLogs(true);
+}
+
+function onLogFilterSearchInput() {
+  if (_logState.searchTimer) clearTimeout(_logState.searchTimer);
+  _logState.searchTimer = setTimeout(() => {
+    loadActivityLogs(true);
+  }, 260);
+}
+
+function _updateLogAccountOptions(accounts) {
+  const sel = document.getElementById('log-filter-account');
+  if (!sel || !Array.isArray(accounts)) return;
+  const current = sel.value;
+  const options = ['<option value="">Tất cả tài khoản</option>'];
+  for (const acc of accounts) {
+    const id = escapeHtml(acc.id || '');
+    const email = escapeHtml(acc.email || acc.id || '');
+    if (!id) continue;
+    options.push(`<option value="${id}">${email}</option>`);
+  }
+  sel.innerHTML = options.join('');
+  if (current) sel.value = current;
+}
+
+function _renderLogItemHtml(item) {
+  const isOk = item.status === 'success';
+  const statusBadge = isOk
+    ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold whitespace-nowrap">✓ Hoàn thành</span>'
+    : '<span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30 font-semibold whitespace-nowrap">✕ Thất bại</span>';
+  const failoverBadge = item.failover_used
+    ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold whitespace-nowrap">Đổi acc dự phòng</span>'
+    : '';
+  const durStr = _formatLogDuration(item.duration_ms);
+  const timeStr = _formatLogTimestamp(item.ts, item.created_at);
+  const accLabel = escapeHtml(item.account_email || item.account_id || '—');
+  const actLabel = escapeHtml(item.action_label || item.action_type || 'Tác vụ');
+  const projHtml = item.project_name
+    ? `<span class="text-[10px] px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 truncate max-w-[180px]" title="${escapeHtml(item.project_name)}">${escapeHtml(item.project_name)}</span>`
+    : '';
+  const summaryHtml = item.summary
+    ? `<div class="text-xs text-slate-300 mt-1.5 line-clamp-2 break-words">${escapeHtml(item.summary)}</div>`
+    : '';
+  const errorHtml = (!isOk && item.error)
+    ? `<div class="mt-1.5 px-2.5 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/25 text-[11px] text-rose-300 break-words">${escapeHtml(item.error)}</div>`
+    : '';
+
+  let mediaHtml = '';
+  if (Array.isArray(item.output_urls) && item.output_urls.length > 0) {
+    const links = item.output_urls.slice(0, 3).map((u, i) => {
+      const safeUrl = escapeHtml(u);
+      const isVid = /\.mp4(\?|$)/i.test(u);
+      return `<a href="${safeUrl}" target="_blank" class="text-[11px] px-2 py-1 rounded bg-[#2d2d2d] hover:bg-[#37373d] border border-[#3c3c3c] text-sky-300 inline-flex items-center space-x-1 transition"><span>${isVid ? '▶ Video' : '🖼 Ảnh'} #${i + 1}</span></a>`;
+    }).join('');
+    mediaHtml = `<div class="mt-2 flex flex-wrap gap-1.5">${links}</div>`;
+  }
+
+  return `
+    <div class="p-3 rounded-xl bg-[#1e1e1e] border ${isOk ? 'border-[#333333]' : 'border-rose-500/30'} hover:border-[#444444] transition">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+          ${statusBadge}
+          ${failoverBadge}
+          <span class="text-[11px] font-bold text-white px-2 py-0.5 rounded bg-[#252526] border border-[#3c3c3c]">${actLabel}</span>
+          <span class="text-[11px] text-cyan-300 font-semibold truncate max-w-[220px]" title="${accLabel}">${accLabel}</span>
+          ${projHtml}
+        </div>
+        <div class="flex items-center gap-2 text-[10px] text-slate-400 shrink-0">
+          ${durStr ? `<span class="px-1.5 py-0.5 rounded bg-[#252526] text-slate-300">${durStr}</span>` : ''}
+          <span>${escapeHtml(timeStr)}</span>
+        </div>
+      </div>
+      ${summaryHtml}
+      ${errorHtml}
+      ${mediaHtml}
+    </div>
+  `;
+}
+
+function renderActivityLogList(append = false, newItems = []) {
+  const box = document.getElementById('log-list-items');
+  const sentinel = document.getElementById('log-scroll-sentinel');
+  if (!box) return;
+
+  if (!append) {
+    if (_logState.items.length === 0) {
+      box.innerHTML = `
+        <div class="py-12 text-center text-xs text-slate-400 border border-dashed border-[#3c3c3c] rounded-xl">
+          Chưa có bản ghi log nào phù hợp bộ lọc.
+        </div>`;
+    } else {
+      box.innerHTML = _logState.items.map(_renderLogItemHtml).join('');
+    }
+  } else if (newItems.length > 0) {
+    box.insertAdjacentHTML('beforeend', newItems.map(_renderLogItemHtml).join(''));
+  }
+
+  if (sentinel) {
+    if (_logState.loading) {
+      sentinel.innerText = 'Đang tải thêm log...';
+    } else if (_logState.hasMore) {
+      sentinel.innerText = `Cuộn xuống để tải thêm (${_logState.items.length}/${_logState.total})...`;
+    } else if (_logState.total > 0) {
+      sentinel.innerText = `Đã hiển thị toàn bộ ${_logState.total} bản ghi`;
+    } else {
+      sentinel.innerText = '';
+    }
+  }
+}
+
+async function loadActivityLogs(reset = false) {
+  initLogLazyScroll();
+  if (_logState.loading) return;
+  if (reset) {
+    _logState.offset = 0;
+    _logState.items = [];
+    _logState.hasMore = false;
+  }
+
+  _logState.loading = true;
+  const sentinel = document.getElementById('log-scroll-sentinel');
+  if (sentinel) sentinel.innerText = 'Đang tải log...';
+
+  const q = document.getElementById('log-filter-q')?.value || '';
+  const accountId = document.getElementById('log-filter-account')?.value || '';
+  const actionType = document.getElementById('log-filter-type')?.value || '';
+  const status = document.getElementById('log-filter-status')?.value || '';
+
+  const params = new URLSearchParams({
+    offset: String(_logState.offset),
+    limit: String(_logState.limit),
+  });
+  if (q.trim()) params.set('q', q.trim());
+  if (accountId) params.set('account_id', accountId);
+  if (actionType) params.set('action_type', actionType);
+  if (status) params.set('status', status);
+
+  try {
+    const res = await fetch(`/api/logs?${params.toString()}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Không thể tải log.');
+
+    const incoming = Array.isArray(data.items) ? data.items : [];
+    if (reset) {
+      _logState.items = incoming;
+    } else {
+      _logState.items = _logState.items.concat(incoming);
+    }
+    _logState.offset = _logState.items.length;
+    _logState.total = Number(data.total) || 0;
+    _logState.hasMore = Boolean(data.has_more);
+
+    if (data.stats) {
+      const elTotal = document.getElementById('log-stat-total');
+      const elOk = document.getElementById('log-stat-success');
+      const elFail = document.getElementById('log-stat-failed');
+      if (elTotal) elTotal.innerText = `Tổng: ${data.stats.total || 0}`;
+      if (elOk) elOk.innerText = `Hoàn thành: ${data.stats.success || 0}`;
+      if (elFail) elFail.innerText = `Thất bại: ${data.stats.failed || 0}`;
+    }
+    _updateLogAccountOptions(data.accounts);
+
+    _logState.loading = false;
+    renderActivityLogList(!reset, incoming);
+  } catch (err) {
+    _logState.loading = false;
+    if (sentinel) sentinel.innerText = 'Lỗi tải log: ' + (err.message || err);
+  }
+}
+
+async function clearActivityLogs() {
+  try {
+    const res = await fetch('/api/logs', { method: 'DELETE' });
+    if (!res.ok) throw new Error('Không thể xóa log.');
+    if (typeof showToast === 'function') showToast('Đã xóa toàn bộ log lịch sử.', 'success');
+    loadActivityLogs(true);
+  } catch (err) {
+    if (typeof showToast === 'function') showToast(err.message || 'Lỗi xóa log', 'error');
+  }
+}
