@@ -7577,12 +7577,18 @@ function renderAccountPriorities() {
   const accMap = {};
   (_accountsState.accounts || []).forEach(a => { accMap[a.id] = a; });
   const features = _accountsState.features || [];
+  const showSecretAvatar = isSecretAvatarEnabled();
 
   grid.innerHTML = features.map(feat => {
     const order = (_accountsState.priorities && _accountsState.priorities[feat.id]) || [];
     const itemsHtml = order.length
       ? order.map((aid, idx) => {
           const acc = accMap[aid] || { id: aid, email: aid, vip_tokens: '—' };
+          const avatarUrl = acc.avatar_url || '/static/mascot/hatch.jpg';
+          const avatarVideoUrl = acc.avatar_video_url || '/static/mascot/hatch.mp4';
+          const avatarHtml = showSecretAvatar
+            ? `<video src="${escapeHtml(avatarVideoUrl)}" poster="${escapeHtml(avatarUrl)}" autoplay loop muted playsinline class="w-7 h-7 rounded-full object-cover bg-white ring-1 ring-white/20 shrink-0" title="${escapeHtml(acc.avatar_name || acc.email)}"></video>`
+            : '';
           return `
             <div draggable="true"
                  data-feature="${escapeHtml(feat.id)}"
@@ -7596,6 +7602,7 @@ function renderAccountPriorities() {
               <div class="flex items-center space-x-2.5 min-w-0">
                 <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-500 shrink-0"></i>
                 <span class="w-6 h-6 rounded-md text-[11px] font-bold flex items-center justify-center shrink-0 ${idx === 0 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-[#2d2d2d] text-slate-300 border border-[#3c3c3c]'}">#${idx + 1}</span>
+                ${avatarHtml}
                 <div class="min-w-0">
                   <div class="text-xs font-semibold text-slate-100 truncate">${escapeHtml(acc.email)}</div>
                   <div class="text-[10px] text-slate-400">Token: ${escapeHtml(acc.vip_tokens || '—')}</div>
@@ -7871,6 +7878,7 @@ function setSecretAvatarEnabled(enabled) {
   } catch (_) {}
   applySecretAvatarVisibility();
   renderAccountsList();
+  renderAccountPriorities();
   showToast(
     enabled
       ? 'Đã bật hiển thị Avatar Muse!'
