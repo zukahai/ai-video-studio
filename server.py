@@ -2386,12 +2386,16 @@ async def chat_interaction(data: ChatModel):
 
         target_session_id = data.session_id or await ensure_feature_session(client, "chat")
         baseline_ids: set[str] = set()
+        baseline_len = 0
         try:
-            before_hist = await client.history(session_id=target_session_id, limit=20)
-            chat_events = (before_hist.get("result") or {}).get("chat_events") or []
-            for ev in chat_events:
-                if isinstance(ev, dict) and ev.get("message_id"):
-                    baseline_ids.add(ev["message_id"])
+            before_hist = await client.history(session_id=target_session_id, limit=50)
+            before_events = (before_hist.get("result") or {}).get("chat_events") or []
+            baseline_len = len(before_events)
+            for ev in before_events:
+                if isinstance(ev, dict):
+                    for id_key in ("message_id", "event_id", "id"):
+                        if ev.get(id_key):
+                            baseline_ids.add(str(ev[id_key]))
         except Exception:
             pass
 
@@ -2414,14 +2418,28 @@ async def chat_interaction(data: ChatModel):
         deadline = time.monotonic() + 90.0
 
         while time.monotonic() < deadline:
-            hist = await client.history(session_id=session_id, limit=30)
+            hist = await client.history(session_id=session_id, limit=50)
             chat_events = (hist.get("result") or {}).get("chat_events") or []
-            for ev in chat_events:
+            new_events = []
+            for idx, ev in enumerate(chat_events):
                 if not isinstance(ev, dict):
                     continue
-                msg_id = ev.get("message_id", "")
-                if msg_id and msg_id in baseline_ids:
+                ev_keys = [str(ev.get(k)) for k in ("message_id", "event_id", "id") if ev.get(k)]
+                if ev_keys and any(k in baseline_ids for k in ev_keys):
                     continue
+                if not ev_keys and idx < baseline_len:
+                    continue
+                new_events.append(ev)
+
+            # Restrict strictly to events after the newly posted user message if present
+            last_user_idx = -1
+            for i, ev in enumerate(new_events):
+                if ev.get("event_name") == "message.user":
+                    last_user_idx = i
+            if last_user_idx >= 0:
+                new_events = new_events[last_user_idx + 1:]
+
+            for ev in new_events:
                 ev_name = ev.get("event_name")
                 if ev_name == "message.assistant":
                     text = ev.get("display_text") or (ev.get("payload") or {}).get("content") or ""
@@ -2443,7 +2461,7 @@ async def chat_interaction(data: ChatModel):
                 if media_refs:
                     break
                 elapsed_after_reply = time.monotonic() - (reply_seen_at or time.monotonic())
-                mentions_media = any(k in reply_text.lower() for k in ("ảnh", "hình", "video", "clip", "chibi"))
+                mentions_media = any(k in reply_text.lower() for k in ("ảnh", "hình", "video", "clip", "chibi", "mẫu", "avatar", "avata"))
                 grace = 15.0 if mentions_media else 2.5
                 if elapsed_after_reply >= grace:
                     break

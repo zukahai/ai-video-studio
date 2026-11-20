@@ -1931,12 +1931,29 @@ function formatChatMarkdown(rawText) {
   return html;
 }
 
+function selectChatImageOption(index, imageUrl) {
+  const input = document.getElementById('chat-input');
+  if (!input) return;
+  input.value = `Mình chọn mẫu số ${index + 1} nhé!`;
+  sendChatMessage();
+}
+
 function renderChatAssistantBubble(container, replyText, images = [], videos = []) {
+  const hasMultipleChoices = images.length >= 2;
   const imgsHtml = images.length > 0
-    ? `<div class="flex flex-wrap gap-2 pt-1">${images.map(u => `
-        <div class="relative group rounded-xl overflow-hidden border border-white/10 bg-black/20">
-          <img src="${u}" onclick="openImagePreviewModal('${u}', 'Ảnh từ 23zô AI Chat')" class="max-h-64 rounded-xl object-contain cursor-pointer">
-          <a href="${u}" download class="absolute bottom-1.5 right-1.5 px-2 py-1 rounded-md bg-black/75 text-white text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition">Tải về</a>
+    ? `<div class="grid ${hasMultipleChoices ? 'grid-cols-2' : 'grid-cols-1'} gap-2.5 pt-1">${images.map((u, idx) => `
+        <div class="relative group rounded-xl overflow-hidden border border-white/10 bg-black/20 flex flex-col">
+          <div class="relative">
+            <img src="${u}" onclick="openImagePreviewModal('${u}', 'Ảnh từ 23zô AI Chat')" class="w-full max-h-64 rounded-t-xl object-contain bg-white/5 cursor-pointer">
+            ${hasMultipleChoices ? `<span class="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/75 text-white text-[11px] font-bold border border-white/20">#${idx + 1}</span>` : ''}
+            <a href="${u}" download class="absolute bottom-1.5 right-1.5 px-2 py-1 rounded-md bg-black/75 text-white text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition">Tải về</a>
+          </div>
+          ${hasMultipleChoices ? `
+            <button type="button" onclick="selectChatImageOption(${idx}, '${escapeHtml(u)}')" class="w-full py-1.5 px-2.5 bg-[#0078d4]/20 hover:bg-[#0078d4] text-[#38bdf8] hover:text-white text-xs font-bold border-t border-white/10 transition flex items-center justify-center space-x-1 cursor-pointer">
+              <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+              <span>Chọn mẫu #${idx + 1}</span>
+            </button>
+          ` : ''}
         </div>
       `).join('')}</div>`
     : '';
