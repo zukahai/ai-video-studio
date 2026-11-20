@@ -311,20 +311,20 @@ async def run_with_account_failover(feature: str, fn):
     last_exc: Optional[Exception] = None
     for idx, acc_id in enumerate(candidates):
         try:
-            client = await get_client_for_account(acc_id)
-            result = await fn(client, acc_id)
+            client = await get_client_for_account(aid := acc_id)
             cfg = load_accounts_config()
             switched_active = False
-            if cfg.get("active_account") != acc_id:
-                cfg["active_account"] = acc_id
+            if cfg.get("active_account") != aid:
+                cfg["active_account"] = aid
                 save_accounts_config(cfg)
                 invalidate_subscription_cache()
                 _auth_status_cache["data"] = None
                 switched_active = True
+            result = await fn(client, aid)
             if idx > 0:
-                logger.info(f"[Failover] Feature '{feature}' succeeded with fallback account '{acc_id}' (attempt #{idx + 1}).")
+                logger.info(f"[Failover] Feature '{feature}' succeeded with fallback account '{aid}' (attempt #{idx + 1}).")
             if isinstance(result, dict):
-                result.setdefault("account_used", acc_id)
+                result.setdefault("account_used", aid)
                 if switched_active:
                     result["active_account_switched"] = True
                 if idx > 0:

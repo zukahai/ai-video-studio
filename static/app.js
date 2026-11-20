@@ -7779,20 +7779,27 @@ async function refreshActiveAccountMascot(force = false) {
       _mascotCelebrateTimer = null;
     }
     setMuseMascotState(jobMode);
+    setTimeout(() => {
+      try {
+        checkAuthStatus(true);
+        if (typeof loadAccountsManager === 'function') loadAccountsManager(true);
+        if (typeof isSecretAvatarEnabled === 'function' && isSecretAvatarEnabled()) {
+          refreshActiveAccountMascot(true);
+        }
+      } catch (_) {}
+    }, 500);
 
     let ok = false;
     try {
       const resp = await origFetch(input, init);
       ok = resp && resp.ok;
-      if (ok) {
-        try {
-          checkAuthStatus(true);
-          if (typeof loadAccountsManager === 'function') loadAccountsManager(false);
-          if (typeof isSecretAvatarEnabled === 'function' && isSecretAvatarEnabled()) {
-            refreshActiveAccountMascot(true);
-          }
-        } catch (_) {}
-      }
+      try {
+        checkAuthStatus(true);
+        if (typeof loadAccountsManager === 'function') loadAccountsManager(true);
+        if (typeof isSecretAvatarEnabled === 'function' && isSecretAvatarEnabled()) {
+          refreshActiveAccountMascot(true);
+        }
+      } catch (_) {}
       return resp;
     } finally {
       _mascotActiveJobs = Math.max(0, _mascotActiveJobs - 1);
