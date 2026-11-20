@@ -329,14 +329,8 @@ function restoreFromUrlParams() {
     const params = new URLSearchParams(window.location.search);
     const hash = (window.location.hash || '').replace('#', '').trim();
     
-    // 1. Tab parameter
+    // 1. Tab parameter (only from URL param/hash, default to dashboard/Home without last-tab cache)
     let targetTab = params.get('tab') || hash;
-    if (!targetTab || !TAB_TITLES[targetTab]) {
-      const savedTab = localStorage.getItem('h_ai_last_tab') || localStorage.getItem('haiai_last_tab');
-      if (savedTab && TAB_TITLES[savedTab]) {
-        targetTab = savedTab;
-      }
-    }
     if (!targetTab || !TAB_TITLES[targetTab]) {
       targetTab = 'dashboard';
     }

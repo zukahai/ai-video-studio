@@ -525,8 +525,8 @@
     <div>
       <div class="sidebar-brand-row min-h-[76px] py-2 px-3 flex items-center justify-between border-b border-white/[0.06]">
         <div class="flex items-center space-x-2.5 min-w-0">
-          <img id="sidebar-brand-logo-img" src="/static/logo.png?v=20261118_1" alt="23zô AI Logo" class="sidebar-brand-logo h-10 w-10 object-contain bg-white rounded-xl p-0.5 border border-sky-400/30 shadow-lg shadow-sky-500/20 shrink-0">
-          <div id="sidebar-mascot-wrap" class="hidden relative shrink-0 cursor-pointer" title="23zô AI Mascot">
+          <img id="sidebar-brand-logo-img" onclick="switchTab('dashboard')" src="/static/logo.png?v=20261118_1" alt="23zô AI Logo" title="Về trang chủ (Home)" class="sidebar-brand-logo h-10 w-10 object-contain bg-white rounded-xl p-0.5 border border-sky-400/30 shadow-lg shadow-sky-500/20 shrink-0 cursor-pointer">
+          <div id="sidebar-mascot-wrap" onclick="switchTab('dashboard')" class="hidden relative shrink-0 cursor-pointer" title="Về trang chủ (Home)">
             <video id="sidebar-mascot-video" poster="/static/mascot/hatch.jpg" autoplay loop muted playsinline class="sidebar-brand-logo h-[60px] w-[60px] rounded-2xl object-cover bg-white border border-sky-400/30 shadow-lg shadow-sky-500/20"></video>
           </div>
           <div class="min-w-0 sidebar-hide-collapsed">
@@ -2594,7 +2594,7 @@
     </div>
   </div>
 
-<script src="/static/app.js?v=20261120_16"></script>
+<script src="/static/app.js?v=20261120_17"></script>
   <script>
     lucide.createIcons();
   </script>
