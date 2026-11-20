@@ -2206,6 +2206,7 @@ async def _inspect_single_account(acc_id: str, active_id: str, live: bool = Fals
 
     avatar_name = cached.get("avatar_name", "")
     avatar_url = cached.get("avatar_url", "/static/mascot/hatch.jpg")
+    avatar_video_url = cached.get("avatar_video_url", "/static/mascot/hatch.mp4")
     av_meta_file = _get_account_avatar_dir(acc_id) / "meta.json"
     if av_meta_file.exists():
         try:
@@ -2214,6 +2215,7 @@ async def _inspect_single_account(acc_id: str, active_id: str, live: bool = Fals
                 built = _build_avatar_payload_from_meta(acc_id, av_meta)
                 avatar_name = built.get("name") or avatar_name
                 avatar_url = built.get("poster") or avatar_url
+                avatar_video_url = (built.get("videos") or {}).get("idle") or avatar_video_url
         except Exception:
             pass
 
@@ -2233,6 +2235,7 @@ async def _inspect_single_account(acc_id: str, active_id: str, live: bool = Fals
         "free_label": cached.get("free_label", ""),
         "avatar_name": avatar_name,
         "avatar_url": avatar_url,
+        "avatar_video_url": avatar_video_url,
     }
     if live and info["authenticated"]:
         auth = MuseAuth(state_dir=acc_dir)
@@ -2255,6 +2258,7 @@ async def _inspect_single_account(acc_id: str, active_id: str, live: bool = Fals
                 av_data = await sync_account_avatar(acc_id, force=True)
                 info["avatar_name"] = av_data.get("name") or ""
                 info["avatar_url"] = av_data.get("poster") or "/static/mascot/hatch.jpg"
+                info["avatar_video_url"] = (av_data.get("videos") or {}).get("idle") or "/static/mascot/hatch.mp4"
             except Exception as av_exc:
                 logger.debug(f"[AvatarSync] live inspect skipped for {acc_id}: {av_exc}")
             _account_quota_cache[acc_id] = dict(info)

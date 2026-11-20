@@ -7509,6 +7509,7 @@ function renderAccountsList() {
     const grad = avatarGradients[idx % avatarGradients.length];
     const showSecretAvatar = isSecretAvatarEnabled();
     const avatarUrl = acc.avatar_url || '/static/mascot/hatch.jpg';
+    const avatarVideoUrl = acc.avatar_video_url || '/static/mascot/hatch.mp4';
     const avatarNameBelowHtml = (showSecretAvatar && acc.avatar_name)
       ? `<span class="text-[10px] font-semibold text-slate-300 leading-tight text-center max-w-[56px] truncate" title="${escapeHtml(acc.avatar_name)}">${escapeHtml(acc.avatar_name)}</span>`
       : '';
@@ -7522,7 +7523,7 @@ function renderAccountsList() {
           <div class="flex items-center space-x-2.5 min-w-0">
             ${showSecretAvatar ? `
               <div class="flex flex-col items-center space-y-1 shrink-0">
-                <img src="${escapeHtml(avatarUrl)}" onerror="this.onerror=null;this.src='/static/mascot/hatch.jpg'" alt="${escapeHtml(acc.avatar_name || acc.email)}" class="w-10 h-10 rounded-full object-cover bg-white ring-2 ring-white/15">
+                <video src="${escapeHtml(avatarVideoUrl)}" poster="${escapeHtml(avatarUrl)}" autoplay loop muted playsinline class="w-10 h-10 rounded-full object-cover bg-white ring-2 ring-white/15"></video>
                 ${avatarNameBelowHtml}
               </div>
             ` : ''}
