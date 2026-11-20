@@ -769,10 +769,133 @@ async function requestOtp() {
   }
 }
 
+function _hideAllAuthSteps() {
+  ['otp-step-1', 'otp-step-2', 'auth-password-step', 'auth-2fa-select-step', 'auth-2fa-code-step'].forEach(id => {
+    document.getElementById(id)?.classList.add('hidden');
+  });
+}
+
+let _authTwoFactorMethods = [];
+let _authSelected2faMethod = null;
+
 function backToStep1() {
-  document.getElementById('otp-step-1').classList.remove('hidden');
-  document.getElementById('otp-step-2').classList.add('hidden');
+  _hideAllAuthSteps();
+  document.getElementById('otp-step-1')?.classList.remove('hidden');
   hideModalMsg();
+}
+
+function switchToPasswordLogin() {
+  _hideAllAuthSteps();
+  document.getElementById('auth-password-step')?.classList.remove('hidden');
+  hideModalMsg();
+  document.getElementById('auth-password-input')?.focus();
+}
+
+function switchToOtpLogin() {
+  _hideAllAuthSteps();
+  document.getElementById('otp-step-2')?.classList.remove('hidden');
+  hideModalMsg();
+  document.getElementById('auth-otp-input')?.focus();
+}
+
+function toggleAuthPasswordVisibility() {
+  const inp = document.getElementById('auth-password-input');
+  if (!inp) return;
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+function onAuthLoginSuccess() {
+  showModalMsg('Kết nối 23zô AI thành công!', false);
+  setTimeout(() => {
+    closeAuthModal();
+    initThemeSystem();
+    initWorkspaces();
+    initChatInputEnhancements();
+    checkBrowserVpnUsa(false);
+    checkAuthStatus(true);
+    refreshActiveAccountMascot(true);
+    loadAccountsManager(true);
+  }, 900);
+}
+
+function showTwoFactorSelectStep(methods) {
+  _authTwoFactorMethods = Array.isArray(methods) ? methods : [];
+  _hideAllAuthSteps();
+  const listEl = document.getElementById('auth-2fa-methods-list');
+  if (listEl) {
+    if (_authTwoFactorMethods.length === 0) {
+      listEl.innerHTML = '<div class="p-3 text-xs text-slate-400">Không tìm thấy phương thức xác thực 2FA khả dụng.</div>';
+    } else {
+      listEl.innerHTML = _authTwoFactorMethods.map((m, idx) => {
+        const mid = escapeHtml(m.method_id || '');
+        const label = escapeHtml(m.label || m.method_type || 'Ứng dụng xác thực');
+        return `
+          <label class="flex items-center justify-between px-3.5 py-3 hover:bg-white/[0.04] cursor-pointer transition">
+            <span class="text-xs font-medium text-slate-200">${label}</span>
+            <input type="radio" name="auth-2fa-method" value="${mid}" ${idx === 0 ? 'checked' : ''} class="accent-sky-500 w-4 h-4 cursor-pointer">
+          </label>`;
+      }).join('');
+    }
+  }
+  document.getElementById('auth-2fa-select-step')?.classList.remove('hidden');
+  hideModalMsg();
+}
+
+async function proceedTwoFactorMethod() {
+  const checked = document.querySelector('input[name="auth-2fa-method"]:checked');
+  const methodId = checked ? checked.value : (_authTwoFactorMethods[0]?.method_id || '');
+  const methodObj = _authTwoFactorMethods.find(m => m.method_id === methodId) || _authTwoFactorMethods[0];
+  if (!methodObj) {
+    showModalMsg('Vui lòng chọn một phương thức xác thực.');
+    return;
+  }
+  _authSelected2faMethod = methodObj;
+
+  if (methodObj.method_type === 'SMS') {
+    const btn = document.getElementById('btn-2fa-select-next');
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span><span>Đang gửi mã...</span>`;
+    try {
+      const res = await fetch('/api/auth/two-factor/send-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method_id: methodObj.method_id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Không thể gửi mã SMS.');
+    } catch (err) {
+      showModalMsg(err.message);
+      btn.disabled = false;
+      btn.innerHTML = orig;
+      return;
+    }
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+
+  _hideAllAuthSteps();
+  const titleEl = document.getElementById('auth-2fa-code-title');
+  const descEl = document.getElementById('auth-2fa-code-desc');
+  const inpEl = document.getElementById('auth-2fa-code-input');
+  if (methodObj.method_type === 'RECOVERY_CODES') {
+    if (titleEl) titleEl.innerText = 'Nhập mã khôi phục';
+    if (descEl) descEl.innerText = 'Nhập một trong các mã khôi phục 2FA đã lưu của tài khoản Meta.';
+  } else if (methodObj.method_type === 'SMS') {
+    if (titleEl) titleEl.innerText = 'Nhập mã xác nhận SMS';
+    if (descEl) descEl.innerText = `Nhập mã xác thực gồm ${methodObj.code_length || 6} chữ số đã gửi về số điện thoại của bạn.`;
+  } else {
+    if (titleEl) titleEl.innerText = 'Đi đến ứng dụng xác thực';
+    if (descEl) descEl.innerText = `Nhập mã gồm ${methodObj.code_length || 6} chữ số cho tài khoản này từ ứng dụng xác thực 2 yếu tố (như Duo Mobile hoặc Google Authenticator).`;
+  }
+  if (inpEl) inpEl.value = '';
+  document.getElementById('auth-2fa-code-step')?.classList.remove('hidden');
+  hideModalMsg();
+  inpEl?.focus();
+}
+
+function backToTwoFactorSelect() {
+  showTwoFactorSelectStep(_authTwoFactorMethods);
 }
 
 async function verifyOtp() {
@@ -797,17 +920,81 @@ async function verifyOtp() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Xác nhận OTP thất bại.');
 
-    showModalMsg('Kết nối 23zô AI thành công!', false);
-    setTimeout(() => {
-      closeAuthModal();
-      initThemeSystem();
-  initWorkspaces();
-  initChatInputEnhancements();
-  checkBrowserVpnUsa(false);
-  checkAuthStatus(true);
-  refreshActiveAccountMascot(true);
-  loadAccountsManager(true);
-    }, 1000);
+    if (data.status === 'two_factor_required') {
+      showTwoFactorSelectStep(data.methods || []);
+      return;
+    }
+    onAuthLoginSuccess();
+  } catch (err) {
+    showModalMsg(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+}
+
+async function verifyPasswordLogin() {
+  const pwd = document.getElementById('auth-password-input')?.value || '';
+  if (!pwd) {
+    showModalMsg('Vui lòng nhập mật khẩu.');
+    return;
+  }
+
+  const btn = document.getElementById('btn-verify-password');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `<span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span><span>Đang đăng nhập...</span>`;
+  hideModalMsg();
+
+  try {
+    const res = await fetch('/api/auth/verify-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pwd }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Đăng nhập bằng mật khẩu thất bại.');
+
+    if (data.status === 'two_factor_required') {
+      showTwoFactorSelectStep(data.methods || []);
+      return;
+    }
+    onAuthLoginSuccess();
+  } catch (err) {
+    showModalMsg(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+}
+
+async function verifyTwoFactorCode() {
+  const code = (document.getElementById('auth-2fa-code-input')?.value || '').trim();
+  if (!code) {
+    showModalMsg('Vui lòng nhập mã xác thực 2FA.');
+    return;
+  }
+  const methodId = _authSelected2faMethod?.method_id || '';
+  const btn = document.getElementById('btn-verify-2fa');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `<span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span><span>Đang xác thực...</span>`;
+  hideModalMsg();
+
+  try {
+    const res = await fetch('/api/auth/verify-two-factor', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ method_id: methodId, code }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Xác thực 2FA thất bại.');
+
+    if (data.status === 'two_factor_required') {
+      showTwoFactorSelectStep(data.methods || []);
+      return;
+    }
+    onAuthLoginSuccess();
   } catch (err) {
     showModalMsg(err.message);
   } finally {

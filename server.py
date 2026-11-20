@@ -70,6 +70,19 @@ class VerifyOtpModel(BaseModel):
     otp_code: str
 
 
+class VerifyPasswordModel(BaseModel):
+    password: str
+
+
+class TwoFactorSendModel(BaseModel):
+    method_id: str
+
+
+class TwoFactorVerifyModel(BaseModel):
+    method_id: str
+    code: str
+
+
 class VideoGenerateModel(BaseModel):
     prompt: str
     dialogue: Optional[str] = None
@@ -1807,6 +1820,7 @@ async def request_otp(data: RequestOtpModel):
         return {
             "status": "success",
             "message": f"Mã OTP đã được gửi về email {email}. Vui lòng kiểm tra hộp thư!",
+            "password_login_available": bool(res.get("password_login_available", True) and auth.password_encryption),
             "details": res,
         }
     except Exception as exc:
@@ -1817,9 +1831,49 @@ async def request_otp(data: RequestOtpModel):
         )
 
 
+async def _finalize_pending_login(auth: MuseAuth, email_hint: Optional[str]) -> dict[str, Any]:
+    await auth.save_account()
+    check = await auth.auth_check()
+    if check.get("ok") is not True:
+        raise MuseAuthError(f"Xác thực tài khoản thất bại: {check}")
+    await auth.save_cookies()
+
+    email_str = (email_hint or "").strip() or str(check.get("viewer_id") or "account")
+    acc_id = _safe_account_id(email_str)
+    dest_dir = get_account_state_dir(acc_id)
+    for fname in ("cookies.json", "device.json"):
+        src = PENDING_LOGIN_DIR / fname
+        if src.exists():
+            shutil.copy2(src, dest_dir / fname)
+    (dest_dir / "email.txt").write_text(email_str, encoding="utf-8")
+
+    await _evict_client(acc_id)
+    cfg = load_accounts_config()
+    cfg["active_account"] = acc_id
+    for fid in ACCOUNT_FEATURE_IDS:
+        if acc_id not in cfg["priorities"].get(fid, []):
+            cfg["priorities"].setdefault(fid, []).append(acc_id)
+    save_accounts_config(cfg)
+    invalidate_subscription_cache()
+    _auth_status_cache["data"] = None
+
+    try:
+        new_client = await get_client_for_account(acc_id)
+        await ensure_all_feature_sessions(new_client)
+    except Exception as setup_exc:
+        logger.warning(f"[FeatureThreads] Post-login thread setup skipped: {setup_exc}")
+
+    return {
+        "status": "success",
+        "message": f"Đăng nhập tài khoản {email_str} thành công! Hệ thống đã lưu vào danh sách.",
+        "email": email_str,
+        "account_id": acc_id,
+    }
+
+
 @app.post("/api/auth/verify-otp")
 async def verify_otp(data: VerifyOtpModel):
-    global pending_auth, pending_email, active_client
+    global pending_auth, pending_email
     if pending_auth is None:
         raise HTTPException(
             status_code=400,
@@ -1830,53 +1884,106 @@ async def verify_otp(data: VerifyOtpModel):
     if not code:
         raise HTTPException(status_code=400, detail="Vui lòng nhập mã OTP.")
 
+    close_after = True
     try:
-        await pending_auth.confirm_otp(code)
-        await pending_auth.save_account()
-        check = await pending_auth.auth_check()
-        if check.get("ok") is not True:
-            raise MuseAuthError(f"Xác thực tài khoản thất bại: {check}")
-        await pending_auth.save_cookies()
-
-        email_str = (pending_email or "").strip() or str(check.get("viewer_id") or "account")
-        acc_id = _safe_account_id(email_str)
-        dest_dir = get_account_state_dir(acc_id)
-        for fname in ("cookies.json", "device.json"):
-            src = PENDING_LOGIN_DIR / fname
-            if src.exists():
-                shutil.copy2(src, dest_dir / fname)
-        (dest_dir / "email.txt").write_text(email_str, encoding="utf-8")
-
-        await _evict_client(acc_id)
-        cfg = load_accounts_config()
-        cfg["active_account"] = acc_id
-        for fid in ACCOUNT_FEATURE_IDS:
-            if acc_id not in cfg["priorities"].get(fid, []):
-                cfg["priorities"].setdefault(fid, []).append(acc_id)
-        save_accounts_config(cfg)
-        invalidate_subscription_cache()
-        _auth_status_cache["data"] = None
-
-        try:
-            new_client = await get_client_for_account(acc_id)
-            await ensure_all_feature_sessions(new_client)
-        except Exception as setup_exc:
-            logger.warning(f"[FeatureThreads] Post-login thread setup skipped: {setup_exc}")
-
-        return {
-            "status": "success",
-            "message": f"Đăng nhập tài khoản {email_str} thành công! Hệ thống đã lưu vào danh sách.",
-            "email": email_str,
-            "account_id": acc_id,
-        }
+        res = await pending_auth.confirm_otp(code)
+        if isinstance(res, dict) and res.get("registration_state") == "two_factor_required":
+            close_after = False
+            return {
+                "status": "two_factor_required",
+                "methods": res.get("two_factor_methods") or [],
+                "message": "Tài khoản yêu cầu xác thực 2 bước (2FA).",
+            }
+        return await _finalize_pending_login(pending_auth, pending_email)
     except Exception as exc:
         raise HTTPException(
             status_code=400,
             detail=f"Xác nhận OTP thất bại: {exc}",
         )
     finally:
-        await pending_auth.close()
-        pending_auth = None
+        if close_after and pending_auth is not None:
+            await pending_auth.close()
+            pending_auth = None
+
+
+@app.post("/api/auth/verify-password")
+async def verify_password_login(data: VerifyPasswordModel):
+    global pending_auth, pending_email
+    if pending_auth is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Phiên đăng nhập chưa được bắt đầu hoặc đã hết hạn. Vui lòng nhập lại email.",
+        )
+
+    pwd = data.password
+    if not pwd:
+        raise HTTPException(status_code=400, detail="Vui lòng nhập mật khẩu.")
+
+    close_after = True
+    try:
+        res = await pending_auth.confirm_password(pwd)
+        if isinstance(res, dict) and res.get("registration_state") == "two_factor_required":
+            close_after = False
+            return {
+                "status": "two_factor_required",
+                "methods": res.get("two_factor_methods") or [],
+                "message": "Tài khoản yêu cầu xác thực 2 bước (2FA).",
+            }
+        return await _finalize_pending_login(pending_auth, pending_email)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Đăng nhập bằng mật khẩu thất bại: {exc}",
+        )
+    finally:
+        if close_after and pending_auth is not None:
+            await pending_auth.close()
+            pending_auth = None
+
+
+@app.post("/api/auth/two-factor/send-code")
+async def send_two_factor_code(data: TwoFactorSendModel):
+    if pending_auth is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Phiên đăng nhập chưa được bắt đầu hoặc đã hết hạn.",
+        )
+    try:
+        res = await pending_auth.send_two_factor_code(data.method_id)
+        return {"status": "success", "details": res}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Gửi mã 2FA thất bại: {exc}")
+
+
+@app.post("/api/auth/verify-two-factor")
+async def verify_two_factor(data: TwoFactorVerifyModel):
+    global pending_auth, pending_email
+    if pending_auth is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Phiên đăng nhập chưa được bắt đầu hoặc đã hết hạn.",
+        )
+    code = data.code.strip()
+    if not code:
+        raise HTTPException(status_code=400, detail="Vui lòng nhập mã xác thực 2FA.")
+
+    close_after = True
+    try:
+        res = await pending_auth.confirm_two_factor(data.method_id, code)
+        if isinstance(res, dict) and res.get("registration_state") == "two_factor_required":
+            close_after = False
+            return {
+                "status": "two_factor_required",
+                "methods": res.get("two_factor_methods") or [],
+                "message": "Vui lòng hoàn tất bước xác thực 2FA tiếp theo.",
+            }
+        return await _finalize_pending_login(pending_auth, pending_email)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Xác thực 2FA thất bại: {exc}")
+    finally:
+        if close_after and pending_auth is not None:
+            await pending_auth.close()
+            pending_auth = None
 
 
 @app.post("/api/auth/logout")

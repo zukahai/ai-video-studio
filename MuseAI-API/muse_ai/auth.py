@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+import base64
 import html as html_lib
 import json
+import os
 import re
+import time
 import uuid
 from dataclasses import dataclass, replace
 from pathlib import Path
 from urllib.parse import urlencode, urlparse
 
 import httpx
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from curl_cffi.requests import AsyncSession as BrowserAsyncSession
+from nacl.public import PublicKey, SealedBox
 
 from .errors import MuseAuthError
 
@@ -49,6 +54,7 @@ class MuseAuth:
         self.cookie_path = self.state_dir / "cookies.json"
         self.waterfall_id: str | None = None
         self.csrf_token: str | None = None
+        self.password_encryption: dict | None = None
         self.login_referer = self.BASE + "/"
         self.browser = BrowserAsyncSession(
             impersonate="chrome",
@@ -158,6 +164,19 @@ class MuseAuth:
         if not isinstance(token, str) or not token:
             raise MuseAuthError("Muse native auth restart did not return csrf_token")
         self.csrf_token = token
+        pe = data.get("password_encryption")
+        if isinstance(pe, dict) and pe.get("public_key") is not None:
+            self.password_encryption = pe
+        elif data.get("flow_state") == "new":
+            start_resp = await self.browser.post(
+                self.BASE + "/api/auth/native/start",
+                json={},
+                headers=self._flow_headers(include_csrf=True),
+            )
+            if start_resp.status_code < 400:
+                start_data = start_resp.json()
+                if isinstance(start_data.get("password_encryption"), dict):
+                    self.password_encryption = start_data["password_encryption"]
         self._sync_browser_to_httpx()
         # The web app's subsequent send-otp / confirm-otp requests use the root
         # document as Referer rather than the aymh_complete navigation URL.
@@ -186,6 +205,72 @@ class MuseAuth:
         if response.status_code >= 400:
             raise MuseAuthError(
                 f"Muse OTP failed: HTTP {response.status_code}: {response.text[:500]}"
+            )
+        self._sync_browser_to_httpx()
+        return response.json()
+
+    def encrypt_password(self, password: str) -> str:
+        pe = self.password_encryption
+        if not isinstance(pe, dict) or "key_id" not in pe or not pe.get("public_key"):
+            raise MuseAuthError("Thiếu thông tin mã hóa mật khẩu từ MuseAI (password_encryption).")
+        key_id = int(pe["key_id"])
+        raw_pub = str(pe["public_key"]).strip()
+        if re.fullmatch(r"[0-9a-fA-F]{64}", raw_pub):
+            pub_bytes = bytes.fromhex(raw_pub)
+        else:
+            pub_bytes = base64.b64decode(raw_pub)
+        if len(pub_bytes) != 32:
+            raise MuseAuthError("Public key mã hóa mật khẩu không hợp lệ.")
+
+        ts = int(time.time())
+        aes_key = os.urandom(32)
+        ct_with_tag = AESGCM(aes_key).encrypt(
+            b"\x00" * 12,
+            password.encode("utf-8"),
+            str(ts).encode("utf-8"),
+        )
+        ct, tag = ct_with_tag[:-16], ct_with_tag[-16:]
+        sealed = SealedBox(PublicKey(pub_bytes)).encrypt(aes_key)
+        header = bytes([1, key_id & 0xFF]) + len(sealed).to_bytes(2, "little")
+        payload = header + sealed + tag + ct
+        return f"#PWD_BROWSER:5:{ts}:{base64.b64encode(payload).decode('ascii')}"
+
+    async def confirm_password(self, password: str) -> dict:
+        encrypted = self.encrypt_password(password)
+        response = await self.browser.post(
+            self.BASE + "/api/auth/native/confirm-password",
+            json={"password": encrypted},
+            headers=self._flow_headers(include_csrf=True),
+        )
+        if response.status_code >= 400:
+            raise MuseAuthError(
+                f"Muse password login failed: HTTP {response.status_code}: {response.text[:500]}"
+            )
+        self._sync_browser_to_httpx()
+        return response.json()
+
+    async def send_two_factor_code(self, method_id: str) -> dict:
+        response = await self.browser.post(
+            self.BASE + "/api/auth/native/two-factor-send-code",
+            json={"method_id": method_id},
+            headers=self._flow_headers(include_csrf=True),
+        )
+        if response.status_code >= 400:
+            raise MuseAuthError(
+                f"Muse 2FA send code failed: HTTP {response.status_code}: {response.text[:500]}"
+            )
+        self._sync_browser_to_httpx()
+        return response.json()
+
+    async def confirm_two_factor(self, method_id: str, code: str) -> dict:
+        response = await self.browser.post(
+            self.BASE + "/api/auth/native/two-factor",
+            json={"method_id": method_id, "code": code},
+            headers=self._flow_headers(include_csrf=True),
+        )
+        if response.status_code >= 400:
+            raise MuseAuthError(
+                f"Muse 2FA verification failed: HTTP {response.status_code}: {response.text[:500]}"
             )
         self._sync_browser_to_httpx()
         return response.json()
