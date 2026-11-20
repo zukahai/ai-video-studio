@@ -1136,6 +1136,8 @@ def _extract_quota_summary(live_sub: dict) -> dict[str, Any]:
         "remaining_tokens": combined_tokens,
         "total_quota_tokens": combined_total_tokens,
         "weekly_used_percent": max(0.0, min(100.0, float(pct or 0))),
+        "weekly_reset_label": str(live_sub.get("statusSubtitle") or "").strip(),
+        "weekly_resets_at": free_usage.get("resetsAt"),
         "free_label": live_sub.get("usageRowValueLabel") or f"Đã dùng {pct}%",
     }
 
@@ -1892,6 +1894,8 @@ async def _inspect_single_account(acc_id: str, active_id: str, live: bool = Fals
         "remaining_percent": cached.get("remaining_percent"),
         "remaining_tokens": cached.get("remaining_tokens", 0),
         "weekly_used_percent": cached.get("weekly_used_percent"),
+        "weekly_reset_label": cached.get("weekly_reset_label", ""),
+        "weekly_resets_at": cached.get("weekly_resets_at"),
         "free_label": cached.get("free_label", ""),
         "avatar_name": avatar_name,
         "avatar_url": avatar_url,
@@ -1910,6 +1914,8 @@ async def _inspect_single_account(acc_id: str, active_id: str, live: bool = Fals
                 info["remaining_percent"] = summary["remaining_percent"]
                 info["remaining_tokens"] = summary.get("remaining_tokens", 0)
                 info["weekly_used_percent"] = summary.get("weekly_used_percent", 0)
+                info["weekly_reset_label"] = summary.get("weekly_reset_label", "")
+                info["weekly_resets_at"] = summary.get("weekly_resets_at")
                 info["free_label"] = summary["free_label"]
             try:
                 av_data = await sync_account_avatar(acc_id, force=True)

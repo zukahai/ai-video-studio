@@ -7305,6 +7305,15 @@ function renderAccountsList() {
     const pct = typeof acc.remaining_percent === 'number' ? Math.max(0, Math.min(100, acc.remaining_percent)) : null;
     const weeklyUsed = typeof acc.weekly_used_percent === 'number' ? Math.max(0, Math.min(100, acc.weekly_used_percent)) : null;
     const weeklyRem = weeklyUsed !== null ? Math.round((100 - weeklyUsed) * 10) / 10 : null;
+    let weeklyResetText = (acc.weekly_reset_label || '').trim();
+    if (!weeklyResetText && acc.weekly_resets_at) {
+      try {
+        const dt = new Date(acc.weekly_resets_at);
+        if (!isNaN(dt.getTime())) {
+          weeklyResetText = `Đặt lại: ${dt.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`;
+        }
+      } catch (_) {}
+    }
     const initial = (acc.email || 'A').trim().charAt(0).toUpperCase();
     const grad = avatarGradients[idx % avatarGradients.length];
     const showSecretAvatar = isSecretAvatarEnabled();
@@ -7349,6 +7358,7 @@ function renderAccountsList() {
             <div class="w-full h-1.5 rounded-full bg-[#141414] overflow-hidden border border-white/[0.05]">
               <div class="h-full rounded-full ${weeklyRem <= 15 ? 'bg-rose-500' : weeklyRem < 50 ? 'bg-amber-400' : 'bg-sky-400'}" style="width: ${weeklyRem}%"></div>
             </div>
+            ${weeklyResetText ? `<div class="text-[10px] text-slate-400/90 flex items-center space-x-1 pt-0.5"><i data-lucide="clock" class="w-3 h-3 text-slate-500 shrink-0"></i><span class="truncate" title="${escapeHtml(weeklyResetText)}">${escapeHtml(weeklyResetText)}</span></div>` : ''}
           </div>
         ` : ''}
         <div class="flex items-center justify-between pt-1 gap-2">
