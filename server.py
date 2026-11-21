@@ -212,6 +212,7 @@ def load_accounts_config() -> dict[str, Any]:
         "active_account": "",
         "priorities": {fid: [] for fid in ACCOUNT_FEATURE_IDS},
         "prefer_weekly_tokens": True,
+        "disabled_accounts": [],
     }
     if ACCOUNTS_CONFIG_FILE.exists():
         try:
@@ -220,6 +221,9 @@ def load_accounts_config() -> dict[str, Any]:
                 cfg["active_account"] = str(loaded.get("active_account") or "")
                 if isinstance(loaded.get("prefer_weekly_tokens"), bool):
                     cfg["prefer_weekly_tokens"] = loaded["prefer_weekly_tokens"]
+                raw_disabled = loaded.get("disabled_accounts")
+                if isinstance(raw_disabled, list):
+                    cfg["disabled_accounts"] = [x for x in raw_disabled if x in saved_ids]
                 raw_prio = loaded.get("priorities") or {}
                 if isinstance(raw_prio, dict):
                     for fid in ACCOUNT_FEATURE_IDS:
@@ -229,8 +233,12 @@ def load_accounts_config() -> dict[str, Any]:
         except Exception:
             pass
 
+    disabled_set = set(cfg["disabled_accounts"])
+    enabled_ids = [x for x in saved_ids if x not in disabled_set]
     if cfg["active_account"] not in saved_ids:
-        cfg["active_account"] = saved_ids[0] if saved_ids else ""
+        cfg["active_account"] = enabled_ids[0] if enabled_ids else (saved_ids[0] if saved_ids else "")
+    elif cfg["active_account"] in disabled_set and enabled_ids:
+        cfg["active_account"] = enabled_ids[0]
     for fid in ACCOUNT_FEATURE_IDS:
         cur = [x for x in cfg["priorities"].get(fid, []) if x in saved_ids]
         for aid in saved_ids:
@@ -259,14 +267,16 @@ def get_active_account_dir() -> Path:
 def get_priority_accounts_for_feature(feature: str) -> list[str]:
     cfg = load_accounts_config()
     saved = list_saved_account_ids()
+    disabled_set = set(cfg.get("disabled_accounts") or [])
+    enabled_saved = [x for x in saved if x not in disabled_set]
     fid = feature if feature in ACCOUNT_FEATURE_IDS else "chat"
-    explicit = [x for x in cfg["priorities"].get(fid, []) if x in saved]
+    explicit = [x for x in cfg["priorities"].get(fid, []) if x in enabled_saved]
     if explicit:
         ordered = explicit
     else:
         active = cfg.get("active_account") or ""
-        ordered = [active] if active in saved else []
-    for aid in saved:
+        ordered = [active] if active in enabled_saved else []
+    for aid in enabled_saved:
         if aid not in ordered:
             ordered.append(aid)
 
@@ -2405,12 +2415,16 @@ async def list_accounts(live: bool = False):
     cfg = load_accounts_config()
     saved_ids = list_saved_account_ids()
     active_id = cfg.get("active_account", "")
+    disabled_set = set(cfg.get("disabled_accounts") or [])
     items = await asyncio.gather(*[_inspect_single_account(aid, active_id, live=live) for aid in saved_ids])
+    for it in items:
+        it["enabled"] = it["id"] not in disabled_set
     total_tokens_count = sum(int(a.get("remaining_tokens") or 0) for a in items)
     return {
         "status": "success",
         "active_account": active_id,
         "accounts": list(items),
+        "disabled_accounts": list(disabled_set),
         "total_tokens_count": total_tokens_count,
         "total_tokens_label": _format_vn_tokens_label(total_tokens_count) if total_tokens_count > 0 else "—",
         "priorities": cfg.get("priorities", {}),
@@ -2431,6 +2445,40 @@ async def update_account_settings(body: AccountSettingsModel):
     return {"status": "success", "prefer_weekly_tokens": cfg["prefer_weekly_tokens"]}
 
 
+class AccountToggleModel(BaseModel):
+    enabled: bool = True
+
+
+@app.post("/api/accounts/{acc_id}/toggle")
+async def toggle_account_enabled(acc_id: str, body: AccountToggleModel):
+    aid = _safe_account_id(acc_id)
+    saved = list_saved_account_ids()
+    if aid not in saved:
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy tài khoản '{aid}'.")
+    cfg = load_accounts_config()
+    disabled = [x for x in (cfg.get("disabled_accounts") or []) if x in saved]
+    if body.enabled:
+        disabled = [x for x in disabled if x != aid]
+    else:
+        if aid not in disabled:
+            disabled.append(aid)
+        await _evict_client(aid)
+    cfg["disabled_accounts"] = disabled
+    enabled_ids = [x for x in saved if x not in set(disabled)]
+    if not body.enabled and cfg.get("active_account") == aid and enabled_ids:
+        cfg["active_account"] = enabled_ids[0]
+    save_accounts_config(cfg)
+    invalidate_subscription_cache()
+    _auth_status_cache["data"] = None
+    return {
+        "status": "success",
+        "account_id": aid,
+        "enabled": bool(body.enabled),
+        "active_account": cfg.get("active_account", ""),
+        "disabled_accounts": disabled,
+    }
+
+
 @app.post("/api/accounts/switch")
 async def switch_active_account(body: AccountSwitchModel):
     aid = _safe_account_id(body.account_id)
@@ -2438,6 +2486,7 @@ async def switch_active_account(body: AccountSwitchModel):
     if aid not in saved:
         raise HTTPException(status_code=404, detail=f"Không tìm thấy tài khoản '{aid}'.")
     cfg = load_accounts_config()
+    cfg["disabled_accounts"] = [x for x in (cfg.get("disabled_accounts") or []) if x != aid]
     cfg["active_account"] = aid
     save_accounts_config(cfg)
     invalidate_subscription_cache()

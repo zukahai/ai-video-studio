@@ -7509,6 +7509,30 @@ async function togglePreferWeeklyTokens(enabled) {
   }
 }
 
+async function toggleMuseAccountEnabled(accId, enabled) {
+  try {
+    const res = await fetch(`/api/accounts/${encodeURIComponent(accId)}/toggle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: Boolean(enabled) }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Không thể cập nhật trạng thái tài khoản.');
+    const acc = (_accountsState.accounts || []).find(a => a.id === accId);
+    if (acc) acc.enabled = Boolean(enabled);
+    if (data.active_account) _accountsState.active = data.active_account;
+    renderAccountsList();
+    checkAuthStatus(true).catch(() => {});
+    refreshActiveAccountMascot(true).catch(() => {});
+    if (typeof showToast === 'function') {
+      showToast(enabled ? 'Đã bật hoạt động tài khoản.' : 'Đã tạm tắt tài khoản (sẽ không được dùng để tạo tác vụ).', 'success');
+    }
+  } catch (err) {
+    if (typeof showToast === 'function') showToast(err.message || 'Lỗi bật/tắt tài khoản', 'error');
+    loadAccountsManager(false);
+  }
+}
+
 function copyInviteCode(code) {
   if (!code) return;
   try {
@@ -7559,9 +7583,18 @@ function renderAccountsList() {
     const avatarNameBelowHtml = (showSecretAvatar && acc.avatar_name)
       ? `<span class="text-[10px] font-semibold text-slate-300 leading-tight text-center max-w-[84px] break-words" title="${escapeHtml(acc.avatar_name)}">${escapeHtml(acc.avatar_name)}</span>`
       : '';
-    const statusBadge = acc.is_alive === false
-      ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30 whitespace-nowrap shrink-0">Hết hạn / Lỗi</span>'
-      : '<span class="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 whitespace-nowrap shrink-0">Sẵn sàng</span>';
+    const isEnabled = acc.enabled !== false;
+    const statusBadge = !isEnabled
+      ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-500/15 text-slate-400 border border-slate-500/30 whitespace-nowrap shrink-0">Đã tắt</span>'
+      : (acc.is_alive === false
+        ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30 whitespace-nowrap shrink-0">Hết hạn / Lỗi</span>'
+        : '<span class="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 whitespace-nowrap shrink-0">Sẵn sàng</span>');
+    const accountToggleHtml = `
+      <label class="inline-flex items-center cursor-pointer select-none shrink-0" title="${isEnabled ? 'Đang bật hoạt động (bấm để tắt)' : 'Đang tắt (bấm để bật)'}">
+        <input type="checkbox" ${isEnabled ? 'checked' : ''} onchange="toggleMuseAccountEnabled('${escapeHtml(acc.id)}', this.checked)" class="sr-only peer">
+        <div class="w-8 h-4 bg-slate-700 rounded-full peer peer-checked:bg-emerald-500 relative transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-4"></div>
+      </label>
+    `;
 
     const inviteCodeHtml = acc.invite_code
       ? `<div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#16181d] border border-[#2f333d] text-[10px]">
@@ -7571,7 +7604,7 @@ function renderAccountsList() {
       : '';
 
     return `
-      <div class="p-3.5 rounded-xl bg-[#1e1e1e] border ${isActive ? 'border-emerald-500/60 shadow-sm shadow-emerald-500/10' : 'border-[#333333]'} space-y-2.5">
+      <div class="p-3.5 rounded-xl bg-[#1e1e1e] border ${isActive && isEnabled ? 'border-emerald-500/60 shadow-sm shadow-emerald-500/10' : 'border-[#333333]'} ${isEnabled ? '' : 'opacity-60'} space-y-2.5 transition-opacity">
         <div class="flex items-start justify-between gap-2">
           <div class="flex items-center space-x-2.5 min-w-0">
             ${showSecretAvatar ? `
@@ -7585,7 +7618,10 @@ function renderAccountsList() {
               <div class="text-[10px] text-slate-400 mt-0.5">Token VIP: <b class="text-[#38bdf8]">${escapeHtml(acc.vip_tokens || '—')}</b>${pct !== null ? ` (${pct}%)` : ''}</div>
             </div>
           </div>
-          ${statusBadge}
+          <div class="flex items-center space-x-1.5 shrink-0">
+            ${statusBadge}
+            ${accountToggleHtml}
+          </div>
         </div>
         ${pct !== null ? `
           <div class="space-y-1">
