@@ -6298,7 +6298,7 @@ function renderMovieProgressScenesStrip() {
       : `<div class="${arMeta.stripThumbClass} rounded bg-[#181818] flex items-center justify-center text-[11px] font-bold text-slate-500">#${num}</div>`;
 
     return `
-      <button type="button" onclick="openQuickSceneInspector(${idx})" title="Bấm để xem, sửa prompt hoặc tạo lại Cảnh #${num}"
+      <button type="button" ${isGen ? 'data-active-gen="1"' : ''} onclick="openQuickSceneInspector(${idx})" title="Bấm để xem, sửa prompt hoặc tạo lại Cảnh #${num}"
         class="${arMeta.stripCardClass} shrink-0 rounded-lg border p-1.5 text-left transition cursor-pointer space-y-1 ${borderClass}">
         ${previewThumb}
         <div class="flex items-center justify-between px-0.5">
@@ -6309,6 +6309,12 @@ function renderMovieProgressScenesStrip() {
     `;
   }).join('');
   hydrateSceneVideoThumbs(strip);
+
+  const activeCard = strip.querySelector('[data-active-gen="1"]');
+  if (activeCard) {
+    const targetLeft = Math.max(0, activeCard.offsetLeft - Math.max(0, (strip.clientWidth - activeCard.offsetWidth) / 2));
+    strip.scrollTo({ left: targetLeft, behavior: 'smooth' });
+  }
 }
 
 function openQuickSceneInspector(idx) {
