@@ -707,14 +707,24 @@ function toggleSidebarQuotaDetails(e) {
 
 function openAuthModal(e) {
   if (e && e.stopPropagation) e.stopPropagation();
-  document.getElementById('auth-modal').classList.remove('hidden');
-  document.getElementById('otp-step-1').classList.remove('hidden');
-  document.getElementById('otp-step-2').classList.add('hidden');
+  document.getElementById('auth-modal')?.classList.remove('hidden');
+  _hideAllAuthSteps();
+  document.getElementById('otp-step-1')?.classList.remove('hidden');
+  ['auth-email-input', 'auth-otp-input', 'auth-password-input', 'auth-2fa-code-input'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  _authTwoFactorMethods = [];
+  _authSelected2faMethod = null;
   hideModalMsg();
+  document.getElementById('auth-email-input')?.focus();
 }
 
 function closeAuthModal() {
-  document.getElementById('auth-modal').classList.add('hidden');
+  document.getElementById('auth-modal')?.classList.add('hidden');
+  _hideAllAuthSteps();
+  document.getElementById('otp-step-1')?.classList.remove('hidden');
+  hideModalMsg();
 }
 
 function showModalMsg(text, isError = true) {
