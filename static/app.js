@@ -7574,7 +7574,7 @@ function renderAccountsList() {
         ${weeklyRem !== null ? `
           <div class="space-y-1">
             <div class="flex items-center justify-between text-[10px] text-slate-400">
-              <span>Token theo tuần</span>
+              <span>Token theo tuần: <b class="text-slate-200">${Math.round(weeklyRem * 10) / 10}/100 triệu</b></span>
               <span class="font-semibold ${weeklyRem <= 15 ? 'text-rose-400' : weeklyRem < 50 ? 'text-amber-300' : 'text-sky-300'}">Còn ${weeklyRem}%</span>
             </div>
             <div class="w-full h-1.5 rounded-full bg-[#141414] overflow-hidden border border-white/[0.05]">
