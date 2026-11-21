@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import math
 import os
 import re
 import shutil
@@ -1405,9 +1406,14 @@ def _extract_quota_summary(live_sub: dict) -> dict[str, Any]:
     else:
         topup_quota_total = parsed_topup_tokens
 
+    if topup_quota_total > 1_000_000_000:
+        topup_quota_total = math.ceil(topup_quota_total / 1_000_000_000) * 1_000_000_000
+
     vip_remaining_tokens = max(0, int(parsed_topup_tokens))
     vip_total_tokens = max(vip_remaining_tokens, int(topup_quota_total))
-    if topup_used_pct is not None:
+    if topup_balance is not None and topup_total and topup_total > 0:
+        remaining_percent = round(max(0.0, min(100.0, (topup_balance / topup_total) * 100.0)), 1)
+    elif topup_used_pct is not None:
         remaining_percent = round(max(0.0, min(100.0, 100.0 - float(topup_used_pct))), 1)
     elif vip_total_tokens > 0:
         remaining_percent = round(max(0.0, min(100.0, (vip_remaining_tokens / vip_total_tokens) * 100.0)), 1)
@@ -1686,12 +1692,17 @@ async def auth_status(force: bool = False):
         else:
             topup_quota_total = parsed_topup_tokens
 
+        if topup_quota_total > 1_000_000_000:
+            topup_quota_total = math.ceil(topup_quota_total / 1_000_000_000) * 1_000_000_000
+
         # Token VIP reflects pure top-up balance only (separate from weekly free quota)
         weekly_quota_total = 100_000_000
         weekly_remaining_tokens = max(0, int(round(weekly_quota_total * (100 - float(pct or 0)) / 100.0)))
         vip_remaining_tokens = max(0, int(parsed_topup_tokens))
         vip_total_tokens = max(vip_remaining_tokens, int(topup_quota_total))
-        if topup_used_pct is not None:
+        if topup_balance is not None and topup_total and topup_total > 0:
+            remaining_percent = round(max(0.0, min(100.0, (topup_balance / topup_total) * 100.0)), 1)
+        elif topup_used_pct is not None:
             remaining_percent = round(max(0.0, min(100.0, 100.0 - float(topup_used_pct))), 1)
         elif vip_total_tokens > 0:
             remaining_percent = round(max(0.0, min(100.0, (vip_remaining_tokens / vip_total_tokens) * 100.0)), 1)
