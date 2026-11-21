@@ -2587,6 +2587,9 @@ async def generate_video(data: VideoGenerateModel):
         # Invalidate subscription cache to immediately fetch latest live quota
         invalidate_subscription_cache()
 
+        if data.project_id and data.scene_index and downloaded_urls:
+            _persist_movie_scene_video(data.project_id, data.scene_index, downloaded_urls[0])
+
         return {
             "status": "success",
             "session_id": result.session_id,
@@ -4191,6 +4194,32 @@ async def update_movie_project_cover(project_id: str, body: MovieCoverUpdateMode
         raise HTTPException(status_code=500, detail=f"Lỗi cập nhật ảnh đại diện phim: {e}")
 
 
+def _persist_movie_scene_video(project_id: str, scene_index: int, video_url: str) -> None:
+    if not project_id or not scene_index or not video_url:
+        return
+    try:
+        ws_movies_dir = get_workspace_movies_dir()
+        file_path = ws_movies_dir / f"{project_id}.json"
+        if not file_path.exists():
+            return
+        existing = json.loads(file_path.read_text(encoding="utf-8"))
+        scenes = existing.get("scenes")
+        if not isinstance(scenes, list):
+            return
+        updated = False
+        for sc in scenes:
+            if isinstance(sc, dict) and sc.get("scene_index") == scene_index:
+                sc["video_url"] = video_url
+                sc["status"] = "done"
+                updated = True
+                break
+        if updated:
+            existing["updatedAt"] = time.time() * 1000
+            file_path.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception as exc:
+        logger.debug(f"[MoviePersist] Failed to persist scene video: {exc}")
+
+
 @app.post("/api/movie/projects")
 async def save_movie_project(project: MovieProjectModel):
     data = project.dict()
@@ -4211,6 +4240,27 @@ async def save_movie_project(project: MovieProjectModel):
     ws_movies_dir.mkdir(parents=True, exist_ok=True)
     file_path = ws_movies_dir / f"{pid}.json"
     try:
+        if file_path.exists():
+            try:
+                existing = json.loads(file_path.read_text(encoding="utf-8"))
+                existing_by_idx = {
+                    sc.get("scene_index"): sc
+                    for sc in (existing.get("scenes") or [])
+                    if isinstance(sc, dict) and sc.get("scene_index") is not None
+                }
+                for sc in (data.get("scenes") or []):
+                    if not isinstance(sc, dict):
+                        continue
+                    if not sc.get("video_url"):
+                        prev_sc = existing_by_idx.get(sc.get("scene_index"))
+                        prev_url = prev_sc.get("video_url") if prev_sc else None
+                        if prev_url:
+                            resolved = resolve_media_path(prev_url)
+                            if resolved and resolved.exists():
+                                sc["video_url"] = prev_url
+                                sc["status"] = "done"
+            except Exception:
+                pass
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         return {"status": "success", "project": data}
