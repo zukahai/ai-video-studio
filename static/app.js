@@ -2919,6 +2919,52 @@ const movieState = {
 
 // ==================== MOVIE PROJECTS PERSISTENCE & MANAGEMENT ====================
 
+function _reconcileMovieScenesFromServer(serverScenes) {
+  if (!Array.isArray(serverScenes) || !Array.isArray(movieState.scenes)) return false;
+  const byIdx = new Map();
+  serverScenes.forEach(s => {
+    if (s && s.scene_index != null) byIdx.set(s.scene_index, s);
+  });
+  let changed = false;
+  movieState.scenes.forEach((localSc, idx) => {
+    if (!localSc) return;
+    const srvSc = byIdx.get(localSc.scene_index) || serverScenes[idx];
+    if (srvSc && srvSc.video_url && !localSc.video_url) {
+      localSc.video_url = srvSc.video_url;
+      localSc.status = 'done';
+      changed = true;
+    }
+  });
+  if (changed) {
+    try {
+      const cached = localStorage.getItem('h_ai_movie_studio_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.id === movieState.id) {
+          parsed.scenes = movieState.scenes;
+          localStorage.setItem('h_ai_movie_studio_cache', JSON.stringify(parsed));
+        }
+      }
+    } catch (_) {}
+    renderMovieScenes();
+  }
+  return changed;
+}
+
+async function syncMissingMovieScenesFromServer() {
+  if (!movieState.id || !Array.isArray(movieState.scenes)) return;
+  const hasMissing = movieState.scenes.some((sc, idx) => idx < (movieState.currentGeneratingIndex || 0) && !sc.video_url);
+  if (!hasMissing) return;
+  try {
+    const res = await fetch(`/api/movie/projects/${encodeURIComponent(movieState.id)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.project && Array.isArray(data.project.scenes)) {
+      _reconcileMovieScenesFromServer(data.project.scenes);
+    }
+  } catch (_) {}
+}
+
 // Debounced background sync to server
 function debouncedSyncMovieProjectToServer() {
   if (movieProjectsState.syncTimeout) clearTimeout(movieProjectsState.syncTimeout);
@@ -3296,6 +3342,7 @@ async function saveCurrentMovieProject(showToast = true) {
     movieState.id = saved.id;
     movieProjectsState.currentId = saved.id;
     localStorage.setItem('h_ai_current_movie_id', saved.id);
+    _reconcileMovieScenesFromServer(saved.scenes);
 
     // Update list entry or prepend
     const existingIdx = movieProjectsState.list.findIndex(p => p.id === saved.id);
@@ -4906,6 +4953,7 @@ async function startAutoMovieGeneration() {
       showToast(`⚠️ Cảnh #${scene.scene_index} lỗi 2 lần (${lastErrMsg}). Tạm qua cảnh khác, sẽ thử lại sau khi xong cảnh cuối.`, 'error');
       sendTelegramNotification('scene_error', `⚠️ [23zô AI Studio] Cảnh #${scene.scene_index} phim "${movieState.title}" bị lỗi 2 lần (${lastErrMsg}). Đã chuyển cảnh kế và sẽ thử lại sau cảnh cuối.`);
     }
+    syncMissingMovieScenesFromServer().catch(() => {});
   }
 
   // Pass 2: After reaching the final scene, retry any error scenes one more time with a fresh prompt; if still failing, skip
