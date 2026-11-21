@@ -7509,6 +7509,16 @@ async function togglePreferWeeklyTokens(enabled) {
   }
 }
 
+function copyInviteCode(code) {
+  if (!code) return;
+  try {
+    navigator.clipboard.writeText(code);
+    if (typeof showToast === 'function') showToast(`Đã copy mã mời: ${code}`, 'success');
+  } catch (_) {
+    if (typeof showToast === 'function') showToast(`Mã mời: ${code}`, 'info');
+  }
+}
+
 function renderAccountsList() {
   const grid = document.getElementById('accounts-list-grid');
   if (!grid) return;
@@ -7553,6 +7563,13 @@ function renderAccountsList() {
       ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30 whitespace-nowrap shrink-0">Hết hạn / Lỗi</span>'
       : '<span class="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 whitespace-nowrap shrink-0">Sẵn sàng</span>';
 
+    const inviteCodeHtml = acc.invite_code
+      ? `<div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#16181d] border border-[#2f333d] text-[10px]">
+           <span class="text-slate-400">Mã mời: <b class="text-amber-300 font-mono tracking-wider">${escapeHtml(acc.invite_code)}</b>${typeof acc.invite_uses_remaining === 'number' && typeof acc.invite_max_uses === 'number' ? ` <span class="text-slate-400">(còn ${acc.invite_uses_remaining}/${acc.invite_max_uses})</span>` : ''}</span>
+           <button type="button" onclick="copyInviteCode('${escapeHtml(acc.invite_code)}')" class="px-1.5 py-0.5 rounded bg-[#2d2d2d] hover:bg-[#37373d] text-slate-200 font-semibold cursor-pointer transition" title="Sao chép mã mời">Copy</button>
+         </div>`
+      : '';
+
     return `
       <div class="p-3.5 rounded-xl bg-[#1e1e1e] border ${isActive ? 'border-emerald-500/60 shadow-sm shadow-emerald-500/10' : 'border-[#333333]'} space-y-2.5">
         <div class="flex items-start justify-between gap-2">
@@ -7593,6 +7610,7 @@ function renderAccountsList() {
             ${weeklyResetText ? `<div class="text-[10px] text-slate-400/90 flex items-center space-x-1 pt-0.5"><i data-lucide="clock" class="w-3 h-3 text-slate-500 shrink-0"></i><span class="truncate" title="${escapeHtml(weeklyResetText)}">${escapeHtml(weeklyResetText)}</span></div>` : ''}
           </div>
         ` : ''}
+        ${inviteCodeHtml}
         <div class="flex items-center justify-between pt-1 gap-2">
           ${!isActive
             ? `<button type="button" onclick="switchMuseAccount('${escapeHtml(acc.id)}')" class="flex-1 py-1.5 px-2.5 rounded-lg bg-[#2d2d2d] hover:bg-[#0078d4] text-[11px] font-semibold text-slate-200 hover:text-white transition cursor-pointer">Đặt làm chính</button>`
@@ -7613,18 +7631,12 @@ function renderAccountPriorities() {
   const accMap = {};
   (_accountsState.accounts || []).forEach(a => { accMap[a.id] = a; });
   const features = _accountsState.features || [];
-  const showSecretAvatar = isSecretAvatarEnabled();
 
   grid.innerHTML = features.map(feat => {
     const order = (_accountsState.priorities && _accountsState.priorities[feat.id]) || [];
     const itemsHtml = order.length
       ? order.map((aid, idx) => {
           const acc = accMap[aid] || { id: aid, email: aid, vip_tokens: '—' };
-          const avatarUrl = acc.avatar_url || '/static/mascot/hatch.jpg';
-          const avatarVideoUrl = acc.avatar_video_url || '/static/mascot/hatch.mp4';
-          const avatarHtml = showSecretAvatar
-            ? `<video src="${escapeHtml(avatarVideoUrl)}" poster="${escapeHtml(avatarUrl)}" autoplay loop muted playsinline class="w-7 h-7 rounded-full object-cover bg-white ring-1 ring-white/20 shrink-0" title="${escapeHtml(acc.avatar_name || acc.email)}"></video>`
-            : '';
           return `
             <div draggable="true"
                  data-feature="${escapeHtml(feat.id)}"
@@ -7638,7 +7650,6 @@ function renderAccountPriorities() {
               <div class="flex items-center space-x-2.5 min-w-0">
                 <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-500 shrink-0"></i>
                 <span class="w-6 h-6 rounded-md text-[11px] font-bold flex items-center justify-center shrink-0 ${idx === 0 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-[#2d2d2d] text-slate-300 border border-[#3c3c3c]'}">#${idx + 1}</span>
-                ${avatarHtml}
                 <div class="min-w-0">
                   <div class="text-xs font-semibold text-slate-100 truncate">${escapeHtml(acc.email)}</div>
                   <div class="text-[10px] text-slate-400">Token: ${escapeHtml(acc.vip_tokens || '—')}</div>

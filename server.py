@@ -2293,6 +2293,28 @@ async def sync_account_avatar(acc_id: str, force: bool = False) -> dict[str, Any
             return _default_avatar_payload(aid)
 
 
+async def fetch_account_invite_info(auth: MuseAuth) -> dict[str, Any]:
+    try:
+        resp = await auth.browser.get(
+            "https://muse.ai/api/hatch/invite",
+            headers={
+                "Accept": "application/json",
+                "Referer": "https://muse.ai/",
+            },
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            if isinstance(data, dict) and data.get("code"):
+                return {
+                    "invite_code": str(data.get("code") or "").strip(),
+                    "invite_uses_remaining": data.get("uses_remaining"),
+                    "invite_max_uses": data.get("max_uses"),
+                }
+    except Exception as exc:
+        logger.debug(f"[InviteInfo] failed: {exc}")
+    return {}
+
+
 async def _inspect_single_account(acc_id: str, active_id: str, live: bool = False) -> dict[str, Any]:
     acc_dir = get_account_state_dir(acc_id)
     email_file = acc_dir / "email.txt"
@@ -2331,6 +2353,9 @@ async def _inspect_single_account(acc_id: str, active_id: str, live: bool = Fals
         "avatar_name": avatar_name,
         "avatar_url": avatar_url,
         "avatar_video_url": avatar_video_url,
+        "invite_code": cached.get("invite_code", ""),
+        "invite_uses_remaining": cached.get("invite_uses_remaining"),
+        "invite_max_uses": cached.get("invite_max_uses"),
     }
     if live and info["authenticated"]:
         auth = MuseAuth(state_dir=acc_dir)
@@ -2339,7 +2364,10 @@ async def _inspect_single_account(acc_id: str, active_id: str, live: bool = Fals
             check = await auth.auth_check()
             info["is_alive"] = check.get("ok") is True
             info["viewer_id"] = check.get("viewer_id")
-            sub = await fetch_live_subscription(auth, bypass_cache=True)
+            sub, inv = await asyncio.gather(
+                fetch_live_subscription(auth, bypass_cache=True),
+                fetch_account_invite_info(auth),
+            )
             if sub:
                 summary = _extract_quota_summary(sub)
                 info["vip_tokens"] = summary["vip_tokens"]
@@ -2349,6 +2377,10 @@ async def _inspect_single_account(acc_id: str, active_id: str, live: bool = Fals
                 info["weekly_reset_label"] = summary.get("weekly_reset_label", "")
                 info["weekly_resets_at"] = summary.get("weekly_resets_at")
                 info["free_label"] = summary["free_label"]
+            if inv and inv.get("invite_code"):
+                info["invite_code"] = inv["invite_code"]
+                info["invite_uses_remaining"] = inv.get("invite_uses_remaining")
+                info["invite_max_uses"] = inv.get("invite_max_uses")
             try:
                 av_data = await sync_account_avatar(acc_id, force=True)
                 info["avatar_name"] = av_data.get("name") or ""
