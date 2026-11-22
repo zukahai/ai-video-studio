@@ -5397,6 +5397,6 @@ if __name__ == "__main__":
         "server:app",
         host="127.0.0.1",
         port=7860,
-        reload=not is_windowless,
+        reload=(os.environ.get("MUSE_DEV_RELOAD") == "1" and not is_windowless),
         use_colors=not is_windowless,
     )

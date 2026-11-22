@@ -629,6 +629,10 @@ function applyAuthData(data) {
     if (sAddSub) sAddSub.innerText = add.subtitle || 'Không bao giờ hết hạn';
   }
 
+  const accountsCountEl = document.getElementById('sidebar-accounts-count');
+  const quotaRowEl = document.getElementById('sidebar-quota-row');
+  const accountsFooterRowEl = document.getElementById('sidebar-accounts-footer-row');
+
   if (dot && text) {
     if (state.authenticated) {
       dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400 shrink-0';
@@ -638,11 +642,18 @@ function applyAuthData(data) {
       text.title = rawEmail;
       text.className = 'text-xs font-bold text-emerald-300 truncate';
       if (btnText) btnText.innerText = 'Đổi tài khoản';
+      if (accountsCountEl) accountsCountEl.classList.remove('hidden');
+      if (quotaRowEl) quotaRowEl.classList.remove('hidden');
+      if (accountsFooterRowEl) accountsFooterRowEl.classList.remove('hidden');
     } else {
       dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0';
-      text.innerText = 'Chưa kết nối tài khoản';
+      text.innerText = 'Đăng nhập';
+      text.title = 'Bấm để đăng nhập tài khoản';
       text.className = 'text-xs font-semibold text-amber-300 truncate';
       if (btnText) btnText.innerText = 'Đăng nhập OTP';
+      if (accountsCountEl) accountsCountEl.classList.add('hidden');
+      if (quotaRowEl) quotaRowEl.classList.add('hidden');
+      if (accountsFooterRowEl) accountsFooterRowEl.classList.add('hidden');
     }
   }
   if (typeof updateSidebarBrandSubtitle === 'function') updateSidebarBrandSubtitle();

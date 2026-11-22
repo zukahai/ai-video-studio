@@ -159,14 +159,12 @@ try {
 } catch {}
 
 Write-Host "  [ 45%] [#########-----------] Dang khoi chay server.py chay ngam..." -ForegroundColor Magenta
-if (-not (Test-Path '.muse-state')) { New-Item -ItemType Directory -Path '.muse-state' -Force | Out-Null }
-$errLog = Join-Path (Get-Location).Path ".muse-state\server_error.log"
-if (Test-Path $errLog) { Remove-Item $errLog -Force -ErrorAction SilentlyContinue }
+$errLog = Join-Path (Get-Location).Path "server.log"
 $serverProc = $null
 if (Test-Path $pyw) {
-    $serverProc = Start-Process -FilePath $pyw -ArgumentList "server.py" -WorkingDirectory (Get-Location).Path -WindowStyle Hidden -RedirectStandardError $errLog -PassThru
+    $serverProc = Start-Process -FilePath $pyw -ArgumentList "server.py" -WorkingDirectory (Get-Location).Path -WindowStyle Hidden -PassThru
 } else {
-    $serverProc = Start-Process -FilePath $py -ArgumentList "server.py" -WorkingDirectory (Get-Location).Path -WindowStyle Minimized -RedirectStandardError $errLog -PassThru
+    $serverProc = Start-Process -FilePath $py -ArgumentList "server.py" -WorkingDirectory (Get-Location).Path -WindowStyle Minimized -PassThru
 }
 
 $steps = @(
@@ -199,7 +197,7 @@ for ($i = 1; $i -le 120; $i++) {
         if (Test-Path $errLog) {
             $errText = (Get-Content $errLog -Tail 15 -ErrorAction SilentlyContinue) -join "`n"
             if ($errText.Trim()) {
-                Write-Host "  --- Chi tiet loi (.muse-state\server_error.log) ---" -ForegroundColor Yellow
+                Write-Host "  --- Chi tiet loi (server.log) ---" -ForegroundColor Yellow
                 Write-Host $errText -ForegroundColor Gray
             }
         }
