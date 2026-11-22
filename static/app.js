@@ -635,6 +635,7 @@ function applyAuthData(data) {
       if (btnText) btnText.innerText = 'Đăng nhập OTP';
     }
   }
+  if (typeof updateSidebarBrandSubtitle === 'function') updateSidebarBrandSubtitle();
 }
 
 function renderHourglassGaugeHtml(remainingPct) {
@@ -8011,10 +8012,12 @@ function applySecretAvatarVisibility() {
     if (vid) {
       try { vid.pause(); } catch (_) {}
     }
+    if (typeof updateSidebarBrandSubtitle === 'function') updateSidebarBrandSubtitle();
     return;
   }
   setMuseMascotState(_mascotCurrentState, true);
   refreshActiveAccountMascot(true);
+  if (typeof updateSidebarBrandSubtitle === 'function') updateSidebarBrandSubtitle();
 }
 
 function setSecretAvatarEnabled(enabled) {
@@ -8085,6 +8088,25 @@ function setMuseMascotState(mode, forceReload = false) {
   }
 }
 
+function updateSidebarBrandSubtitle() {
+  const el = document.getElementById('sidebar-brand-subtitle');
+  if (!el) return;
+  const mascotName = (MUSE_MASCOT_NAMES && MUSE_MASCOT_NAMES.display) || '';
+  if (isSecretAvatarEnabled() && mascotName && mascotName !== '23zô AI Mascot') {
+    el.innerText = mascotName;
+    el.title = state.email ? `${mascotName} (${state.email})` : mascotName;
+    return;
+  }
+  if (state.authenticated && state.email) {
+    const shortName = state.email.includes('@') ? state.email.split('@')[0] : state.email;
+    el.innerText = shortName;
+    el.title = state.email;
+    return;
+  }
+  el.innerText = 'Creative AI Studio';
+  el.title = 'Creative AI Studio';
+}
+
 async function refreshActiveAccountMascot(force = false) {
   if (!isSecretAvatarEnabled()) return;
   try {
@@ -8104,6 +8126,7 @@ async function refreshActiveAccountMascot(force = false) {
       vid.setAttribute('poster', data.poster);
     }
     setMuseMascotState(_mascotCurrentState, true);
+    updateSidebarBrandSubtitle();
   } catch (err) {
     console.warn('refreshActiveAccountMascot failed:', err);
   }
