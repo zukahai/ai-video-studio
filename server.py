@@ -2469,20 +2469,26 @@ async def _probe_single_account_capabilities(acc_id: str) -> dict[str, Any]:
 
     async def _probe_chat() -> dict[str, Any]:
         try:
-            events = await client.chat_stream(
+            sid = str(uuid.uuid4())
+            await client.chat_stream(
                 prompt="Trả lời đúng 1 từ: OK",
-                session_id=str(uuid.uuid4()),
+                session_id=sid,
                 stream_timeout=15.0,
             )
-            txt = ""
-            for ev in reversed(events or []):
-                if isinstance(ev, dict) and ev.get("event_name") == "message.assistant":
-                    txt = (ev.get("display_text") or (ev.get("payload") or {}).get("content") or "").strip()
-                    if txt:
-                        break
-            if txt:
-                return {"ok": True, "reason": ""}
-            return {"ok": False, "reason": "Không nhận được phản hồi chat"}
+            deadline = time.monotonic() + 20.0
+            while time.monotonic() < deadline:
+                hist = await client.history(session_id=sid, limit=20)
+                chat_events = (hist.get("result") or {}).get("chat_events") or []
+                for ev in chat_events:
+                    if isinstance(ev, dict) and ev.get("event_name") == "message.assistant":
+                        txt = (ev.get("display_text") or (ev.get("payload") or {}).get("content") or "").strip()
+                        if txt and ev.get("display_text_ready", True):
+                            lowered = txt.lower()
+                            if any(m in lowered for m in ("bị chặn", "không khả dụng", "forbidden", "403")):
+                                return {"ok": False, "reason": txt[:200]}
+                            return {"ok": True, "reason": ""}
+                await asyncio.sleep(1.0)
+            return {"ok": False, "reason": "Hết thời gian chờ phản hồi chat"}
         except Exception as exc:
             return {"ok": False, "reason": str(exc)[:200]}
 
@@ -2516,11 +2522,9 @@ async def _probe_single_account_capabilities(acc_id: str) -> dict[str, Any]:
         except Exception as exc:
             return {"ok": False, "reason": str(exc)[:200]}
 
-    chat_res, image_res, video_res = await asyncio.gather(
-        _probe_chat(),
-        _probe_image(),
-        _probe_video(),
-    )
+    chat_res = await _probe_chat()
+    image_res = await _probe_image()
+    video_res = await _probe_video()
     return {
         "chat": chat_res,
         "image": image_res,

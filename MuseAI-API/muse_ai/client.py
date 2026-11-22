@@ -206,6 +206,9 @@ class MuseClient:
             "hết lượt",
             "quá tải",
             "nâng cấp",
+            "không khả dụng",
+            "khu vực",
+            "403",
             "internal error",
             "failed",
             "error",
@@ -269,7 +272,7 @@ class MuseClient:
                             stable_for = time.monotonic() - (assistant_text_since or time.monotonic())
                             lowered = combined.lower()
                             has_error_marker = any(m in lowered for m in error_markers)
-                            if (has_error_marker and stable_for >= 3.0) or stable_for >= 12.0:
+                            if (has_error_marker and stable_for >= 4.0) or stable_for >= 95.0:
                                 raise RuntimeError(
                                     f"MuseAI không tạo được video: {combined[:300]}"
                                 )
