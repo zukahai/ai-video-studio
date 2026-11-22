@@ -569,7 +569,17 @@ function applyAuthData(data) {
 
     const sTokensVipCompact = document.getElementById('sidebar-tokens-vip-compact');
     if (sTokensVipCompact) {
-      sTokensVipCompact.innerText = String(vipTokens).replace(/\/[\d.,]+/, '').replace(/\s+/g, ' ').trim();
+      const rawVip = String(vipTokens || '').trim();
+      let compactVip = rawVip;
+      if (rawVip.includes('/')) {
+        const parts = rawVip.split('/');
+        const leftPart = (parts[0] || '').trim();
+        const rightPart = (parts[1] || '').trim();
+        const unitMatch = rightPart.match(/(tỷ|triệu|nghìn|k|m|b)/i);
+        const leftHasUnit = /(tỷ|triệu|nghìn|k|m|b)/i.test(leftPart);
+        compactVip = (!leftHasUnit && unitMatch) ? `${leftPart} ${unitMatch[1]}` : leftPart;
+      }
+      sTokensVipCompact.innerText = compactVip.replace(/\s+/g, ' ').trim();
     }
 
     const remPct = typeof add.remaining_percent === 'number'
