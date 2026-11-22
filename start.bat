@@ -125,7 +125,25 @@ if (-not (Test-Path $pyw) -and -not (Test-Path $py)) {
         try { Read-Host "  Nhan Enter de thoat" } catch {}
         exit 1
     }
+    if (Test-Path 'requirements.txt') {
+        (Get-FileHash 'requirements.txt' -Algorithm SHA256).Hash | Set-Content '.venv\.req_hash' -NoNewline
+    }
     Write-Host "  [OK] Cai dat moi truong hoan tat!" -ForegroundColor Green
+} else {
+    $reqHashFile = ".venv\.req_hash"
+    $curReqHash = if (Test-Path 'requirements.txt') { (Get-FileHash 'requirements.txt' -Algorithm SHA256).Hash } else { "" }
+    $savedReqHash = if (Test-Path $reqHashFile) { (Get-Content $reqHashFile -Raw).Trim() } else { "" }
+    if ($curReqHash -and ($curReqHash -ne $savedReqHash)) {
+        Write-Host "  [ 20%] [####----------------] Phat hien cap nhat requirements.txt, dang dong bo thu vien..." -ForegroundColor Cyan
+        & $py -m pip install -r requirements.txt --quiet
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "  [LOI] Cap nhat thu vien pip that bai! Kiem tra ket noi mang va thu lai." -ForegroundColor Red
+            try { Read-Host "  Nhan Enter de thoat" } catch {}
+            exit 1
+        }
+        $curReqHash | Set-Content $reqHashFile -NoNewline
+        Write-Host "  [OK] Da cap nhat thu vien moi!" -ForegroundColor Green
+    }
 }
 
 Write-Host "  [ 30%] [######--------------] Kiem tra trang thai cong 7860..." -ForegroundColor DarkCyan
@@ -141,10 +159,14 @@ try {
 } catch {}
 
 Write-Host "  [ 45%] [#########-----------] Dang khoi chay server.py chay ngam..." -ForegroundColor Magenta
+if (-not (Test-Path '.muse-state')) { New-Item -ItemType Directory -Path '.muse-state' -Force | Out-Null }
+$errLog = Join-Path (Get-Location).Path ".muse-state\server_error.log"
+if (Test-Path $errLog) { Remove-Item $errLog -Force -ErrorAction SilentlyContinue }
+$serverProc = $null
 if (Test-Path $pyw) {
-    Start-Process -FilePath $pyw -ArgumentList "server.py" -WorkingDirectory (Get-Location).Path -WindowStyle Hidden
+    $serverProc = Start-Process -FilePath $pyw -ArgumentList "server.py" -WorkingDirectory (Get-Location).Path -WindowStyle Hidden -RedirectStandardError $errLog -PassThru
 } else {
-    Start-Process -FilePath $py -ArgumentList "server.py" -WorkingDirectory (Get-Location).Path -WindowStyle Minimized
+    $serverProc = Start-Process -FilePath $py -ArgumentList "server.py" -WorkingDirectory (Get-Location).Path -WindowStyle Minimized -RedirectStandardError $errLog -PassThru
 }
 
 $steps = @(
@@ -170,6 +192,20 @@ for ($i = 1; $i -le 120; $i++) {
             exit 0
         }
     } catch {}
+
+    if ($serverProc -and $serverProc.HasExited) {
+        Write-Host ""
+        Write-Host ("  [LOI] server.py da thoat dot ngot (ma loi: " + $serverProc.ExitCode + ").") -ForegroundColor Red
+        if (Test-Path $errLog) {
+            $errText = (Get-Content $errLog -Tail 15 -ErrorAction SilentlyContinue) -join "`n"
+            if ($errText.Trim()) {
+                Write-Host "  --- Chi tiet loi (.muse-state\server_error.log) ---" -ForegroundColor Yellow
+                Write-Host $errText -ForegroundColor Gray
+            }
+        }
+        try { Read-Host "  Nhan Enter de thoat" } catch {}
+        exit 1
+    }
 
     Start-Sleep -Milliseconds 250
 }
