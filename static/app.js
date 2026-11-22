@@ -7650,7 +7650,7 @@ function renderAccountsList() {
       ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-500/15 text-slate-400 border border-slate-500/30 whitespace-nowrap shrink-0">Đã tắt</span>'
       : (acc.is_alive === false
         ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30 whitespace-nowrap shrink-0">Hết hạn / Lỗi</span>'
-        : '<span class="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 whitespace-nowrap shrink-0">Sẵn sàng</span>');
+        : '<span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0" title="Sẵn sàng"><i data-lucide="check" class="w-3 h-3"></i></span>');
     const accountToggleHtml = `
       <label class="inline-flex items-center cursor-pointer select-none shrink-0" title="${isEnabled ? 'Đang bật hoạt động (bấm để tắt)' : 'Đang tắt (bấm để bật)'}">
         <input type="checkbox" ${isEnabled ? 'checked' : ''} onchange="toggleMuseAccountEnabled('${escapeHtml(acc.id)}', this.checked)" class="sr-only peer">
