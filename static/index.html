@@ -2032,12 +2032,18 @@
 
         <!-- Saved Accounts List -->
         <div class="bg-[#252526] border border-[#333333] rounded-xl p-5 space-y-4">
-          <div class="flex items-center justify-between">
+          <div class="flex flex-wrap items-center justify-between gap-2">
             <h3 class="text-sm font-bold text-white flex items-center space-x-2">
               <i data-lucide="users" class="w-4 h-4 text-[#38bdf8]"></i>
               <span>Danh sách tài khoản đã lưu</span>
             </h3>
-            <span id="accounts-total-badge" class="text-[11px] px-2.5 py-0.5 rounded-full bg-[#1e1e1e] text-slate-300 border border-[#3c3c3c]">0 tài khoản</span>
+            <div class="flex items-center space-x-2">
+              <button type="button" id="btn-check-all-capabilities" onclick="checkAllAccountsCapabilities()" class="px-3 py-1 rounded-lg bg-[#1e1e1e] hover:bg-[#2d2d2d] border border-[#3c3c3c] text-[11px] font-semibold text-sky-300 flex items-center space-x-1.5 transition cursor-pointer" title="Kiểm tra khả năng tạo Video, Ảnh, Chat của tất cả tài khoản">
+                <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+                <span>Kiểm tra Video / Ảnh / Chat</span>
+              </button>
+              <span id="accounts-total-badge" class="text-[11px] px-2.5 py-0.5 rounded-full bg-[#1e1e1e] text-slate-300 border border-[#3c3c3c]">0 tài khoản</span>
+            </div>
           </div>
           <div id="accounts-list-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <!-- Populated by JS -->
@@ -2602,7 +2608,7 @@
     </div>
   </div>
 
-<script src="/static/app.js?v=20261122_3"></script>
+<script src="/static/app.js?v=20261122_4"></script>
   <script>
     lucide.createIcons();
   </script>

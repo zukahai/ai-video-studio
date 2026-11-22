@@ -213,6 +213,7 @@ def load_accounts_config() -> dict[str, Any]:
         "priorities": {fid: [] for fid in ACCOUNT_FEATURE_IDS},
         "prefer_weekly_tokens": True,
         "disabled_accounts": [],
+        "capabilities": {},
     }
     if ACCOUNTS_CONFIG_FILE.exists():
         try:
@@ -224,6 +225,9 @@ def load_accounts_config() -> dict[str, Any]:
                 raw_disabled = loaded.get("disabled_accounts")
                 if isinstance(raw_disabled, list):
                     cfg["disabled_accounts"] = [x for x in raw_disabled if x in saved_ids]
+                raw_caps = loaded.get("capabilities")
+                if isinstance(raw_caps, dict):
+                    cfg["capabilities"] = {k: v for k, v in raw_caps.items() if k in saved_ids and isinstance(v, dict)}
                 raw_prio = loaded.get("priorities") or {}
                 if isinstance(raw_prio, dict):
                     for fid in ACCOUNT_FEATURE_IDS:
@@ -2416,9 +2420,11 @@ async def list_accounts(live: bool = False):
     saved_ids = list_saved_account_ids()
     active_id = cfg.get("active_account", "")
     disabled_set = set(cfg.get("disabled_accounts") or [])
+    caps_map = cfg.get("capabilities") or {}
     items = await asyncio.gather(*[_inspect_single_account(aid, active_id, live=live) for aid in saved_ids])
     for it in items:
         it["enabled"] = it["id"] not in disabled_set
+        it["capabilities"] = caps_map.get(it["id"]) or None
     total_tokens_count = sum(int(a.get("remaining_tokens") or 0) for a in items)
     return {
         "status": "success",
@@ -2447,6 +2453,110 @@ async def update_account_settings(body: AccountSettingsModel):
 
 class AccountToggleModel(BaseModel):
     enabled: bool = True
+
+
+async def _probe_single_account_capabilities(acc_id: str) -> dict[str, Any]:
+    try:
+        client = await get_client_for_account(acc_id)
+    except Exception as exc:
+        err_str = str(exc)[:200]
+        return {
+            "chat": {"ok": False, "reason": err_str},
+            "image": {"ok": False, "reason": err_str},
+            "video": {"ok": False, "reason": err_str},
+            "checked_at": time.time(),
+        }
+
+    async def _probe_chat() -> dict[str, Any]:
+        try:
+            events = await client.chat_stream(
+                prompt="Trả lời đúng 1 từ: OK",
+                session_id=str(uuid.uuid4()),
+                stream_timeout=15.0,
+            )
+            txt = ""
+            for ev in reversed(events or []):
+                if isinstance(ev, dict) and ev.get("event_name") == "message.assistant":
+                    txt = (ev.get("display_text") or (ev.get("payload") or {}).get("content") or "").strip()
+                    if txt:
+                        break
+            if txt:
+                return {"ok": True, "reason": ""}
+            return {"ok": False, "reason": "Không nhận được phản hồi chat"}
+        except Exception as exc:
+            return {"ok": False, "reason": str(exc)[:200]}
+
+    async def _probe_image() -> dict[str, Any]:
+        try:
+            sid = str(uuid.uuid4())
+            events = await client.chat_stream(
+                prompt="Tạo 1 ảnh đơn giản hình vuông màu xanh dương tối giản.",
+                session_id=sid,
+                stream_timeout=25.0,
+            )
+            found = await _poll_for_image_refs(client, {}, events, timeout=45.0)
+            if found:
+                return {"ok": True, "reason": ""}
+            return {"ok": False, "reason": "Không tạo được ảnh"}
+        except Exception as exc:
+            return {"ok": False, "reason": str(exc)[:200]}
+
+    async def _probe_video() -> dict[str, Any]:
+        try:
+            res = await client.generate_video(
+                prompt="Tạo 1 video ngắn 3 giây cảnh bầu trời xanh có mây trôi nhẹ.",
+                session_id=str(uuid.uuid4()),
+                timeout=120.0,
+                min_videos=1,
+                download=False,
+            )
+            if res and res.videos:
+                return {"ok": True, "reason": ""}
+            return {"ok": False, "reason": "Không tạo được video"}
+        except Exception as exc:
+            return {"ok": False, "reason": str(exc)[:200]}
+
+    chat_res, image_res, video_res = await asyncio.gather(
+        _probe_chat(),
+        _probe_image(),
+        _probe_video(),
+    )
+    return {
+        "chat": chat_res,
+        "image": image_res,
+        "video": video_res,
+        "checked_at": time.time(),
+    }
+
+
+@app.post("/api/accounts/check-capabilities")
+async def check_all_accounts_capabilities():
+    saved = list_saved_account_ids()
+    if not saved:
+        return {"status": "success", "capabilities": {}}
+    results = await asyncio.gather(*[_probe_single_account_capabilities(aid) for aid in saved])
+    cfg = load_accounts_config()
+    caps = cfg.get("capabilities") or {}
+    for aid, cap in zip(saved, results):
+        caps[aid] = cap
+    cfg["capabilities"] = caps
+    save_accounts_config(cfg)
+    return {"status": "success", "capabilities": caps}
+
+
+@app.post("/api/accounts/{acc_id}/check-capabilities")
+async def check_single_account_capabilities(acc_id: str):
+    aid = _safe_account_id(acc_id)
+    saved = list_saved_account_ids()
+    if aid not in saved:
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy tài khoản '{aid}'.")
+    cap = await _probe_single_account_capabilities(aid)
+    cfg = load_accounts_config()
+    caps = cfg.get("capabilities") or {}
+    caps[aid] = cap
+    cfg["capabilities"] = caps
+    save_accounts_config(cfg)
+    return {"status": "success", "account_id": aid, "capabilities": cap}
 
 
 @app.post("/api/accounts/{acc_id}/toggle")

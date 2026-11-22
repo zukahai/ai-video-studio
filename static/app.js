@@ -7606,6 +7606,68 @@ async function toggleMuseAccountEnabled(accId, enabled) {
   }
 }
 
+const _checkingCapIds = new Set();
+
+async function checkAllAccountsCapabilities() {
+  const btn = document.getElementById('btn-check-all-capabilities');
+  const orig = btn ? btn.innerHTML : '';
+  const list = _accountsState.accounts || [];
+  list.forEach(a => _checkingCapIds.add(a.id));
+  renderAccountsList();
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="w-3.5 h-3.5 border-2 border-sky-300 border-t-transparent rounded-full animate-spin"></span><span>Đang kiểm tra...</span>`;
+  }
+  try {
+    const res = await fetch('/api/accounts/check-capabilities', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Kiểm tra khả năng tài khoản thất bại.');
+    const caps = data.capabilities || {};
+    (_accountsState.accounts || []).forEach(a => {
+      if (caps[a.id]) a.capabilities = caps[a.id];
+    });
+    if (typeof showToast === 'function') showToast('Đã kiểm tra xong khả năng Video / Ảnh / Chat!', 'success');
+  } catch (err) {
+    if (typeof showToast === 'function') showToast(err.message || 'Lỗi kiểm tra tài khoản', 'error');
+  } finally {
+    _checkingCapIds.clear();
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = orig;
+    }
+    renderAccountsList();
+  }
+}
+
+async function checkSingleAccountCapabilities(accId) {
+  if (!accId || _checkingCapIds.has(accId)) return;
+  _checkingCapIds.add(accId);
+  renderAccountsList();
+  try {
+    const res = await fetch(`/api/accounts/${encodeURIComponent(accId)}/check-capabilities`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Kiểm tra thất bại.');
+    const acc = (_accountsState.accounts || []).find(a => a.id === accId);
+    if (acc && data.capabilities) acc.capabilities = data.capabilities;
+    if (typeof showToast === 'function') showToast('Đã kiểm tra xong tài khoản.', 'success');
+  } catch (err) {
+    if (typeof showToast === 'function') showToast(err.message || 'Lỗi kiểm tra', 'error');
+  } finally {
+    _checkingCapIds.delete(accId);
+    renderAccountsList();
+  }
+}
+
+function _renderAccountCapPill(label, capObj) {
+  if (!capObj) {
+    return `<span class="text-[10px] px-1.5 py-0.5 rounded bg-[#1a1c20] text-slate-400 border border-[#333333]" title="Chưa kiểm tra ${label}">${label}</span>`;
+  }
+  if (capObj.ok) {
+    return `<span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold" title="${label}: Tạo được">✓ ${label}</span>`;
+  }
+  return `<span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-500 border border-slate-700/60 opacity-65 line-through" title="${escapeHtml(capObj.reason || 'Không tạo được ' + label)}">✕ ${label}</span>`;
+}
+
 function copyInviteCode(code) {
   if (!code) return;
   try {
@@ -7676,6 +7738,21 @@ function renderAccountsList() {
          </div>`
       : '';
 
+    const caps = acc.capabilities || null;
+    const isCheckingCap = _checkingCapIds.has(acc.id);
+    const capsRowHtml = `
+      <div class="flex items-center justify-between gap-1.5 pt-0.5">
+        <div class="flex items-center gap-1 flex-wrap">
+          ${_renderAccountCapPill('Video', caps && caps.video)}
+          ${_renderAccountCapPill('Ảnh', caps && caps.image)}
+          ${_renderAccountCapPill('Chat', caps && caps.chat)}
+        </div>
+        <button type="button" onclick="checkSingleAccountCapabilities('${escapeHtml(acc.id)}')" ${isCheckingCap ? 'disabled' : ''} class="px-2 py-0.5 rounded bg-[#252526] hover:bg-[#333333] border border-[#3c3c3c] text-[10px] text-sky-300 font-semibold cursor-pointer disabled:opacity-50 shrink-0 transition" title="Kiểm tra riêng tài khoản này">
+          ${isCheckingCap ? 'Đang KT...' : 'Kiểm tra'}
+        </button>
+      </div>
+    `;
+
     return `
       <div class="p-3.5 rounded-xl bg-[#1e1e1e] border ${isActive && isEnabled ? 'border-emerald-500/60 shadow-sm shadow-emerald-500/10' : 'border-[#333333]'} ${isEnabled ? '' : 'opacity-60'} space-y-2.5 transition-opacity">
         <div class="flex items-start justify-between gap-2">
@@ -7720,6 +7797,7 @@ function renderAccountsList() {
           </div>
         ` : ''}
         ${inviteCodeHtml}
+        ${capsRowHtml}
         <div class="flex items-center justify-between pt-1 gap-2">
           ${!isActive
             ? `<button type="button" onclick="switchMuseAccount('${escapeHtml(acc.id)}')" class="flex-1 py-1.5 px-2.5 rounded-lg bg-[#2d2d2d] hover:bg-[#0078d4] text-[11px] font-semibold text-slate-200 hover:text-white transition cursor-pointer">Đặt làm chính</button>`
